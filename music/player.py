@@ -5,7 +5,7 @@ from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio
 
 from .playlist import Song, Playlist
 
-class Player:
+class Player:                                                        
     def __init__(self):
         self.voice_client: VoiceClient = None
         self.playlist: Playlist = Playlist()

@@ -20,7 +20,23 @@ INF = int(1e18)
 
 @bot.event
 async def on_ready():
-    print('On ready')
+    print(f'''
+    =========================================
+    Codename TKablent | Version Confidential
+    Copyright 2022-present @ TK Entertainment
+    Shared under CC-NC-SS-4.0 license
+    =========================================
+    
+    Discord Bot TOKEN | {TOKEN}
+
+    If there is any problem, open an Issue with log
+    else no any response or answer
+
+    If there isn't any exception under this message,
+    That means bot is online successfully.
+    若此訊息下方沒有任何錯誤訊息
+    即代表此機器人已成功開機
+    ''')
 
 class MusicBot(commands.Cog):
     def __init__(self, bot):
@@ -29,19 +45,41 @@ class MusicBot(commands.Cog):
 
     @commands.command(name='join')
     async def join(self, ctx: commands.Context):
-        await self.player.join(ctx.author.voice.channel)
-        await ctx.send('Join successfully')
+        try:
+            await self.player.join(ctx.author.voice.channel)
+            await ctx.send(f'''
+            **:inbox_tray: | 已加入語音頻道**
+            已加入 {ctx.author.voice.channel.name}
+            輸入 **{bot.command_prefix}play** 來開始聽歌
+            ''')
+        except:
+            await ctx.send(f'''
+            **:no_entry: | 失敗**
+            請確認您是否已加入一個語音頻道
+            ''')
 
     @commands.command(name='leave')
     async def leave(self, ctx: commands.Context):
-        await self.player.leave()
-        await ctx.send('Leave successfully')
+        try:
+            await self.player.leave()
+            await ctx.send(f'''
+            **:outbox_tray: | 已離開語音頻道**
+            輸入 **{bot.command_prefix}play** 或 **{bot.command_prefix}join**
+            來加入語音頻道且開始聽歌
+            ''')
+        except:
+            await ctx.send(f'''
+            **:no_entry: | 失敗**
+            請確認您是否已加入一個語音頻道，或機器人並不在頻道中
+            ''')
 
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, url):
         await self.join(ctx)
         self.player.search(url)
-        await ctx.send('Search successfully')
+        await ctx.send('''
+        **:mag_right:**
+        ''')
         self.player.voice_client = ctx.guild.voice_client
         self.bot.loop.create_task(self._mainloop(ctx))
 
