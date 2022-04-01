@@ -2,7 +2,14 @@
 用 Python 製作的 Discord 音樂機器人
 ## 開發狀態
 *目前仍在研發階段，尚未公開為 **測試版***  
-**尚未有更新紀錄**
+**最新更新日誌**
+Version Confidential
+Build 20220401-1
+
+```diff
++ 增加後台 on_ready 時所提示的訊息
++ 增加前台 "Join" "Leave" 之提示訊息及錯誤訊息
+```
 ## 授權
 **TKablent 開發計畫**  
 遵循 **CC-BY-NC-SA-4.0 International License (姓名標示-非商業性-相同方式分享 4.0 國際)**  
