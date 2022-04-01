@@ -3,10 +3,11 @@
 ## 開發狀態
 *目前仍在研發階段，尚未公開為 **測試版***  
 **最新更新日誌**
-Version Confidential
-Build 20220401-1
+
 
 ```diff
+#Version Confidential
+#Build 20220401-1
 + 增加後台 on_ready 時所提示的訊息
 + 增加前台 "Join" "Leave" 之提示訊息及錯誤訊息
 ```
