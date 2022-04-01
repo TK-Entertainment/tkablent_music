@@ -16,7 +16,7 @@ Shared under CC-NC-SS-4.0 license
 + 新增 "Search" "Resume" "Pause" 的介面提示及錯誤訊息
 + 新增 TOKEN 啟動條件不足時，提示使用者進行更正的訊息
 ```  
-*檢視完整更新日誌，請點 [完整更新日誌](https://www.google.com)*
+*檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權
 **TKablent 開發計畫**  
 遵循 **CC-BY-NC-SA-4.0 International License (姓名標示-非商業性-相同方式分享 4.0 國際)**  
