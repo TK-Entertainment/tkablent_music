@@ -20,6 +20,8 @@ class Player:
     async def leave(self):
         if (self.voice_client.is_connected()):
             await self.voice_client.disconnect()
+        else:
+            raise Exception # this exception is for identifying the illegal operation
 
     def search(self, url, **kwargs):
         song: Song = Song()
@@ -40,10 +42,14 @@ class Player:
         if (not self.voice_client.is_paused() and self.voice_client.is_playing()):
             self.voice_client.pause()
             self.playlist[0].left_off += self.voice_client._player.loops / 50
+        else:
+            raise Exception # this exception is for identifying the illegal operation
 
     def resume(self):
         if (self.voice_client.is_paused()):
             self.voice_client.resume()
+        else:
+            raise Exception # this exception is for identifying the illegal operation
 
     def skip(self):
         if (not self.voice_client._player._end.is_set()):

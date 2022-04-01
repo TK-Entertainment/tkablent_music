@@ -47,15 +47,24 @@ class MusicBot(commands.Cog):
     async def join(self, ctx: commands.Context):
         try:
             await self.player.join(ctx.author.voice.channel)
-            await ctx.send(f'''
-            **:inbox_tray: | 已加入語音頻道**
-            已加入 {ctx.author.voice.channel.name}
-            輸入 **{bot.command_prefix}play** 來開始聽歌
-            ''')
+            if isinstance(ctx.author.voice.channel, disnake.StageChannel):
+                await ctx.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
+                ''')
+            else:
+                await ctx.send(f'''
+                **:inbox_tray: | 已加入語音頻道**
+            已成功加入 {ctx.author.voice.channel.name} 語音頻道
+                ''')
         except:
             await ctx.send(f'''
-            **:no_entry: | 失敗**
+            **:no_entry: | 失敗 | JOINFAIL**
             請確認您是否已加入一個語音頻道
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{bot.command_prefix}join** 來把我加入頻道*2
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
 
     @commands.command(name='leave')
@@ -63,14 +72,17 @@ class MusicBot(commands.Cog):
         try:
             await self.player.leave()
             await ctx.send(f'''
-            **:outbox_tray: | 已離開語音頻道**
-            輸入 **{bot.command_prefix}play** 或 **{bot.command_prefix}join**
-            來加入語音頻道且開始聽歌
+            **:outbox_tray: | 已離開語音/舞台頻道**
+            已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
         except:
             await ctx.send(f'''
-            **:no_entry: | 失敗**
-            請確認您是否已加入一個語音頻道，或機器人並不在頻道中
+            **:no_entry: | 失敗 | LEAVEFAIL**
+            請確認您是否已加入一個語音/舞台頻道，或機器人並不在頻道中
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{bot.command_prefix}leave** 來讓我離開頻道*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
 
     @commands.command(name='play', aliases=['p'])
@@ -78,7 +90,9 @@ class MusicBot(commands.Cog):
         await self.join(ctx)
         self.player.search(url)
         await ctx.send('''
-        **:mag_right:**
+        **:mag_right: | 開始搜尋**
+            請稍候...
+            機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
         ''')
         self.player.voice_client = ctx.guild.voice_client
         self.bot.loop.create_task(self._mainloop(ctx))
@@ -94,17 +108,50 @@ class MusicBot(commands.Cog):
             await self.player.wait()
             self.player.playlist.rule()
         self.player.in_mainloop = False
-        await ctx.send('The playlist is empty now')
+        await ctx.send(f'''
+        **:clock4: | 播放完畢，等待播放動作**
+            候播清單已全數播放完畢，等待使用者送出播放指令
+            *輸入 **{bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
+        ''')
 
     @commands.command(name='pause')
     async def pause(self, ctx: commands.Context):
-        self.player.pause()
-        await ctx.send('Pause successfully')
+        try:
+            self.player.pause()
+            await ctx.send(f'''
+            **:pause_button: | 暫停歌曲**
+            歌曲已暫停播放
+            *輸入 **{bot.command_prefix}resume** 以繼續播放*
+            ''')
+        except:
+            await ctx.send(f'''
+            **:no_entry: | 失敗 | PL01**
+            請確認目前有歌曲正在播放，或是當前歌曲並非處於暫停狀態，亦或是候播清單是否為空
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{bot.command_prefix}pause** 來暫停音樂*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
 
     @commands.command(name='resume')
     async def resume(self, ctx: commands.Context):
-        self.player.resume()
-        await ctx.send('Resume successfully')
+        try:
+            self.player.resume()
+            await ctx.send(f'''
+            **:arrow_forward: | 續播歌曲**
+            歌曲已繼續播放
+            *輸入 **{bot.command_prefix}pause** 以暫停播放*
+            ''')
+        except:
+            await ctx.send(f'''
+            **:no_entry: | 失敗 | PL02**
+            請確認目前有處於暫停狀態的歌曲，或是候播清單是否為空
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{bot.command_prefix}resume** 來續播音樂*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+
 
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
@@ -172,4 +219,24 @@ class MusicBot(commands.Cog):
 
 bot.add_cog(MusicBot(bot))
 
-bot.run(TOKEN)
+try:
+    bot.run(TOKEN)
+except:
+    print(f'''
+    =========================================
+    Codename TKablent | Version Confidential
+    Copyright 2022-present @ TK Entertainment
+    Shared under CC-NC-SS-4.0 license
+    =========================================
+    
+    Discord Bot TOKEN | Invaild 無效
+
+    我們在準備您的機器人時發生了一點問題
+    We encountered some problem when the bot is getting ready
+    
+    似乎您提供在 .env 檔案中的 TOKEN 是無效的
+    請確認您已在 .env 檔案中輸入有效且完整的 TOKEN
+    It looks like your TOKEN is invaild
+    Please make sure that your Discord Bot TOKEN is already in .env file
+    and it's a VAILD TOKEN.
+    ''')
