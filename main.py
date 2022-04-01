@@ -33,7 +33,7 @@ async def on_ready():
     else no any response or answer
 
     If there isn't any exception under this message,
-    That means bot is online successfully.
+    That means bot is online without any problem.
     若此訊息下方沒有任何錯誤訊息
     即代表此機器人已成功開機
     ''')
