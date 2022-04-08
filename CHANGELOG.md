@@ -6,6 +6,9 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Build 20220408-1
++ Added "Stop" "Replay" messages
+
 # Build 20220402-1
 ! 修正部分介面表示方式
 + 新增 "Search" "Resume" "Pause" 的介面提示及錯誤訊息
