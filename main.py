@@ -156,12 +156,20 @@ class MusicBot(commands.Cog):
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
         self.player.skip()
-        await ctx.send('Skip successfully')
+        await ctx.send(f'''
+        **:fast_forward: | 跳過歌曲**
+        歌曲已成功跳過，即將播放
+        *輸入 **{bot.command_prefix}play** 以重新開始播放*
+        ''')
 
     @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
         self.player.stop()
-        await ctx.send('Stop successfully')
+        await ctx.send(f'''
+        **:stop: | 停止播放**
+        歌曲已停止播放
+        *輸入 **{bot.command_prefix}play** 以重新開始播放*
+        ''')
 
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
@@ -173,7 +181,11 @@ class MusicBot(commands.Cog):
     @commands.command(name='restart', aliases=['replay'])
     async def restart(self, ctx: commands.Context):
         self.player.seek(0)
-        await ctx.send('Restart sucessfully')
+        await ctx.send(f'''
+        **:repeat: | 重播歌曲**
+        歌曲已重新開始播放
+        *輸入 **{bot.command_prefix}pause** 以暫停播放*
+        ''')
 
     @commands.command(name='loop', aliases=['songloop'])
     async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
