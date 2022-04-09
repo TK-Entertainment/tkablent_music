@@ -16,7 +16,7 @@ Known Issue:
 ! 暫時不支援多個伺服器同時播放音樂
 
 # Build 20220409-1
-
+! Added play.Embed message for test
 
 # Build 20220408-1
 + Added "Stop" "Replay" messages

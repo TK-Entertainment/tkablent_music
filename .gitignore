@@ -5,6 +5,7 @@
 
 # just for testing
 test.py
+ffmpeg.exe
 
 # Below is Python .gitignore list from 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
