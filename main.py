@@ -53,6 +53,12 @@ class MusicBot(commands.Cog):
         self.bot: commands.Bot = bot
         self.player = Player()
 
+    def sec_to_hms(seconds, format) -> str:
+        if format == "symbol":
+            return datetime.timedelta(seconds=seconds)
+        elif format == "zh":
+            return f"{seconds//3600} 小時 {seconds//60%60} 分 {seconds%60} 秒"
+
     @commands.command(name='join')
     async def join(self, ctx: commands.Context):
         try:
@@ -111,19 +117,22 @@ class MusicBot(commands.Cog):
         if (self.player.in_mainloop):
             return
         self.player.in_mainloop = True
-        embed = disnake.Embed(title="[#MusicTitle](https://www.youtube.com/watch?v=dQw4w9WgXcQ)", colour=disnake.Colour.from_rgb(246, 160, 141))
-        embed.add_field(name="作者", value='[#ChannelName](https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw)', inline=True)
-        embed.add_field(name="歌曲時長", value="#MusicLength")
-        embed.set_author(name=f"這首歌由 {ctx.message.author.name}{ctx.message.author.tag} 點歌", icon_url=ctx.message.author.avatar)
-        embed.set_thumbnail(url="https://i.imgur.com/wApgX8J.png")
-        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
-        await ctx.send(embed=embed)
         
         while (len(self.player.playlist)):
-            await ctx.send(f'Now is playing {self.player.playlist[0].title}')
+            length = self.sec_to_hms(self.player.playlist[0].author, "zh")
+
+            embed = disnake.Embed(title=self.player.playlist[0].title, url=self.player.playlist[0].song_url, colour=disnake.Colour.from_rgb(255, 255, 255))
+            embed.add_field(name="作者", value=f'[{self.player.playlist[0].author}]({self.player.playlist[0].channel_url})', inline=True)
+            embed.add_field(name="歌曲時長", value=length)
+            embed.set_author(name=f"這首歌由 {ctx.message.author.name}#{ctx.message.author.tag} 點歌", icon_url=ctx.message.author.avatar)
+            embed.set_thumbnail(url="https://i.imgur.com/wApgX8J.png")
+            embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
+            
+            await ctx.send(embed=embed)
             self.player.play()
             await self.player.wait()
             self.player.playlist.rule()
+
         self.player.in_mainloop = False
         await ctx.send(f'''
         **:clock4: | 播放完畢，等待播放動作**
