@@ -3,6 +3,9 @@
 # .env file contains TOKEN(sensitive)
 .env
 
+# just for testing
+test.py
+
 # Below is Python .gitignore list from 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 # Byte-compiled / optimized / DLL files
