@@ -1,4 +1,4 @@
-bot_version = 'Build 20220409-1'
+bot_version = 'Build 20220409-3'
 
 from typing import *
 import os, dotenv
@@ -61,7 +61,21 @@ class MusicBot(commands.Cog):
             return f"{seconds//3600} 小時 {seconds//60%60} 分 {seconds%60} 秒"
 
     @commands.command(name='join')
-    async def join(self, ctx: commands.Context):
+    async def join(self, ctx: commands.Context, type=None):
+        try:
+            isinstance(self.player.voice_client.channel, None)
+            notin = False
+        except: notin = True
+        if isinstance(self.player.voice_client, disnake.VoiceClient) or notin == False:
+            if type == None:
+                await ctx.send(f'''
+                **:hushed: | 我已經加入頻道囉**
+            不需要再把我加入同一個頻道囉
+            *若要更換頻道
+            輸入 **{bot.command_prefix}leave** 以離開原有頻道
+            然後使用 **{bot.command_prefix}join 加入新的頻道***
+                ''')
+            return
         try:
             await self.player.join(ctx.author.voice.channel)
             if isinstance(ctx.author.voice.channel, disnake.StageChannel):
@@ -103,14 +117,26 @@ class MusicBot(commands.Cog):
             ''')
 
     @commands.command(name='play', aliases=['p'])
-    async def play(self, ctx: commands.Context, url):
-        await self.join(ctx)
-        self.player.search(url, requester=ctx.message.author)
-        await ctx.send('''
-        **:mag_right: | 開始搜尋**
-            請稍候...
-            機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
+    async def play(self, ctx: commands.Context, *url):
+        addmes = False
+        url = ' '.join(url)
+        await self.join(ctx, "playattempt")
+        if ("http" not in url) and ("www" not in url):
+            await ctx.send(f'''
+        **:mag_right: | 開始搜尋 | {url}**
+            請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
         ''')
+        if len(self.player.playlist) != 0: addmes = True
+        self.player.search(url, requester=ctx.message.author)
+        # If queue has more than 2 songs, then show message when
+        # user use play command
+        if addmes == True:
+            index = len(self.player.playlist) - 1
+            await ctx.send(f'''
+        **:white_check_mark: | 成功加入隊列**
+            以下歌曲已加入隊列中，為第 **{len(self.player.playlist)}** 首歌
+        ''', embed=self.player.playlist[index].info(embed_op, self.sec_to_hms, color="green"))
+        #
         self.player.voice_client = ctx.guild.voice_client
         self.bot.loop.create_task(self._mainloop(ctx))
 
@@ -120,10 +146,19 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            await ctx.send(f'''
+            # If queue has more than 2 songs, then show the remain count.
+            if len(self.player.playlist) > 1:
+                mes = f'''
+            **:arrow_forward: | 正在播放以下歌曲 | 隊列中還剩餘 {len(self.player.playlist)} 首歌**
+            *輸入 **{bot.command_prefix}pause** 以暫停播放*
+                '''
+            else:
+                mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{bot.command_prefix}pause** 以暫停播放*
-            ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms))
+                '''
+            ####
+            await ctx.send(mes, embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix))
             await self.player.play()
             await self.player.wait()
             self.player.playlist.rule()
@@ -179,15 +214,15 @@ class MusicBot(commands.Cog):
         self.player.skip()
         await ctx.send(f'''
         **:fast_forward: | 跳過歌曲**
-        歌曲已成功跳過，即將播放
-        *輸入 **{bot.command_prefix}play** 以重新開始播放*
+        歌曲已成功跳過，即將播放下一首歌曲
+        *輸入 **{bot.command_prefix}play** 以加入新歌曲*
         ''')
 
     @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
         self.player.stop()
         await ctx.send(f'''
-        **:stop: | 停止播放**
+        **:stop_button: | 停止播放**
         歌曲已停止播放
         *輸入 **{bot.command_prefix}play** 以重新開始播放*
         ''')

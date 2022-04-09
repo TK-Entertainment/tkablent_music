@@ -29,6 +29,8 @@ class Song:
     def add_info(self, url, requester):
         ytdl.get_info(self, url)
         self.requester = requester
+        if self.length == 0: self.is_stream = True
+        else: self.is_stream = False
         self.set_ffmpeg_options(0)
         
     def set_ffmpeg_options(self, timestamp):
@@ -44,12 +46,16 @@ class Song:
         stamp = max(0, min(self.length, stamp))
         self.set_ffmpeg_options(stamp)
 
-    def info(self, embed_op, sthtool):
-        embed = disnake.Embed(title=self.title, url=self.watch_url, colour=disnake.Colour.from_rgb(255, 255, 255))
+    def info(self, embed_op, sthtool, botprefix=None, color=None):
+        if color == "green": embed = disnake.Embed(title=self.title, url=self.watch_url, colour=disnake.Colour.from_rgb(97, 219, 83))
+        else: embed = disnake.Embed(title=self.title, url=self.watch_url, colour=disnake.Colour.from_rgb(255, 255, 255))
         embed.add_field(name="作者", value=f'[{self.author}]({self.channel_url})', inline=True)
-        embed.add_field(name="歌曲時長", value=sthtool(self.length, "zh"), inline=True)
-        if self.is_stream: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔴 直播", icon_url=self.requester.display_avatar)
-        else: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
+        if self.is_stream: 
+            if color == None: embed.add_field(name="結束播放", value=f"輸入 ⏩ {botprefix}skip / ⏹️ {botprefix}stop\n來結束播放此直播", inline=True)
+            embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔴 直播", icon_url=self.requester.display_avatar)
+        else: 
+            embed.add_field(name="歌曲時長", value=sthtool(self.length, "zh"), inline=True)
+            embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
         embed.set_thumbnail(url=self.thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
         return embed
