@@ -6,6 +6,14 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Build 20220410-1
++ Added Search function
+! Fixed Streaming function
+! Fixed other interface problem and bugs
+
+Known Issue:
+! Queue related commands are not available yet
+
 # Build 20220409-2
 + 新增 "Song.info" 提示訊息
 ! 修復了部分的錯誤

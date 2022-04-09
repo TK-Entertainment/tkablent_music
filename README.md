@@ -11,14 +11,13 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
 
-# Build 20220409-2
-+ 新增 "Song.info" 提示訊息
-! 修復了部分的錯誤
+# Build 20220410-1
++ Added Search function
+! Fixed Streaming function
+! Fixed other interface problem and bugs
 
 Known Issue:
-! 無法播放直播影片
-# 以上錯誤將會在核心以 Lavalink 重寫後，可能會得到解決
-! 暫時不支援多個伺服器同時播放音樂
+! Queue related commands are not available yet
 ```  
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權
