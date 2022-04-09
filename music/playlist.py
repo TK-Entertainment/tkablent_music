@@ -1,6 +1,8 @@
 from typing import *
 from enum import Enum
 
+from matplotlib.image import thumbnail
+
 from .ytdl import YTDL
 
 INF = int(1e18)
@@ -11,6 +13,15 @@ class OutOfBound(Exception): ...
 ytdl = YTDL()
 
 class Song:
+    
+    title: str
+    author: str
+    channel_url: str
+    watch_url: str
+    thumbnail_url: str
+    length: int
+    url: str
+
     def __init__(self):
         self.request_id: int = None
         self.left_off: float = 0
@@ -29,12 +40,11 @@ class Song:
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10',
         }
     
-    def seek(self, timestamp: float):
-        if (self.is_stream):
+    def seek(self, stamp: float):
+        if self.is_stream:
             raise SeekError
-        if (0 > timestamp or timestamp > self.duration):
-            raise OutOfBound
-        self.set_ffmpeg_options(timestamp)
+        stamp = max(0, min(self.length, stamp))
+        self.set_ffmpeg_options(stamp)
 
 class LoopState(Enum):
     # 0 is for not looping, 1 is for single, 2 is for whole
