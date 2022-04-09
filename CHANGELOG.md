@@ -6,6 +6,18 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Build 20220409-2
++ 新增 "Song.info" 提示訊息
+! 修復了部分的錯誤
+
+Known Issue:
+! 無法播放直播影片
+# 以上錯誤將會在核心以 Lavalink 重寫後，可能會得到解決
+! 暫時不支援多個伺服器同時播放音樂
+
+# Build 20220409-1
+
+
 # Build 20220408-1
 + Added "Stop" "Replay" messages
 
