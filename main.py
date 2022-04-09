@@ -53,7 +53,7 @@ class MusicBot(commands.Cog):
         self.bot: commands.Bot = bot
         self.player = Player()
 
-    def sec_to_hms(seconds, format) -> str:
+    def sec_to_hms(self, seconds, format) -> str:
         if format == "symbol":
             return datetime.timedelta(seconds=seconds)
         elif format == "zh":
@@ -119,7 +119,7 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            length = self.sec_to_hms(self.player.playlist[0].author, "zh")
+            length = self.sec_to_hms(self.player.playlist[0].length, "zh")
 
             embed = disnake.Embed(title=self.player.playlist[0].title, url=self.player.playlist[0].song_url, colour=disnake.Colour.from_rgb(255, 255, 255))
             embed.add_field(name="作者", value=f'[{self.player.playlist[0].author}]({self.player.playlist[0].channel_url})', inline=True)
