@@ -57,6 +57,8 @@ class Playlist(List[Song]):
         self.insert(new, self.pop(origin))
 
     def rule(self):
+        if len(self) == 0:
+            return
         if self.is_loop == LoopState.SINGLE and self.times > 0:
             self.times -= 1
         elif self.is_loop == LoopState.WHOLE:
