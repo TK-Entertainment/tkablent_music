@@ -94,7 +94,7 @@ class MusicBot(commands.Cog):
             請確認您是否已加入一個語音頻道
             --------
             *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{bot.command_prefix}join** 來把我加入頻道*2
+            *再次嘗試使用 **{bot.command_prefix}join** 來把我加入頻道*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
 

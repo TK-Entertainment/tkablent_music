@@ -2,7 +2,6 @@ import pytube, yt_dlp
 
 
 ytdl_format_options = {
-    'outtmpl': 'music/%(extractor_key)s/%(title)s-%(id)s-.%(ext)s',
     'noplaylist': True,
     'nocheckcertificate': True,
     'ignoreerrors': False,
