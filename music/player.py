@@ -1,7 +1,7 @@
 from typing import *
 import threading, asyncio
 
-from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio
+from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, FFmpegOpusAudio
 
 from .playlist import Song, Playlist
 
@@ -13,7 +13,7 @@ class Player:
         self.in_mainloop: bool = False
     
     async def join(self, channel: VoiceChannel):
-        if (self.voice_client is None or not self.voice_client.is_connected()):
+        if (self.voice_client is None) or (not self.voice_client.is_connected()):
             await channel.connect()
             self.voice_client = channel.guild.voice_client
         
@@ -28,8 +28,8 @@ class Player:
         song.add_info(url, **kwargs)
         self.playlist.append(song)
 
-    def play(self):
-        self.voice_client.play(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options))
+    async def play(self):
+        self.voice_client.play(FFmpegOpusAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options))
 
     async def wait(self):
         try:

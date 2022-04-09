@@ -57,6 +57,7 @@ class MusicBot(commands.Cog):
         if format == "symbol":
             return datetime.timedelta(seconds=seconds)
         elif format == "zh":
+
             return f"{seconds//3600} 小時 {seconds//60%60} 分 {seconds%60} 秒"
 
     @commands.command(name='join')
@@ -104,7 +105,7 @@ class MusicBot(commands.Cog):
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, url):
         await self.join(ctx)
-        self.player.search(url)
+        self.player.search(url, requester=ctx.message.author)
         await ctx.send('''
         **:mag_right: | 開始搜尋**
             請稍候...
@@ -119,17 +120,11 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            length = self.sec_to_hms(self.player.playlist[0].length, "zh")
-
-            embed = disnake.Embed(title=self.player.playlist[0].title, url=self.player.playlist[0].song_url, colour=disnake.Colour.from_rgb(255, 255, 255))
-            embed.add_field(name="作者", value=f'[{self.player.playlist[0].author}]({self.player.playlist[0].channel_url})', inline=True)
-            embed.add_field(name="歌曲時長", value=length)
-            embed.set_author(name=f"這首歌由 {ctx.message.author.name}#{ctx.message.author.tag} 點歌", icon_url=ctx.message.author.avatar)
-            embed.set_thumbnail(url="https://i.imgur.com/wApgX8J.png")
-            embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
-            
-            await ctx.send(embed=embed)
-            self.player.play()
+            await ctx.send(f'''
+            **:arrow_forward: | 正在播放以下歌曲**
+            *輸入 **{bot.command_prefix}pause** 以暫停播放*
+            ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms))
+            await self.player.play()
             await self.player.wait()
             self.player.playlist.rule()
 

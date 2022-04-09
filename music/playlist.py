@@ -1,7 +1,6 @@
 from typing import *
 from enum import Enum
-
-from matplotlib.image import thumbnail
+import disnake
 
 from .ytdl import YTDL
 
@@ -23,14 +22,13 @@ class Song:
     url: str
 
     def __init__(self):
-        self.request_id: int = None
+        self.requester: disnake.Member = None
         self.left_off: float = 0
         self.is_stream: bool = False
 
-    def add_info(self, url, **kwarg):
+    def add_info(self, url, requester):
         ytdl.get_info(self, url)
-        for k, v in kwarg:
-            setattr(self, k, v)
+        self.requester = requester
         self.set_ffmpeg_options(0)
         
     def set_ffmpeg_options(self, timestamp):
@@ -45,6 +43,16 @@ class Song:
             raise SeekError
         stamp = max(0, min(self.length, stamp))
         self.set_ffmpeg_options(stamp)
+
+    def info(self, embed_op, sthtool):
+        embed = disnake.Embed(title=self.title, url=self.watch_url, colour=disnake.Colour.from_rgb(255, 255, 255))
+        embed.add_field(name="作者", value=f'[{self.author}]({self.channel_url})', inline=True)
+        embed.add_field(name="歌曲時長", value=sthtool(self.length, "zh"), inline=True)
+        if self.is_stream: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔴 直播", icon_url=self.requester.display_avatar)
+        else: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
+        embed.set_thumbnail(url=self.thumbnail_url)
+        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
+        return embed
 
 class LoopState(Enum):
     # 0 is for not looping, 1 is for single, 2 is for whole
