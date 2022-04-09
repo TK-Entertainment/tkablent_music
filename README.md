@@ -11,7 +11,7 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
 
-# Build 20220408-1
+# Build 20220409-2
 + 新增 "Song.info" 提示訊息
 ! 修復了部分的錯誤
 
