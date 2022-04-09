@@ -1,6 +1,9 @@
+bot_version = 'Build 20220409-1'
+
 from typing import *
 import os, dotenv
 import threading, asyncio
+import datetime
 
 import disnake
 from disnake.ext import commands
@@ -20,6 +23,12 @@ INF = int(1e18)
 
 @bot.event
 async def on_ready():
+    global embed_op
+    cdt = datetime.datetime.now().date, year = cdt.strftime("%Y")
+    embed_op = {
+        'footer': {'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment", 'icon_url': "https://i.imgur.com/wApgX8J.png"},
+    }
+
     print(f'''
     =========================================
     Codename TKablent | Version Confidential
@@ -101,7 +110,14 @@ class MusicBot(commands.Cog):
         if (self.player.in_mainloop):
             return
         self.player.in_mainloop = True
-        await ctx.send('It is playing music now')
+        embed = disnake.Embed(title="[#MusicTitle](https://www.youtube.com/watch?v=dQw4w9WgXcQ)", colour=disnake.Colour.from_rgb(246, 160, 141))
+        embed.add_field(name="作者", value='[#ChannelName](https://www.youtube.com/channel/UCuAXFkgsw1L7xaCfnd5JJOw)', inline=True)
+        embed.add_field(name="歌曲時長", value="#MusicLength")
+        embed.set_author(name=f"這首歌由 {ctx.message.author.name}{ctx.message.author.tag} 點歌", icon_url=ctx.message.author.avatar)
+        embed.set_thumbnail(url="https://i.imgur.com/wApgX8J.png")
+        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
+        await ctx.send(embed=embed)
+        
         while (len(self.player.playlist)):
             await ctx.send(f'Now is playing {self.player.playlist[0].title}')
             self.player.play()
