@@ -24,7 +24,8 @@ INF = int(1e18)
 @bot.event
 async def on_ready():
     global embed_op
-    cdt = datetime.datetime.now().date, year = cdt.strftime("%Y")
+    cdt = datetime.datetime.now().date
+    year = cdt.strftime("%Y")
     embed_op = {
         'footer': {'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment", 'icon_url': "https://i.imgur.com/wApgX8J.png"},
     }
