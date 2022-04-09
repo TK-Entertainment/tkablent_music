@@ -24,12 +24,6 @@ INF = int(1e18)
 @bot.event
 async def on_ready():
     global embed_op
-    cdt = datetime.datetime.now().date
-    year = cdt.strftime("%Y")
-    embed_op = {
-        'footer': {'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment", 'icon_url': "https://i.imgur.com/wApgX8J.png"},
-    }
-
     print(f'''
     =========================================
     Codename TKablent | Version Confidential
@@ -47,6 +41,12 @@ async def on_ready():
     若此訊息下方沒有任何錯誤訊息
     即代表此機器人已成功開機
     ''')
+    
+    cdt = datetime.datetime.now().date()
+    year = cdt.strftime("%Y")
+    embed_op = {
+        'footer': {'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment", 'icon_url': "https://i.imgur.com/wApgX8J.png"},
+    }
 
 class MusicBot(commands.Cog):
     def __init__(self, bot):
