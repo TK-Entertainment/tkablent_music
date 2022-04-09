@@ -1,4 +1,4 @@
-bot_version = 'Build 20220409-3'
+bot_version = 'Build 20220410-1'
 
 from typing import *
 import os, dotenv
