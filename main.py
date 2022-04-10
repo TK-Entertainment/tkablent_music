@@ -51,7 +51,11 @@ async def on_ready():
 class MusicBot(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
-        self.player = Player()
+        self.player: Player = Player()
+
+        # flag for local server, need to change for multiple server
+        self.ismute: bool = False
+        self.playinfo: Coroutine[Any, Any, disnake.Message] = None
 
     def sec_to_hms(self, seconds, format) -> str:
         if format == "symbol":
@@ -118,25 +122,30 @@ class MusicBot(commands.Cog):
 
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, *url):
-        addmes = False
+        addmes = False; issearch = False
         url = ' '.join(url)
         await self.join(ctx, "playattempt")
         if ("http" not in url) and ("www" not in url):
-            await ctx.send(f'''
+            searchmes = await ctx.send(f'''
         **:mag_right: | 開始搜尋 | {url}**
             請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
         ''')
-        if len(self.player.playlist) != 0: addmes = True
+            issearch = True
+        addmes = len(self.player.playlist) != 0
         self.player.search(url, requester=ctx.message.author)
         # If queue has more than 2 songs, then show message when
         # user use play command
         if addmes == True:
             index = len(self.player.playlist) - 1
-            await ctx.send(f'''
+            mes = f'''
         **:white_check_mark: | 成功加入隊列**
             以下歌曲已加入隊列中，為第 **{len(self.player.playlist)}** 首歌
-        ''', embed=self.player.playlist[index].info(embed_op, self.sec_to_hms, color="green"))
+        '''
+            if not issearch: await ctx.send(mes, embed=self.player.playlist[index].info(embed_op, self.sec_to_hms, color="green", currentpl=self.player.playlist))
+            else: await searchmes.edit(content=mes, embed=self.player.playlist[index].info(embed_op, self.sec_to_hms, color="green", currentpl=self.player.playlist))
         #
+        else: 
+            if issearch: await searchmes.delete()
         self.player.voice_client = ctx.guild.voice_client
         self.bot.loop.create_task(self._mainloop(ctx))
 
@@ -146,19 +155,10 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            # If queue has more than 2 songs, then show the remain count.
-            if len(self.player.playlist) > 1:
-                mes = f'''
-            **:arrow_forward: | 正在播放以下歌曲 | 隊列中還剩餘 {len(self.player.playlist)} 首歌**
-            *輸入 **{bot.command_prefix}pause** 以暫停播放*
-                '''
-            else:
-                mes = f'''
+            self.playinfo = await ctx.send(f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{bot.command_prefix}pause** 以暫停播放*
-                '''
-            ####
-            await ctx.send(mes, embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix))
+            ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix, currentpl=self.player.playlist, mute=self.ismute))
             await self.player.play()
             await self.player.wait()
             self.player.playlist.rule()
@@ -227,6 +227,11 @@ class MusicBot(commands.Cog):
         *輸入 **{bot.command_prefix}play** 以重新開始播放*
         ''')
 
+    @commands.command(name="mute")
+    async def mute(self, ctx):
+        if self.ismute: await self.volume(ctx, 100.0)
+        else: await self.volume(ctx, 0.0)
+
     @commands.command(name='volume')
     async def volume(self, ctx: commands.Context, percent: Union[float, str]=None):
         if percent == None: 
@@ -250,22 +255,35 @@ class MusicBot(commands.Cog):
         **:loud_sound: | 音量調整**
             音量沒有變更，仍為 {percent}%
         ''')
+        elif self.ismute and percent == 100:
+            await ctx.send(f'''
+        **:speaker: | 解除靜音**
+            音量已設定為 100%，目前已解除靜音模式
+        ''')
+            self.ismute = False
         elif percent == 0: 
             await ctx.send(f'''
-        **:speaker: | 靜音**
+        **:mute: | 靜音**
             音量已設定為 0%，目前處於靜音模式
         ''')
+            self.ismute = True
         elif (percent / 100) > self.player.volumelevel:
             await ctx.send(f'''
         **:loud_sound: | 調高音量**
             音量已設定為 {percent}%
         ''')
+            self.ismute = False
         elif (percent / 100) < self.player.volumelevel:
             await ctx.send(f'''
         **:sound: | 降低音量**
             音量已設定為 {percent}%
         ''')
-        self.player.volume(percent / 100)
+            self.ismute = False
+        self.bot.loop.create_task(self.player.volume(percent / 100))
+        await self.playinfo.edit(content=f'''
+            **:arrow_forward: | 正在播放以下歌曲**
+            *輸入 **{bot.command_prefix}pause** 以暫停播放*
+            ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix, currentpl=self.player.playlist, mute=self.ismute))
 
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):

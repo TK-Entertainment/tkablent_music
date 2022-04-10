@@ -7,6 +7,7 @@ from .playlist import Song, Playlist
 
 class Player:                                                        
     def __init__(self):
+        # flag for local server, need to change for multiple server
         self.voice_client: VoiceClient = None
         self.playlist: Playlist = Playlist()
         self.playing: threading.Thread = None
@@ -70,8 +71,11 @@ class Player:
         self.playlist[0].seek(timestamp)
         self.voice_client.source = PCMVolumeTransformer(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options), volume=self.volumelevel)
     
-    def volume(self, volume: float):
+    async def volume(self, volume: float):
         self.volumelevel = volume
+        if len(self.playlist) > 0:
+            for i in range(len(self.playlist)-1):
+                self.playlist[i+1].source.volume = self.volumelevel
         if not self.voice_client is None:
             self.voice_client.source.volume = self.volumelevel
             

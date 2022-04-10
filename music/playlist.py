@@ -25,6 +25,8 @@ class Song:
     def __init__(self):
         self.requester: disnake.Member = None
         self.left_off: float = 0
+        
+        # flag for local server, need to change for multiple server
         self.is_stream: bool = False
         self.source: FFmpegPCMAudio = None
 
@@ -49,16 +51,26 @@ class Song:
         stamp = max(0, min(self.length, stamp))
         self.set_ffmpeg_options(stamp)
 
-    def info(self, embed_op, sthtool, botprefix=None, color=None):
+    def info(self, embed_op, sthtool, botprefix=None, color: str=None, currentpl=None, mute=False):
         if color == "green": embed = disnake.Embed(title=self.title, url=self.watch_url, colour=disnake.Colour.from_rgb(97, 219, 83))
         else: embed = disnake.Embed(title=self.title, url=self.watch_url, colour=disnake.Colour.from_rgb(255, 255, 255))
         embed.add_field(name="作者", value=f'[{self.author}]({self.channel_url})', inline=True)
         if self.is_stream: 
             if color == None: embed.add_field(name="結束播放", value=f"輸入 ⏩ {botprefix}skip / ⏹️ {botprefix}stop\n來結束播放此直播", inline=True)
-            embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔴 直播", icon_url=self.requester.display_avatar)
+            if mute: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔴 直播 | 🔇 靜音", icon_url=self.requester.display_avatar)
+            else: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔴 直播", icon_url=self.requester.display_avatar)
         else: 
             embed.add_field(name="歌曲時長", value=sthtool(self.length, "zh"), inline=True)
-            embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
+            if mute: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌 | 🔇 靜音", icon_url=self.requester.display_avatar)
+            else: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
+        if len(currentpl) > 1:
+            queuelist: str = ""
+            for i in range(len(currentpl)-1):
+                if i > 0: 
+                    queuelist += f"...還有 {len(currentpl)-2} 首歌"
+                    break
+                queuelist += f"{i+1}." + currentpl[i+1].title + '\n'
+            embed.add_field(name=f"待播清單 | {len(currentpl)-1} 首歌待播中", value=queuelist, inline=False)
         embed.set_thumbnail(url=self.thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
         return embed
