@@ -29,9 +29,9 @@ class Song:
     def add_info(self, url, requester):
         ytdl.get_info(self, url)
         self.requester = requester
-        if self.length == 0: self.is_stream = True
-        else: self.is_stream = False
+        self.is_stream = (self.length == 0)
         self.set_ffmpeg_options(0)
+
         
     def set_ffmpeg_options(self, timestamp):
         self.left_off = timestamp

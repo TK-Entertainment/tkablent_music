@@ -227,6 +227,13 @@ class MusicBot(commands.Cog):
         *輸入 **{bot.command_prefix}play** 以重新開始播放*
         ''')
 
+    @commands.command(name='volume')
+    async def volume(self, ctx: commands.Context, percent: Union[float, str]):
+        if not isinstance(percent, float):
+            return await ctx.send('Fail to change volume. Maybe you request an invalid percent')
+        self.player.volume(percent / 100)
+        await ctx.send('Change volume successfully')
+
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
         if not isinstance(timestamp, float):

@@ -1,7 +1,7 @@
 from typing import *
 import threading, asyncio
 
-from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, FFmpegOpusAudio
+from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
 
 from .playlist import Song, Playlist
 
@@ -29,7 +29,7 @@ class Player:
         self.playlist.append(song)
 
     async def play(self):
-        self.voice_client.play(FFmpegOpusAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options))
+        self.voice_client.play(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options))
 
     async def wait(self):
         try:
@@ -68,3 +68,7 @@ class Player:
     def seek(self, timestamp: float):
         self.playlist[0].seek(timestamp)
         self.voice_client.source = FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options)
+    
+    def volume(self, volume: float):
+        self.voice_client.source.volume = volume
+        self.voice_client.source = PCMVolumeTransformer(self.playlist[0].url, **self.playlist[0].ffmpeg_options)
