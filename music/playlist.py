@@ -35,8 +35,11 @@ class Song:
         self.requester = requester
         self.is_stream = (self.length == 0)
         self.set_ffmpeg_options(0)
-        self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
+        self.cleanup(volumelevel)
 
+    def cleanup(self, volumelevel):
+        self.source = None
+        self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
         
     def set_ffmpeg_options(self, timestamp):
         self.left_off = timestamp
@@ -65,11 +68,8 @@ class Song:
             else: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
         if len(currentpl) > 1:
             queuelist: str = ""
-            for i in range(len(currentpl)-1):
-                if i > 0: 
-                    queuelist += f"...還有 {len(currentpl)-2} 首歌"
-                    break
-                queuelist += f"{i+1}." + currentpl[i+1].title + '\n'
+            queuelist += f"...還有 {len(currentpl)-2} 首歌"
+            queuelist += f"1." + currentpl[1].title + '\n'
             embed.add_field(name=f"待播清單 | {len(currentpl)-1} 首歌待播中", value=queuelist, inline=False)
         embed.set_thumbnail(url=self.thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))

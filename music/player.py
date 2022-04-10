@@ -31,6 +31,7 @@ class Player:
         self.playlist.append(song)
 
     async def play(self):
+        self.playlist[0].source.volume = self.volumelevel
         self.voice_client.play(self.playlist[0].source)
 
     async def wait(self):
@@ -73,9 +74,6 @@ class Player:
     
     async def volume(self, volume: float):
         self.volumelevel = volume
-        if len(self.playlist) > 0:
-            for i in range(len(self.playlist)-1):
-                self.playlist[i+1].source.volume = self.volumelevel
         if not self.voice_client is None:
             self.voice_client.source.volume = self.volumelevel
             

@@ -161,6 +161,7 @@ class MusicBot(commands.Cog):
             ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix, currentpl=self.player.playlist, mute=self.ismute))
             await self.player.play()
             await self.player.wait()
+            self.player.playlist[0].cleanup(self.player.volumelevel)
             self.player.playlist.rule()
 
         self.player.in_mainloop = False
@@ -279,7 +280,7 @@ class MusicBot(commands.Cog):
             音量已設定為 {percent}%
         ''')
             self.ismute = False
-        self.bot.loop.create_task(self.player.volume(percent / 100))
+        self.player.volume(percent / 100)
         await self.playinfo.edit(content=f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{bot.command_prefix}pause** 以暫停播放*
