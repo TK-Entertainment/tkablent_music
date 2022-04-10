@@ -1,17 +1,20 @@
 # 內部代號 TKablent
 用 Python 製作的 Discord 音樂機器人
 ## 開發狀態
-*目前仍在研發階段，尚未公開為 **測試版***  
+*目前為 **Alpha 20220410-1 版***  
   
 **最新更新日誌**
 ```diff
 =========================================
-Codename TKablent | Version Confidential
+Codename TKablent | Version Alpha
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
 
-# Build 20220410-2
+# Alpha 20220410-1
++ Changing version from Confidential to Alpha
+# 大部分功能皆以完備，僅剩部分功能尚未完成
+# 此更新僅為版號更新，故更新內容繼承前一版更新
 + Added "Volume" messages
 ! Fixed volume adjust problem from last commit
 

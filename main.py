@@ -1,4 +1,4 @@
-bot_version = 'Build 20220410-2'
+bot_version = '20220410-2'
 
 from typing import *
 import os, dotenv
@@ -26,7 +26,7 @@ async def on_ready():
     global embed_op
     print(f'''
     =========================================
-    Codename TKablent | Version Confidential
+    Codename TKablent | Version Alpha
     Copyright 2022-present @ TK Entertainment
     Shared under CC-NC-SS-4.0 license
     =========================================
@@ -346,7 +346,7 @@ try:
 except:
     print(f'''
     =========================================
-    Codename TKablent | Version Confidential
+    Codename TKablent | Version Alpha
     Copyright 2022-present @ TK Entertainment
     Shared under CC-NC-SS-4.0 license
     =========================================

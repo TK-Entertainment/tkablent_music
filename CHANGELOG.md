@@ -1,10 +1,20 @@
 # 完整更新日誌
 ```diff  
 =========================================
-Codename TKablent | Version Confidential
+Codename TKablent | Version Alpha
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
+
+# Alpha 20220410-1
++ Changing version from Confidential to Alpha
+# 大部分功能皆以完備，僅剩部分功能尚未完成
+# 此更新僅為版號更新，故更新內容繼承前一版更新
++ Added "Volume" messages
+! Fixed volume adjust problem from last commit
+
+Known Issue:
+! Queue related commands are not available yet
 
 # Build 20220410-2
 + Added "Volume" messages
