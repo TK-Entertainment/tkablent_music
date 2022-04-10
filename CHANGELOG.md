@@ -16,6 +16,12 @@ Shared under CC-NC-SS-4.0 license
 Known Issue:
 ! Queue related commands are not available yet
 
+=========================================
+Codename TKablent | Version Confidential
+Copyright 2022-present @ TK Entertainment
+Shared under CC-NC-SS-4.0 license
+=========================================  
+
 # Build 20220410-2
 + Added "Volume" messages
 ! Fixed volume adjust problem from last commit
