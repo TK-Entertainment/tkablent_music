@@ -6,6 +6,13 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Build 20220410-2
++ Added "Volume" messages
+! Fixed volume adjust problem from last commit
+
+Known Issue:
+! Queue related commands are not available yet
+
 # Build 20220410-1
 + Added Search function
 ! Fixed Streaming function
