@@ -11,6 +11,7 @@ class Player:
         self.playlist: Playlist = Playlist()
         self.playing: threading.Thread = None
         self.in_mainloop: bool = False
+        self.volumelevel: float = 1.0
     
     async def join(self, channel: VoiceChannel):
         if (self.voice_client is None) or (not self.voice_client.is_connected()):
@@ -25,11 +26,11 @@ class Player:
 
     def search(self, url, **kwargs):
         song: Song = Song()
-        song.add_info(url, **kwargs)
+        song.add_info(url, volumelevel=self.volumelevel, **kwargs)
         self.playlist.append(song)
 
     async def play(self):
-        self.voice_client.play(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options))
+        self.voice_client.play(self.playlist[0].source)
 
     async def wait(self):
         try:
@@ -67,8 +68,10 @@ class Player:
 
     def seek(self, timestamp: float):
         self.playlist[0].seek(timestamp)
-        self.voice_client.source = FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options)
+        self.voice_client.source = PCMVolumeTransformer(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options), volume=self.volumelevel)
     
     def volume(self, volume: float):
-        self.voice_client.source.volume = volume
-        self.voice_client.source = PCMVolumeTransformer(self.playlist[0].url, **self.playlist[0].ffmpeg_options)
+        self.volumelevel = volume
+        if not self.voice_client is None:
+            self.voice_client.source.volume = self.volumelevel
+            

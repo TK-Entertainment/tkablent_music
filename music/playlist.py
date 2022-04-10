@@ -1,6 +1,7 @@
 from typing import *
 from enum import Enum
 import disnake
+from disnake import FFmpegPCMAudio, PCMVolumeTransformer
 
 from .ytdl import YTDL
 
@@ -25,12 +26,14 @@ class Song:
         self.requester: disnake.Member = None
         self.left_off: float = 0
         self.is_stream: bool = False
+        self.source: FFmpegPCMAudio = None
 
-    def add_info(self, url, requester):
+    def add_info(self, url, requester, volumelevel):
         ytdl.get_info(self, url)
         self.requester = requester
         self.is_stream = (self.length == 0)
         self.set_ffmpeg_options(0)
+        self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
 
         
     def set_ffmpeg_options(self, timestamp):

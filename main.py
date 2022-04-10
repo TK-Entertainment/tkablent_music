@@ -1,4 +1,4 @@
-bot_version = 'Build 20220410-1'
+bot_version = 'Build 20220410-2'
 
 from typing import *
 import os, dotenv
@@ -228,11 +228,44 @@ class MusicBot(commands.Cog):
         ''')
 
     @commands.command(name='volume')
-    async def volume(self, ctx: commands.Context, percent: Union[float, str]):
+    async def volume(self, ctx: commands.Context, percent: Union[float, str]=None):
+        if percent == None: 
+            await ctx.send(f'''
+        **:loud_sound: | 音量調整**
+            目前音量為 {self.player.volumelevel*100}%
+        ''')
+            return
         if not isinstance(percent, float):
-            return await ctx.send('Fail to change volume. Maybe you request an invalid percent')
+            return await ctx.send(f'''
+            **:no_entry: | 失敗 | SA01**
+            你輸入的音量百分比無效，無法調整音量
+            請以百分比格式(ex. 100%)執行指令
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{bot.command_prefix}volume** 來調整音量*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+        if (percent / 100) == self.player.volumelevel:
+            await ctx.send(f'''
+        **:loud_sound: | 音量調整**
+            音量沒有變更，仍為 {percent}%
+        ''')
+        elif percent == 0: 
+            await ctx.send(f'''
+        **:speaker: | 靜音**
+            音量已設定為 0%，目前處於靜音模式
+        ''')
+        elif (percent / 100) > self.player.volumelevel:
+            await ctx.send(f'''
+        **:loud_sound: | 調高音量**
+            音量已設定為 {percent}%
+        ''')
+        elif (percent / 100) < self.player.volumelevel:
+            await ctx.send(f'''
+        **:sound: | 降低音量**
+            音量已設定為 {percent}%
+        ''')
         self.player.volume(percent / 100)
-        await ctx.send('Change volume successfully')
 
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
@@ -291,6 +324,20 @@ class MusicBot(commands.Cog):
             await ctx.send('Move successfully')
         except (IndexError, TypeError):
             await ctx.send('Fail to move. Maybe you request an invalid index')
+
+    # Error handler
+    @commands.Cog.listener()
+    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
+        if isinstance(error, commands.CommandNotFound):
+            return
+        else:
+            print(error)
+            await ctx.send(f'''
+            **:no_entry: | 失敗 | UNKNOWNERROR**
+            執行指令時發生了一點未知問題，請稍候再嘗試一次
+            --------
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''') 
 
 bot.add_cog(MusicBot(bot))
 
