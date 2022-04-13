@@ -72,7 +72,7 @@ class Player:
         self.playlist[0].seek(timestamp)
         self.voice_client.source = PCMVolumeTransformer(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options), volume=self.volumelevel)
     
-    async def volume(self, volume: float):
+    def volume(self, volume: float):
         self.volumelevel = volume
         if not self.voice_client is None:
             self.voice_client.source.volume = self.volumelevel

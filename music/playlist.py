@@ -68,8 +68,7 @@ class Song:
             else: embed.set_author(name=f"這首歌由 {self.requester.name}#{self.requester.tag} 點歌", icon_url=self.requester.display_avatar)
         if len(currentpl) > 1:
             queuelist: str = ""
-            queuelist += f"...還有 {len(currentpl)-2} 首歌"
-            queuelist += f"1." + currentpl[1].title + '\n'
+            queuelist += f"1." + currentpl[1].title + f"\n ...還有 {len(currentpl)-2} 首歌"
             embed.add_field(name=f"待播清單 | {len(currentpl)-1} 首歌待播中", value=queuelist, inline=False)
         embed.set_thumbnail(url=self.thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_op))
