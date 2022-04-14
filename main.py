@@ -23,7 +23,6 @@ INF = int(1e18)
 
 @bot.event
 async def on_ready():
-    global embed_op
     print(f'''
     =========================================
     Codename TKablent | Version Alpha
@@ -42,26 +41,17 @@ async def on_ready():
     即代表此機器人已成功開機
     ''')
     
-    cdt = datetime.datetime.now().date()
-    year = cdt.strftime("%Y")
-    embed_op = {
-        'footer': {'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment", 'icon_url': "https://i.imgur.com/wApgX8J.png"},
-    }
 
 class MusicBot(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
         self.player: Player = Player()
-
-        # flag for local server, need to change for multiple server
-        self.ismute: bool = False
-        self.playinfo: Coroutine[Any, Any, disnake.Message] = None
+        self.ui: UI = UI(bot, bot_version)
 
     def sec_to_hms(self, seconds, format) -> str:
         if format == "symbol":
             return datetime.timedelta(seconds=seconds)
         elif format == "zh":
-
             return f"{seconds//3600} 小時 {seconds//60%60} 分 {seconds%60} 秒"
 
     @commands.command(name='join')
@@ -72,80 +62,32 @@ class MusicBot(commands.Cog):
         except: notin = True
         if isinstance(self.player.voice_client, disnake.VoiceClient) or notin == False:
             if type == None:
-                await ctx.send(f'''
-                **:hushed: | 我已經加入頻道囉**
-            不需要再把我加入同一個頻道囉
-            *若要更換頻道
-            輸入 **{bot.command_prefix}leave** 以離開原有頻道
-            然後使用 **{bot.command_prefix}join 加入新的頻道***
-                ''')
+                await self.ui.JoinAlready(ctx)
             return
         try:
             await self.player.join(ctx.author.voice.channel)
             if isinstance(ctx.author.voice.channel, disnake.StageChannel):
-                await ctx.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
-                ''')
+                await self.ui.JoinStage(ctx)
             else:
-                await ctx.send(f'''
-                **:inbox_tray: | 已加入語音頻道**
-            已成功加入 {ctx.author.voice.channel.name} 語音頻道
-                ''')
+                await self.ui.JoinNormal(ctx)
         except:
-            await ctx.send(f'''
-            **:no_entry: | 失敗 | JOINFAIL**
-            請確認您是否已加入一個語音頻道
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{bot.command_prefix}join** 來把我加入頻道*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+            await self.ui.JoinFailed(ctx)
 
     @commands.command(name='leave')
     async def leave(self, ctx: commands.Context):
         try:
             await self.player.leave()
-            await ctx.send(f'''
-            **:outbox_tray: | 已離開語音/舞台頻道**
-            已停止所有音樂並離開目前所在的語音/舞台頻道
-            ''')
+            await self.ui.LeaveSucceed(ctx)
         except:
-            await ctx.send(f'''
-            **:no_entry: | 失敗 | LEAVEFAIL**
-            請確認您是否已加入一個語音/舞台頻道，或機器人並不在頻道中
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{bot.command_prefix}leave** 來讓我離開頻道*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+            await self.ui.LeaveFailed(ctx)
 
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, *url):
-        addmes = False; issearch = False
         url = ' '.join(url)
         await self.join(ctx, "playattempt")
-        if ("http" not in url) and ("www" not in url):
-            searchmes = await ctx.send(f'''
-        **:mag_right: | 開始搜尋 | {url}**
-            請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
-        ''')
-            issearch = True
-        addmes = len(self.player.playlist) != 0
+        await self.ui.StartSearch(ctx, url, self.player.playlist)
         self.player.search(url, requester=ctx.message.author)
-        # If queue has more than 2 songs, then show message when
-        # user use play command
-        if addmes == True:
-            index = len(self.player.playlist) - 1
-            mes = f'''
-        **:white_check_mark: | 成功加入隊列**
-            以下歌曲已加入隊列中，為第 **{len(self.player.playlist)}** 首歌
-        '''
-            if not issearch: await ctx.send(mes, embed=self.player.playlist[index].info(embed_op, self.sec_to_hms, color="green", currentpl=self.player.playlist))
-            else: await searchmes.edit(content=mes, embed=self.player.playlist[index].info(embed_op, self.sec_to_hms, color="green", currentpl=self.player.playlist))
-        #
-        else: 
-            if issearch: await searchmes.delete()
+        await self.ui.Embed_AddedToQueue(ctx, self.player.playlist)
         self.player.voice_client = ctx.guild.voice_client
         self.bot.loop.create_task(self._mainloop(ctx))
 
@@ -155,40 +97,22 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            self.playinfo = await ctx.send(f'''
-            **:arrow_forward: | 正在播放以下歌曲**
-            *輸入 **{bot.command_prefix}pause** 以暫停播放*
-            ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix, currentpl=self.player.playlist, mute=self.ismute))
+            await self.ui.StartPlaying(ctx, self.player.playlist, self.ismute)
             await self.player.play()
             await self.player.wait()
             self.player.playlist[0].cleanup(self.player.volumelevel)
             self.player.playlist.rule()
 
         self.player.in_mainloop = False
-        await ctx.send(f'''
-        **:clock4: | 播放完畢，等待播放動作**
-            候播清單已全數播放完畢，等待使用者送出播放指令
-            *輸入 **{bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
-        ''')
+        await self.ui.DonePlaying(ctx)
 
     @commands.command(name='pause')
     async def pause(self, ctx: commands.Context):
         try:
             self.player.pause()
-            await ctx.send(f'''
-            **:pause_button: | 暫停歌曲**
-            歌曲已暫停播放
-            *輸入 **{bot.command_prefix}resume** 以繼續播放*
-            ''')
+            await self.ui.PauseSucceed(ctx)
         except:
-            await ctx.send(f'''
-            **:no_entry: | 失敗 | PL01**
-            請確認目前有歌曲正在播放，或是當前歌曲並非處於暫停狀態，亦或是候播清單是否為空
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{bot.command_prefix}pause** 來暫停音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+            await self.ui.PauseFailed(ctx)
 
     @commands.command(name='resume')
     async def resume(self, ctx: commands.Context):
