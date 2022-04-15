@@ -97,7 +97,8 @@ class UI:
     # Info #
     ########
     def __SongInfo__(self, color: str=None, playlist: Playlist=None, index: int=0, mute: bool=False):
-        if color == "green": colorcode = disnake.Colour.from_rgb(97, 219, 83)
+        if color == "green": colorcode = disnake.Colour.from_rgb(229, 199, 13)
+        if color == "yellow": colorcode = disnake.Colour.from_rgb(97, 219, 83)
         else: colorcode = disnake.Colour.from_rgb(255, 255, 255)
         embed = disnake.Embed(title=playlist[index].title, url=playlist[index].watch_url, colour=colorcode)
         embed.add_field(name="作者", value=f'[{playlist[index].author}]({playlist[index].channel_url})', inline=True)
@@ -118,6 +119,11 @@ class UI:
         embed.set_thumbnail(url=playlist[index].thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
+    async def __UpdateSongInfo__(self, playlist: Playlist, ismute: bool):
+        await playinfo.edit(content=f'''
+            **:arrow_forward: | 正在播放以下歌曲**
+            *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
+            ''', embed=self.__SongInfo__(playlist=playlist, mute=ismute))
     ########
     # Play #
     ########
@@ -169,6 +175,112 @@ class UI:
             *再次嘗試使用 **{self.__bot__.command_prefix}resume** 來續播音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    ########
+    # Skip #
+    ########
+    async def SkipSucceed(self, ctx: commands.Context, playlist: Playlist=None, mute: bool= None) -> None:
+        if len(playlist) > 0:
+            await ctx.send(f'''
+            **:fast_forward: | 跳過歌曲**
+            目前歌曲已成功跳過，即將播放下一首歌曲，資訊如下所示
+            *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
+            ''', embed=self.__SongInfo__(color="yellow", playlist=playlist, index=0, mute=mute))
+        else:
+            await ctx.send(f'''
+            **:fast_forward: | 跳過歌曲**
+            目前歌曲已成功跳過，因候播清單已無歌曲，將完成播放
+            *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
+            ''')   
+    async def SkipFailed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | SK01**
+            無法跳過歌曲，請確認目前候播清單是否為空
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}skip 來跳過音樂*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    ########
+    # Stop #
+    ########
+    async def StopSucceed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:stop_button: | 停止播放**
+            歌曲已停止播放
+            *輸入 **{self.__bot__.command_prefix}play** 以重新開始播放*
+            ''')
+    async def StopFailed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | ST01**
+            無法停止播放歌曲，請確認目前是否有歌曲播放，或候播清單是否為空
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}stop 來停止播放音樂*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    ##########
+    # Volume #
+    ##########
+    async def VolumeAdjust(self, ctx: commands.Context, percent: Union[float, str], player: Player):
+        mute = player.ismute
+        # If percent = None, show current volume
+        if percent == None: 
+            await ctx.send(f'''
+            **:loud_sound: | 音量調整**
+            目前音量為 {player.volumelevel*100}%
+        ''')
+            return mute
+        # Volume unchanged
+        if (percent / 100) == player.volumelevel:
+            await ctx.send(f'''
+            **:loud_sound: | 音量調整**
+            音量沒有變更，仍為 {percent}%
+        ''')
+        # Volume up
+        elif (percent / 100) > player.volumelevel:
+            await ctx.send(f'''
+            **:loud_sound: | 調高音量**
+            音量已設定為 {percent}%
+        ''')
+            mute = False
+        # Volume down
+        elif (percent / 100) < player.volumelevel:
+            await ctx.send(f'''
+            **:sound: | 降低音量**
+            音量已設定為 {percent}%
+        ''')
+            mute = False
+        await self.__UpdateSongInfo__(player.playlist, mute)
+        return mute
+    async def MuteorUnMute(self, ctx: commands.Context, percent: Union[float, str], player: Player) -> bool:
+        mute = player.ismute
+        if mute and percent == 100:
+            await ctx.send(f'''
+        **:speaker: | 解除靜音**
+            音量已設定為 100%，目前已解除靜音模式
+        ''')
+            mute = False
+        elif percent == 0: 
+            await ctx.send(f'''
+        **:mute: | 靜音**
+            音量已設定為 0%，目前處於靜音模式
+        ''')
+            mute = True
+        await self.__UpdateSongInfo__(player.playlist, mute)
+        return mute
+    async def VolumeAdjustFailed(self, ctx):
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | SA01**
+            你輸入的音量百分比無效，無法調整音量
+            請以百分比格式(ex. 100%)執行指令
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}volume** 來調整音量*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    ########
+    # Seek #
+    ########
     #########
     # Queue #
     #########

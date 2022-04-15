@@ -76,7 +76,10 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            await self.ui.StartPlaying(ctx, self.player.playlist, self.player.ismute)
+            if not self.player.isskip:
+                await self.ui.StartPlaying(ctx, self.player.playlist, self.player.ismute)
+            else:
+                self.player.isskip = False
             await self.player.play()
             await self.player.wait()
             self.player.playlist[0].cleanup(self.player.volumelevel)
@@ -103,79 +106,35 @@ class MusicBot(commands.Cog):
 
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
-        self.player.skip()
-        await ctx.send(f'''
-        **:fast_forward: | 跳過歌曲**
-        歌曲已成功跳過，即將播放下一首歌曲
-        *輸入 **{bot.command_prefix}play** 以加入新歌曲*
-        ''')
+        try:
+            self.player.skip()
+            await self.ui.SkipSucceed(ctx, self.player.playlist, self.player.ismute)
+        except:
+            await self.ui.SkipFailed(ctx)
 
     @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
-        self.player.stop()
-        await ctx.send(f'''
-        **:stop_button: | 停止播放**
-        歌曲已停止播放
-        *輸入 **{bot.command_prefix}play** 以重新開始播放*
-        ''')
+        try:
+            self.player.stop()
+            await self.ui.StopSucceed(ctx)
+        except:
+            await self.ui.StopFailed(ctx)
 
     @commands.command(name="mute")
     async def mute(self, ctx):
-        if self.ismute: await self.volume(ctx, 100.0)
+        if self.ismute: await self.volume(ctx, 100.0, unmute=True)
         else: await self.volume(ctx, 0.0)
 
     @commands.command(name='volume')
-    async def volume(self, ctx: commands.Context, percent: Union[float, str]=None):
-        if percent == None: 
-            await ctx.send(f'''
-        **:loud_sound: | 音量調整**
-            目前音量為 {self.player.volumelevel*100}%
-        ''')
+    async def volume(self, ctx: commands.Context, percent: Union[float, str]=None, unmute: bool=False):
+        if not isinstance(percent, float) and percent is not None:
+            await self.ui.VolumeAdjustFailed(ctx)
             return
-        if not isinstance(percent, float):
-            return await ctx.send(f'''
-            **:no_entry: | 失敗 | SA01**
-            你輸入的音量百分比無效，無法調整音量
-            請以百分比格式(ex. 100%)執行指令
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{bot.command_prefix}volume** 來調整音量*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
-        if (percent / 100) == self.player.volumelevel:
-            await ctx.send(f'''
-        **:loud_sound: | 音量調整**
-            音量沒有變更，仍為 {percent}%
-        ''')
-        elif self.ismute and percent == 100:
-            await ctx.send(f'''
-        **:speaker: | 解除靜音**
-            音量已設定為 100%，目前已解除靜音模式
-        ''')
-            self.ismute = False
-        elif percent == 0: 
-            await ctx.send(f'''
-        **:mute: | 靜音**
-            音量已設定為 0%，目前處於靜音模式
-        ''')
-            self.ismute = True
-        elif (percent / 100) > self.player.volumelevel:
-            await ctx.send(f'''
-        **:loud_sound: | 調高音量**
-            音量已設定為 {percent}%
-        ''')
-            self.ismute = False
-        elif (percent / 100) < self.player.volumelevel:
-            await ctx.send(f'''
-        **:sound: | 降低音量**
-            音量已設定為 {percent}%
-        ''')
-            self.ismute = False
         self.player.volume(percent / 100)
-        await self.playinfo.edit(content=f'''
-            **:arrow_forward: | 正在播放以下歌曲**
-            *輸入 **{bot.command_prefix}pause** 以暫停播放*
-            ''', embed=self.player.playlist[0].info(embed_op, self.sec_to_hms, bot.command_prefix, currentpl=self.player.playlist, mute=self.ismute))
+        if percent == 0 or (percent == 100 and unmute):
+            self.player.ismute = await self.ui.MuteorUnMute(ctx, percent, self.player)
+        else:
+            self.player.ismute = await self.ui.VolumeAdjust(ctx, percent, self.player)
 
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):

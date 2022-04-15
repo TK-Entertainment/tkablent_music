@@ -14,6 +14,7 @@ class Player:
         self.in_mainloop: bool = False
         self.volumelevel: float = 1.0
         self.ismute: bool = False
+        self.isskip: bool = False
     
     async def join(self, channel: VoiceChannel):
         if (self.voice_client is None) or (not self.voice_client.is_connected()):
@@ -59,6 +60,7 @@ class Player:
         if (not self.voice_client._player._end.is_set()):
             self.voice_client.stop()
         self.playlist.times = 0
+        self.isskip = True
     
     def stop(self):
         self.playlist.clear()
