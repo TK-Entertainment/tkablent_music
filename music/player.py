@@ -13,6 +13,7 @@ class Player:
         self.playing: threading.Thread = None
         self.in_mainloop: bool = False
         self.volumelevel: float = 1.0
+        self.ismute: bool = False
     
     async def join(self, channel: VoiceChannel):
         if (self.voice_client is None) or (not self.voice_client.is_connected()):

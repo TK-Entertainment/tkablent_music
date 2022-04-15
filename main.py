@@ -21,32 +21,11 @@ bot = commands.Bot(command_prefix='$', intents=intents, help_command=None)
 from music import *
 INF = int(1e18)
 
-@bot.event
-async def on_ready():
-    print(f'''
-    =========================================
-    Codename TKablent | Version Alpha
-    Copyright 2022-present @ TK Entertainment
-    Shared under CC-NC-SS-4.0 license
-    =========================================
-    
-    Discord Bot TOKEN | {TOKEN}
-
-    If there is any problem, open an Issue with log
-    else no any response or answer
-
-    If there isn't any exception under this message,
-    That means bot is online without any problem.
-    若此訊息下方沒有任何錯誤訊息
-    即代表此機器人已成功開機
-    ''')
-    
-
 class MusicBot(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
         self.player: Player = Player()
-        self.ui: UI = UI(bot, bot_version)
+        self.ui: UI = UI(bot_version)
 
     def sec_to_hms(self, seconds, format) -> str:
         if format == "symbol":
@@ -97,7 +76,7 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = True
         
         while (len(self.player.playlist)):
-            await self.ui.StartPlaying(ctx, self.player.playlist, self.ismute)
+            await self.ui.StartPlaying(ctx, self.player.playlist, self.player.ismute)
             await self.player.play()
             await self.player.wait()
             self.player.playlist[0].cleanup(self.player.volumelevel)
@@ -118,21 +97,9 @@ class MusicBot(commands.Cog):
     async def resume(self, ctx: commands.Context):
         try:
             self.player.resume()
-            await ctx.send(f'''
-            **:arrow_forward: | 續播歌曲**
-            歌曲已繼續播放
-            *輸入 **{bot.command_prefix}pause** 以暫停播放*
-            ''')
+            await self.ui.ResumeSucceed(ctx)
         except:
-            await ctx.send(f'''
-            **:no_entry: | 失敗 | PL02**
-            請確認目前有處於暫停狀態的歌曲，或是候播清單是否為空
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{bot.command_prefix}resume** 來續播音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
-
+            await self.ui.ResumeFailed(ctx)
 
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
@@ -279,14 +246,38 @@ class MusicBot(commands.Cog):
             **:no_entry: | 失敗 | UNKNOWNERROR**
             執行指令時發生了一點未知問題，請稍候再嘗試一次
             --------
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            技術資訊:
+            {error}
+            --------
+            *若您覺得有Bug或錯誤，請參照上方資訊及代碼回報至 Github*
             ''') 
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print(f'''
+    =========================================
+    Codename TKablent | Version Alpha
+    Copyright 2022-present @ TK Entertainment
+    Shared under CC-NC-SS-4.0 license
+    =========================================
+    
+    Discord Bot TOKEN | {TOKEN}
+
+    If there is any problem, open an Issue with log
+    else no any response or answer
+
+    If there isn't any exception under this message,
+    That means bot is online without any problem.
+    若此訊息下方沒有任何錯誤訊息
+    即代表此機器人已成功開機
+    ''')
+        self.ui.InitEmbedFooter(bot)
 
 bot.add_cog(MusicBot(bot))
 
 try:
     bot.run(TOKEN)
-except:
+except AttributeError:
     print(f'''
     =========================================
     Codename TKablent | Version Alpha
