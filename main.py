@@ -1,4 +1,4 @@
-bot_version = '20220410-2'
+bot_version = 'LOCAL DEVELOPMENT'
 
 from typing import *
 import os, dotenv
@@ -29,18 +29,27 @@ class MusicBot:
         self.ui.InitEmbedFooter(bot)
 
     def sec_to_hms(self, seconds, format) -> str:
+        sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//3600)
         if format == "symbol":
-            return datetime.timedelta(seconds=seconds)
+            if hr == 0:
+                return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
+            else:
+                return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
         elif format == "zh":
-            return f"{seconds//3600} 小時 {seconds//60%60} 分 {seconds%60} 秒"
+            if seconds//60%60 == 0:
+                return f"{sec} 秒"
+            elif seconds//3600 == 0:
+                return f"{min} 分 {sec} 秒"
+            else:
+                return f"{hr} 小時 {min} 分 {sec} 秒"
 
-    async def join(self, ctx: commands.Context, type=None):
+    async def join(self, ctx: commands.Context, jointype=None):
         try:
             isinstance(self.player.voice_client.channel, None)
             notin = False
         except: notin = True
         if isinstance(self.player.voice_client, disnake.VoiceClient) or notin == False:
-            if type == None:
+            if jointype == None:
                 await self.ui.JoinAlready(ctx)
             return
         try:
@@ -77,6 +86,7 @@ class MusicBot:
             if not self.player.isskip:
                 await self.ui.StartPlaying(ctx, self.player.playlist, self.player.ismute)
             else:
+                await self.ui.SkipSucceed(ctx, self.player.playlist, self.player.ismute)
                 self.player.isskip = False
             await self.player.play()
             await self.player.wait()
@@ -103,7 +113,6 @@ class MusicBot:
     async def skip(self, ctx: commands.Context):
         try:
             self.player.skip()
-            await self.ui.SkipSucceed(ctx, self.player.playlist, self.player.ismute)
         except:
             await self.ui.SkipFailed(ctx)
 
@@ -115,24 +124,24 @@ class MusicBot:
             await self.ui.StopFailed(ctx)
 
     async def mute(self, ctx):
-        if self.ismute: await self.volume(ctx, 100.0, unmute=True)
+        if self.player.ismute: await self.volume(ctx, 100.0, unmute=True)
         else: await self.volume(ctx, 0.0)
 
     async def volume(self, ctx: commands.Context, percent: Union[float, str]=None, unmute: bool=False):
         if not isinstance(percent, float) and percent is not None:
             await self.ui.VolumeAdjustFailed(ctx)
             return
-        self.player.volume(percent / 100)
         if percent == 0 or (percent == 100 and unmute):
             self.player.ismute = await self.ui.MuteorUnMute(ctx, percent, self.player)
         else:
             self.player.ismute = await self.ui.VolumeAdjust(ctx, percent, self.player)
+        if percent is not None: self.player.volume(percent / 100)
 
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
         if not isinstance(timestamp, float):
             return await ctx.send('Fail to seek. Maybe you request an invalid timestamp')
         self.player.seek(timestamp)
-        await ctx.send('Seek successfully')
+        await self.ui.SeekSucceed(ctx, timestamp, self.player)
 
     async def restart(self, ctx: commands.Context):
         self.player.seek(0)
@@ -155,7 +164,7 @@ class MusicBot:
         await ctx.send('Enable whole queue loop successfully')
 
     async def show(self, ctx: commands.Context):
-        pass
+        await self.ui.ShowQueue(ctx, self.player.playlist)
 
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
@@ -177,7 +186,6 @@ class MusicBot:
             await ctx.send('Move successfully')
         except (IndexError, TypeError):
             await ctx.send('Fail to move. Maybe you request an invalid index')
-
 
 class Router(commands.Cog):
     '''a router to fetch the right musicbot token from a guild request'''
@@ -234,7 +242,7 @@ class Router(commands.Cog):
             self.router[ctx.guild.id] = MusicBot(self.bot)
         await self.router[ctx.guild.id].stop(ctx)
 
-    @commands.command(name="mute")
+    @commands.command(name="mute", aliases=['quiet', 'shutup'])
     async def mute(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
             self.router[ctx.guild.id] = MusicBot(self.bot)
@@ -295,7 +303,7 @@ class Router(commands.Cog):
         await self.router[ctx.guild.id].move_to(ctx, origin, new)
 
     # Error handler
-    # @commands.Cog.listener()
+    @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
             return
@@ -330,7 +338,6 @@ class Router(commands.Cog):
     若此訊息下方沒有任何錯誤訊息
     即代表此機器人已成功開機
     ''')
-        self.ui.InitEmbedFooter(bot)
 
 
 bot.add_cog(Router(bot))
