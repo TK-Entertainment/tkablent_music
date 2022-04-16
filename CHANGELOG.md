@@ -6,6 +6,31 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Alpha 20220417
++ Added "Queue" UI
++ Added Multiserver support (41f37a5 by @GrandTiger1729)
+# UI.ShowQueue
+! Made "Seek" UI standalone
+# UI.SeekSucceed / UI.SeekFailed
+! Rewrote Second to HourMinuteSecond(sec_to_hms) function
+! Fixed SongInfo color conditions
+! Fixed various problem
+
+# Alpha 20220415 Update
+! Made "Skip/Stop/Volume/Mute" UI standalone
+# UI.SkipSucceed / UI.SkipFailed / UI.StopSucceed / UI.StopFailed / UI.VolumeAdjust / UI.VolumeAdjustFailed/ UI.MuteorUnmute
+! This is not tested yet
+
+# Alpha 20220415 Update
+! Made "Resume" UI standalone
+# UI.ResumeSucceed / UI.ResumeFailed
+! Added alternative url gather method
+# Just in case when pytube is not working, bot can call yt_dlp instead, though it is slower.
+
+Known Issue:
+! main.py has 1 problem
+# on line 211 embed_op is not defined
+
 # Alpha 20220410-2
 + 在 "正在播放" 及 "新增隊列" 訊息中加入 "待播清單"
 # 因手機板排版，僅顯示第一首代播歌曲之名稱

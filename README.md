@@ -1,7 +1,7 @@
 # 內部代號 TKablent
 用 Python 製作的 Discord 音樂機器人
 ## 開發狀態
-*目前為 **Alpha 20220410-2 版***  
+*目前為 **Alpha 20220416 版***  
   
 **最新更新日誌**
 ```diff
@@ -11,17 +11,15 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
 
-# Alpha 20220410-2
-+ 在 "正在播放" 及 "新增隊列" 訊息中加入 "待播清單"
-# 因手機板排版，僅顯示第一首代播歌曲之名稱
-! 完善 音量調整功能 (@GrandTiger1729 設計核心)
-! 原碼中新增 本地伺服器用flag 提示
-# 供未來調整為多人伺服器用時分辨
-! 搜尋提示將會在搜尋完畢後被修改為 "新增至隊列" 訊息 或 被刪除
-
-Known Issue:
-! Queue related commands are not available yet
-! Multiserver support is not available yet
+# Alpha 20220416 Update
++ Added "Queue" UI
++ Added Multiserver support (41f37a5 by @GrandTiger1729)
+# UI.ShowQueue
+! Made "Seek" UI standalone
+# UI.SeekSucceed / UI.SeekFailed
+! Rewrote Second to HourMinuteSecond(sec_to_hms) function
+! Fixed SongInfo color conditions
+! Fixed various problem
 ```  
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權
