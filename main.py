@@ -21,11 +21,12 @@ bot = commands.Bot(command_prefix='$', intents=intents, help_command=None)
 from music import *
 INF = int(1e18)
 
-class MusicBot(commands.Cog):
+class MusicBot:
     def __init__(self, bot):
         self.bot: commands.Bot = bot
         self.player: Player = Player()
         self.ui: UI = UI(bot_version)
+        self.ui.InitEmbedFooter(bot)
 
     def sec_to_hms(self, seconds, format) -> str:
         if format == "symbol":
@@ -33,7 +34,6 @@ class MusicBot(commands.Cog):
         elif format == "zh":
             return f"{seconds//3600} 小時 {seconds//60%60} 分 {seconds%60} 秒"
 
-    @commands.command(name='join')
     async def join(self, ctx: commands.Context, type=None):
         try:
             isinstance(self.player.voice_client.channel, None)
@@ -52,15 +52,13 @@ class MusicBot(commands.Cog):
         except:
             await self.ui.JoinFailed(ctx)
 
-    @commands.command(name='leave')
     async def leave(self, ctx: commands.Context):
         try:
             await self.player.leave()
             await self.ui.LeaveSucceed(ctx)
         except:
             await self.ui.LeaveFailed(ctx)
-
-    @commands.command(name='play', aliases=['p'])
+    
     async def play(self, ctx: commands.Context, *url):
         url = ' '.join(url)
         await self.join(ctx, "playattempt")
@@ -88,7 +86,6 @@ class MusicBot(commands.Cog):
         self.player.in_mainloop = False
         await self.ui.DonePlaying(ctx)
 
-    @commands.command(name='pause')
     async def pause(self, ctx: commands.Context):
         try:
             self.player.pause()
@@ -96,7 +93,6 @@ class MusicBot(commands.Cog):
         except:
             await self.ui.PauseFailed(ctx)
 
-    @commands.command(name='resume')
     async def resume(self, ctx: commands.Context):
         try:
             self.player.resume()
@@ -104,7 +100,6 @@ class MusicBot(commands.Cog):
         except:
             await self.ui.ResumeFailed(ctx)
 
-    @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
         try:
             self.player.skip()
@@ -112,7 +107,6 @@ class MusicBot(commands.Cog):
         except:
             await self.ui.SkipFailed(ctx)
 
-    @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
         try:
             self.player.stop()
@@ -120,12 +114,10 @@ class MusicBot(commands.Cog):
         except:
             await self.ui.StopFailed(ctx)
 
-    @commands.command(name="mute")
     async def mute(self, ctx):
         if self.ismute: await self.volume(ctx, 100.0, unmute=True)
         else: await self.volume(ctx, 0.0)
 
-    @commands.command(name='volume')
     async def volume(self, ctx: commands.Context, percent: Union[float, str]=None, unmute: bool=False):
         if not isinstance(percent, float) and percent is not None:
             await self.ui.VolumeAdjustFailed(ctx)
@@ -136,14 +128,12 @@ class MusicBot(commands.Cog):
         else:
             self.player.ismute = await self.ui.VolumeAdjust(ctx, percent, self.player)
 
-    @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
         if not isinstance(timestamp, float):
             return await ctx.send('Fail to seek. Maybe you request an invalid timestamp')
         self.player.seek(timestamp)
         await ctx.send('Seek successfully')
 
-    @commands.command(name='restart', aliases=['replay'])
     async def restart(self, ctx: commands.Context):
         self.player.seek(0)
         await ctx.send(f'''
@@ -152,7 +142,6 @@ class MusicBot(commands.Cog):
         *輸入 **{bot.command_prefix}pause** 以暫停播放*
         ''')
 
-    @commands.command(name='loop', aliases=['songloop'])
     async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
         print(times)
         print(type(times))
@@ -161,16 +150,13 @@ class MusicBot(commands.Cog):
         self.player.playlist.single_loop(times)
         await ctx.send('Enable single song loop sucessfully')
 
-    @commands.command(name='wholeloop', aliases=['queueloop', 'qloop'])
     async def whole_loop(self, ctx: commands.Context):
         self.player.playlist.whole_loop()
         await ctx.send('Enable whole queue loop successfully')
 
-    @commands.command(name='show', aliases=['queuelist', 'queue'])
     async def show(self, ctx: commands.Context):
         pass
 
-    @commands.command(name='remove', aliases=['queuedel'])
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
             self.player.playlist.pop(idx)
@@ -178,7 +164,6 @@ class MusicBot(commands.Cog):
         except (IndexError, TypeError):
             await ctx.send('Fail to remove. Maybe you request an invalid index')
     
-    @commands.command(name='swap')
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
         try:
             self.player.playlist.swap(idx1, idx2)
@@ -186,7 +171,6 @@ class MusicBot(commands.Cog):
         except (IndexError, TypeError):
             await ctx.send('Fail to swap. Maybe you request an invalid index')
 
-    @commands.command(name='move_to', aliases=['insert_to'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         try:
             self.player.playlist.move_to(origin, new)
@@ -194,43 +178,6 @@ class MusicBot(commands.Cog):
         except (IndexError, TypeError):
             await ctx.send('Fail to move. Maybe you request an invalid index')
 
-    # Error handler
-    @commands.Cog.listener()
-    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
-        if isinstance(error, commands.CommandNotFound):
-            return
-        else:
-            print(error)
-            await ctx.send(f'''
-            **:no_entry: | 失敗 | UNKNOWNERROR**
-            執行指令時發生了一點未知問題，請稍候再嘗試一次
-            --------
-            技術資訊:
-            {error}
-            --------
-            *若您覺得有Bug或錯誤，請參照上方資訊及代碼回報至 Github*
-            ''') 
-
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print(f'''
-    =========================================
-    Codename TKablent | Version Alpha
-    Copyright 2022-present @ TK Entertainment
-    Shared under CC-NC-SS-4.0 license
-    =========================================
-    
-    Discord Bot TOKEN | {TOKEN}
-
-    If there is any problem, open an Issue with log
-    else no any response or answer
-
-    If there isn't any exception under this message,
-    That means bot is online without any problem.
-    若此訊息下方沒有任何錯誤訊息
-    即代表此機器人已成功開機
-    ''')
-        self.ui.InitEmbedFooter(bot)
 
 class Router(commands.Cog):
     '''a router to fetch the right musicbot token from a guild request'''
@@ -246,10 +193,10 @@ class Router(commands.Cog):
         self.ui = UI(bot_version)
     
     @commands.command(name='join')
-    async def join(self, ctx: commands.Context, type=None):
+    async def join(self, ctx: commands.Context, jointype=None):
         if self.router.get(ctx.guild.id) is None:
             self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].join(ctx, type)
+        await self.router[ctx.guild.id].join(ctx, jointype)
 
     @commands.command(name='leave')
     async def leave(self, ctx: commands.Context):
@@ -348,7 +295,7 @@ class Router(commands.Cog):
         await self.router[ctx.guild.id].move_to(ctx, origin, new)
 
     # Error handler
-    @commands.Cog.listener()
+    # @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
             return
@@ -386,7 +333,6 @@ class Router(commands.Cog):
         self.ui.InitEmbedFooter(bot)
 
 
-bot.add_cog(MusicBot(bot))
 bot.add_cog(Router(bot))
 
 try:
