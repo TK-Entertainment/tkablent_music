@@ -3,7 +3,7 @@
 ## 開發狀態
 20220410 EOL | **Confidential | Build 20220410-2** [版本轉換更新 C>α](https://github.com/TK-Entertainment/tkablent/commit/9117b15dde26c1f8e9b4c7337f0493a61e09d4d8)
 
-*目前為 **Alpha 20220416 版***  
+*目前為 **Alpha 20220417 U2 版***  
   
 **最新更新日誌**
 ```diff
