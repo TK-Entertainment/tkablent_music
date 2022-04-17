@@ -41,6 +41,7 @@ class Player:
         self.playlist.append(song)
 
     async def _play(self):
+        self.playlist[0].cleanup(self.volumelevel)
         self.playlist[0].source.volume = self.volumelevel
         self.voice_client.play(self.playlist[0].source)
 

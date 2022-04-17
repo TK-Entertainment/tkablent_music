@@ -36,7 +36,6 @@ class Song:
         self.requester = requester
         self.is_stream = (self.length == 0)
         self.set_ffmpeg_options(0)
-        self.cleanup(volumelevel)
 
     def cleanup(self, volumelevel):
         self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
