@@ -1,4 +1,3 @@
-from . import *
 from typing import *
 from enum import Enum
 import disnake
@@ -31,6 +30,10 @@ def sec_to_hms(self, seconds, format) -> str:
             return f"{min} 分 {sec} 秒"
         else:
             return f"{hr} 小時 {min} 分 {sec} 秒"
+
+from .player import Player
+from .playlist import Playlist
+
 class UI:
     def __init__(self, bot_version):
         self.__bot_version__: str = bot_version

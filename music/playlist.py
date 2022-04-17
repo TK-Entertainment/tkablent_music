@@ -21,6 +21,7 @@ class Song:
     thumbnail_url: str
     length: int
     url: str
+    source: PCMVolumeTransformer[FFmpegPCMAudio]
 
     def __init__(self):
         self.requester: disnake.Member = None
@@ -28,7 +29,7 @@ class Song:
         
         # flag for local server, need to change for multiple server
         self.is_stream: bool = False
-        self.source: FFmpegPCMAudio = None
+        self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
 
     def add_info(self, url, requester, volumelevel):
         ytdl.get_info(self, url)
