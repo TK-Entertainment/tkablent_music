@@ -8,6 +8,7 @@ searchmes: disnake.Message = None
 addmes: bool = False
 issearch: bool = False
 isqueuedone: bool = False
+autostageavailable: bool = True
 
 # Variables for two kinds of message
 # flag for local server, need to change for multiple server
@@ -55,10 +56,32 @@ class UI:
             已成功加入 {ctx.author.voice.channel.name} 語音頻道
                 ''')
     async def JoinStage(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
+        global autostageavailable
+        botitself: disnake.Member = await ctx.guild.fetch_member(self.__bot__.user.id)
+        if botitself not in ctx.author.voice.channel.moderators and autostageavailable == True:
+            if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
+                await ctx.send(f'''
+            **:inbox_tray: | 已加入舞台頻道**
+            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
+            -----------
+            *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
+            *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
+            *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
+            *此警告僅會出現一次*
+                    ''')
+                autostageavailable = False
+            else:
+                autostageavailable = True
+                await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
                 ''')
+        else:
+            await ctx.send(f'''
+            **:inbox_tray: | 已加入舞台頻道**
+            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
+                ''')
+            autostageavailable = True
     async def JoinAlready(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:hushed: | 我已經加入頻道囉**
@@ -76,6 +99,34 @@ class UI:
             *再次嘗試使用 **{self.__bot__.command_prefix}join** 來把我加入頻道*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    #########
+    # Stage #
+    #########
+    async def CreateStageInstance(self, ctx: commands.Context) -> None:
+        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or autostageavailable == False:
+            return
+        channel: disnake.StageChannel = ctx.author.voice.channel
+        await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
+    async def EndStage(self, player: Player) -> None:
+        if not autostageavailable: 
+            return
+        if not isinstance(player.voice_client.channel.instance, disnake.StageInstance):
+            return
+        instance: disnake.StageInstance = player.voice_client.channel.instance
+        await instance.delete()
+    async def __UpdateStageTopic__(self, player: Player, mode: str='update') -> None:
+        if autostageavailable == False:
+            return
+        instance: disnake.StageInstance = player.voice_client.channel.instance
+        if mode == "done":
+            await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
+        elif mode == "pause":
+            if player.playlist[0].is_stream: await instance.edit(topic=f'⏸️|🔴 {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
+            else: await instance.edit(topic=f'⏸️ {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
+        else:
+            if player.playlist[0].is_stream: await instance.edit(topic=f'▶️|🔴 {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
+            else: await instance.edit(topic=f'▶️ {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
+            
     #########
     # Leave #
     #########
@@ -146,34 +197,42 @@ class UI:
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
     async def __UpdateSongInfo__(self, playlist: Playlist, ismute: bool):
-        await playinfo.edit(content=f'''
+        mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
-            *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
-            ''', embed=self.__SongInfo__(playlist=playlist, mute=ismute))
+            *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
+        if not autostageavailable:
+            mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
+        await playinfo.edit(content=mes, embed=self.__SongInfo__(playlist=playlist, mute=ismute))
     ########
     # Play #
     ########
-    async def StartPlaying(self, ctx: commands.Context, playlist: Playlist, ismute: bool):
+    async def StartPlaying(self, ctx: commands.Context, player: Player, ismute: bool):
         global playinfo
-        playinfo = await ctx.send(f'''
+        mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
-            *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
-            ''', embed=self.__SongInfo__(playlist=playlist, mute=ismute))
-    async def DonePlaying(self, ctx: commands.Context) -> None:
+            *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
+        if not autostageavailable:
+            mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
+        playinfo = await ctx.send(mes, embed=self.__SongInfo__(playlist=player.playlist, mute=ismute))
+        await self.__UpdateStageTopic__(player)
+    async def DonePlaying(self, ctx: commands.Context, player: Player) -> None:
         await ctx.send(f'''
             **:clock4: | 播放完畢，等待播放動作**
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.__bot__.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
+        try: await self.__UpdateStageTopic__(player, 'done')
+        except: pass
     #########
     # Pause #
     ######### 
-    async def PauseSucceed(self, ctx: commands.Context) -> None:
+    async def PauseSucceed(self, ctx: commands.Context, player: Player) -> None:
         await ctx.send(f'''
             **:pause_button: | 暫停歌曲**
             歌曲已暫停播放
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
+        await self.__UpdateStageTopic__(player, 'pause')
     async def PauseFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL01**
@@ -186,12 +245,13 @@ class UI:
     ##########
     # Resume #
     ##########
-    async def ResumeSucceed(self, ctx: commands.Context) -> None:
+    async def ResumeSucceed(self, ctx: commands.Context, player: Player) -> None:
         await ctx.send(f'''
             **:arrow_forward: | 續播歌曲**
             歌曲已繼續播放
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
             ''')
+        await self.__UpdateStageTopic__(player, 'resume')
     async def ResumeFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL02**

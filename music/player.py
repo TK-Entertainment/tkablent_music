@@ -133,27 +133,42 @@ class MusicBot(Player):
             await self._join(ctx.author.voice.channel)
             if isinstance(ctx.author.voice.channel, disnake.StageChannel):
                 await self.ui.JoinStage(ctx)
+                await self.ui.CreateStageInstance(ctx)
             else:
                 await self.ui.JoinNormal(ctx)
-        except:
+        except Exception as e:
+            print(e)
             await self.ui.JoinFailed(ctx)
+            return 'failed'
 
     async def leave(self, ctx: commands.Context):
         try:
-            await self._leave()
+            botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+            try: 
+                if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
+                    await self.ui.EndStage(self)
+                else:
+                    await self._leave()
+            except: await self._leave()
             await self.ui.LeaveSucceed(ctx)
-        except:
+        except Exception as e:
+            print(e)
             await self.ui.LeaveFailed(ctx)
         await asyncio.sleep(0.4)
 
     async def play(self, ctx: commands.Context, *url):
+        botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
         url = ' '.join(url)
-        await self.join(ctx, "playattempt")
+        status = await self.join(ctx, "playattempt")
+        if status == 'failed': return
         async with ctx.typing():
             await self.ui.StartSearch(ctx, url, self.playlist)
             self._search(url, requester=ctx.message.author)
             await self.ui.Embed_AddedToQueue(ctx, self.playlist)
         self.voice_client = ctx.guild.voice_client
+        if botitself.voice.suppress:
+            try: await botitself.edit(suppress=False)
+            except: pass
         self.bot.loop.create_task(self._mainloop(ctx))
 
     async def _mainloop(self, ctx: commands.Context):
@@ -163,7 +178,7 @@ class MusicBot(Player):
         
         while len(self.playlist):
             if not self.isskip:
-                await self.ui.StartPlaying(ctx, self.playlist, self.ismute)
+                await self.ui.StartPlaying(ctx, self, self.ismute)
             else:
                 if self.playlist.flag != LoopState.SINGLEINF:
                     self.playlist.is_loop = LoopState.NOTHING; self.playlist.times = 0
@@ -179,19 +194,19 @@ class MusicBot(Player):
         self.playlist.is_loop = LoopState.NOTHING
         self.playlist.flag = None
         self.isskip = False
-        await self.ui.DonePlaying(ctx)
+        await self.ui.DonePlaying(ctx, self)
 
     async def pause(self, ctx: commands.Context):
         try:
             self._pause()
-            await self.ui.PauseSucceed(ctx)
+            await self.ui.PauseSucceed(ctx, self)
         except:
             await self.ui.PauseFailed(ctx)
 
     async def resume(self, ctx: commands.Context):
         try:
             self._resume()
-            await self.ui.ResumeSucceed(ctx)
+            await self.ui.ResumeSucceed(ctx, self)
         except:
             await self.ui.ResumeFailed(ctx)
 
