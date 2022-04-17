@@ -2,6 +2,7 @@
 
 # .env file contains TOKEN(sensitive)
 .env
+*.dll
 
 # just for testing
 test.py
