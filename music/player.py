@@ -1,5 +1,5 @@
 from typing import *
-import threading, asyncio
+import threading, asyncio, gc
 
 import disnake
 from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
@@ -10,7 +10,10 @@ from .playlist import Song, Playlist
 INF = int(1e18)
 bot_version = 'LOCAL DEVELOPMENT'
 
-class Player:                                                        
+class Player:     
+    def __del__(self):
+        print('collected')  
+
     def __init__(self):
         # flag for local server, need to change for multiple server
         self.voice_client: VoiceClient = None
@@ -28,6 +31,7 @@ class Player:
     async def _leave(self):
         if (self.voice_client.is_connected()):
             await self.voice_client.disconnect()
+            self.voice_client = None
         else:
             raise Exception # this exception is for identifying the illegal operation
 
@@ -87,6 +91,9 @@ class Player:
 from .ui import UI       
 
 class MusicBot(Player):
+    def __del__(self):
+        del self
+
     def __init__(self, bot):
         Player.__init__(self)
         self.bot: commands.Bot = bot
@@ -132,7 +139,8 @@ class MusicBot(Player):
             await self.ui.LeaveSucceed(ctx)
         except:
             await self.ui.LeaveFailed(ctx)
-    
+        await asyncio.sleep(0.4)
+
     async def play(self, ctx: commands.Context, *url):
         url = ' '.join(url)
         await self.join(ctx, "playattempt")

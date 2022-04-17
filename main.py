@@ -1,9 +1,7 @@
 bot_version = 'LOCAL DEVELOPMENT'
 
 from typing import *
-import os, dotenv
-import threading, asyncio
-import datetime
+import os, dotenv, sys, gc
 
 import disnake
 from disnake.ext import commands
@@ -11,6 +9,11 @@ from disnake.ext import commands
 if os.name != "nt":
     import uvloop
     uvloop.install()
+
+print(f'''
+Current Version
+{sys.version}
+''')
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
@@ -45,7 +48,9 @@ class Router(commands.Cog):
         if self.router.get(ctx.guild.id) is None:
             self.router[ctx.guild.id] = MusicBot(self.bot)
         await self.router[ctx.guild.id].leave(ctx)
-
+        del self.router[ctx.guild.id]
+        gc.collect()
+        
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, *url):
         if self.router.get(ctx.guild.id) is None:

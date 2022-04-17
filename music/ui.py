@@ -7,6 +7,7 @@ import datetime
 searchmes: disnake.Message = None
 addmes: bool = False
 issearch: bool = False
+isqueuedone: bool = False
 
 # Variables for two kinds of message
 # flag for local server, need to change for multiple server
@@ -356,7 +357,7 @@ class UI:
     async def ShowQueue(self, ctx: commands.Context, playlist: Playlist) -> None:
         class Button(disnake.ui.Button):
             def __init__(self, mode, playlist: Playlist, QueueEmbed, embed_opt):
-                self.mode = mode
+                self.mode: bool = mode
                 self.playlist: Playlist = playlist
                 self.queueembed = QueueEmbed
                 self.embed_opt = embed_opt
@@ -366,17 +367,18 @@ class UI:
                 if self.mode == 'done': self.label = '❎'
 
             async def callback(self, interaction: disnake.Interaction):
+                global isqueuedone
                 # view.children[0] = 上一頁; view.children[1] = 下一頁
                 view = self.view
                 if self.mode == 'backward':
-                    view.page -= 1
+                    view.page -= 1; self.isdone = False
                     if view.page == 0: view.children[0].disabled = True
                     if view.page != (len(self.playlist)-1)//3: view.children[1].disabled = False
                 if self.mode == 'forward':
-                    view.page += 1
+                    view.page += 1; self.isdone = False
                     if view.page == (len(self.playlist)-1)//3: view.children[1].disabled = True
                     if view.page != 0: view.children[0].disabled = False
-                if self.mode == 'done': view.clear_items()
+                if self.mode == 'done': view.clear_items(); isqueuedone = True
                 embed = self.queueembed(self.playlist, view.page)
                 embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
@@ -384,7 +386,9 @@ class UI:
                     editedmes = await interaction.original_message()
                     await editedmes.add_reaction('✅')
         class QueuePage(disnake.ui.View):
-            def __init__(self, playlist: Playlist, QueueEmbed, embed_opt, *, timeout=300):
+            def __init__(self, playlist: Playlist, QueueEmbed, embed_opt, *, timeout=10):
+                global isqueuedone
+                isqueuedone = False
                 self.page = 0
                 super().__init__(timeout=timeout)
                 self.leftbutton = self.add_item(Button('backward', playlist, QueueEmbed, embed_opt))
@@ -393,8 +397,10 @@ class UI:
             def set_mes(self, mes):
                 self.mes: disnake.Message = mes
             async def on_timeout(self):
+                if isqueuedone: return
                 self.clear_items()
                 await self.mes.edit(view=view)
+                await self.mes.add_reaction('🛑')
         if (len(playlist) < 2):
             await ctx.send(f'''
             **:information_source: | 待播歌曲**
