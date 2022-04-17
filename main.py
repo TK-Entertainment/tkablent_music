@@ -135,7 +135,7 @@ class Router(commands.Cog):
             self.router[ctx.guild.id] = MusicBot(self.bot)
         await self.router[ctx.guild.id].swap(ctx, idx1, idx2)
 
-    @commands.command(name='move_to', aliases=['insert_to'])
+    @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         if self.router.get(ctx.guild.id) is None:
             self.router[ctx.guild.id] = MusicBot(self.bot)
