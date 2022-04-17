@@ -25,15 +25,16 @@ def sec_to_hms(self, seconds, format) -> str:
         else:
             return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
     elif format == "zh":
-        if seconds//60%60 == 0:
-            return f"{sec} 秒"
-        elif seconds//3600 == 0:
-            return f"{min} 分 {sec} 秒"
-        else:
+        if hr != 0: 
             return f"{hr} 小時 {min} 分 {sec} 秒"
+        elif min != 0:
+            return f"{min} 分 {sec} 秒"
+        elif sec != 0:
+            return f"{sec} 秒"
 
 from .player import Player
-from .playlist import Playlist
+from .playlist import Playlist, LoopState
+
 
 class UI:
     def __init__(self, bot_version):
@@ -112,18 +113,30 @@ class UI:
     def __SongInfo__(self, color: str=None, playlist: Playlist=None, index: int=0, mute: bool=False):
         if color == "green": colorcode = disnake.Colour.from_rgb(97, 219, 83)
         elif color == "yellow": colorcode = disnake.Colour.from_rgb(229, 199, 13)
+        elif color == "red": colorcode = disnake.Colour.from_rgb(255, 0, 0)
         else: colorcode = disnake.Colour.from_rgb(255, 255, 255)
+        # Generate Loop Icon
+        if color != "red":
+            loopstate: LoopState = playlist.is_loop
+            loopicon = ''; looptimes = ''
+            if loopstate == LoopState.SINGLE:
+                loopicon = ' | 🔂'
+                if playlist.flag != LoopState.SINGLEINF:
+                    looptimes = f' 🕗 {playlist.times} 次'
+            elif loopstate == LoopState.WHOLE: loopicon = ' | 🔁'
+        else:
+            loopstate = None; loopicon = ''; looptimes = ''
+        # Generate Embed Body
         embed = disnake.Embed(title=playlist[index].title, url=playlist[index].watch_url, colour=colorcode)
         embed.add_field(name="作者", value=f'[{playlist[index].author}]({playlist[index].channel_url})', inline=True)
+        embed.set_author(name=f"這首歌由 {playlist[index].requester.name}#{playlist[index].requester.tag} 點歌", icon_url=playlist[index].requester.display_avatar)
         if playlist[index].is_stream: 
+            embed._author['name'] += " | 🔴 直播"
             if color == None: embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.__bot__.command_prefix}skip / ⏹️ {self.__bot__.command_prefix}stop\n來結束播放此直播", inline=True)
-            if mute: embed.set_author(name=f"這首歌由 {playlist[index].requester.name}#{playlist[index].requester.tag} 點歌 | 🔴 直播 | 🔇 靜音", icon_url=playlist[index].requester.display_avatar)
-            else: embed.set_author(name=f"這首歌由 {playlist[index].requester.name}#{playlist[index].requester.tag} 點歌 | 🔴 直播", icon_url=playlist[index].requester.display_avatar)
         else: 
             embed.add_field(name="歌曲時長", value=sec_to_hms(self, playlist[index].length, "zh"), inline=True)
-            # The mute notice
-            if mute: embed.set_author(name=f"這首歌由 {playlist[index].requester.name}#{playlist[index].requester.tag} 點歌 | 🔇 靜音", icon_url=playlist[index].requester.display_avatar)
-            else: embed.set_author(name=f"這首歌由 {playlist[index].requester.name}#{playlist[index].requester.tag} 點歌", icon_url=playlist[index].requester.display_avatar)
+        if mute: embed._author['name'] += " | 🔇 靜音"
+        if loopstate != LoopState.NOTHING: embed._author['name'] += f"{loopicon}{looptimes}"
         if len(playlist) > 1:
             queuelist: str = ""
             queuelist += f"1." + playlist[1].title + "\n"
@@ -301,7 +314,7 @@ class UI:
         bar += "**"
         for i in range(round(persent*amount)):
             bar += '⎯'
-        bar += "**⬤**"
+        bar += "⬤"
         for i in range(round(persent*amount)+1, amount+1):
             bar += '⎯'
         bar += "**"
@@ -323,12 +336,65 @@ class UI:
             請以秒數格式(ex. 70)或時間戳格式(ex. 01:10)執行指令
             --------
             *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.__bot__.command_prefix}volume** 來調整音量*
+            *再次嘗試使用 **{self.__bot__.command_prefix}seek** 來跳轉音樂*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    ##########
+    # Replay #
+    ##########
+    async def ReplaySucceed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:repeat: | 重播歌曲**
+            歌曲已重新開始播放
+            *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
+            ''')
+    async def ReplayFailed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | RP01**
+            無法重播歌曲，請確認目前是否有歌曲播放
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}replay** 來重播歌曲*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    ########
+    # Loop #
+    ########
+    async def LoopSucceed(self, ctx: commands.Context, playlist: Playlist, ismute: bool) -> None:
+        if playlist.is_loop == LoopState.SINGLE and playlist.flag == LoopState.SINGLEINF:
+            await ctx.send(f'''
+            **:repeat_one: | 單曲重複播放**
+            已啟動單曲重複播放
+            ''')
+        elif playlist.is_loop == LoopState.SINGLE:
+            await ctx.send(f'''
+            **:repeat_one: | 單曲重複播放**
+            已啟動單曲重播，將重複播放 {playlist.times} 次後關閉單曲重播
+            ''')
+        elif playlist.is_loop == LoopState.WHOLE:
+            await ctx.send(f'''
+            **:repeat: | 全佇列重複播放**
+            已啟動全佇列重複播放
+            ''')
+        else:
+            await ctx.send(f'''
+            **:arrow_forward: | 關閉重複播放**
+            已關閉重複播放功能
+            ''')
+        await self.__UpdateSongInfo__(playlist, ismute)
+    async def SingleLoopFailed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | LP01**
+            無法啟動重複播放功能，請確認您輸入的重複次數有效
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}loop / {self.__bot__.command_prefix}loop [次數]** 來控制重複播放功能*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
     #########
     # Queue #
     #########
+    # Add to queue
     async def Embed_AddedToQueue(self, ctx: commands.Context, playlist: Playlist) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
@@ -336,24 +402,27 @@ class UI:
             index = len(playlist) - 1
             mes = f'''
             **:white_check_mark: | 成功加入隊列**
-                以下歌曲已加入隊列中，為第 **{len(playlist)}** 首歌
+                以下歌曲已加入隊列中，為第 **{len(playlist)-1}** 首歌
             '''
             if not issearch: await ctx.send(mes, embed=self.__SongInfo__(color="green", playlist=playlist, index=index))
             else: await searchmes.edit(content=mes, embed=self.__SongInfo__(color="green", playlist=playlist, index=index))
         else: 
             if issearch: await searchmes.delete()
+    # Queue Embed Generator
     def __QueueEmbed__(self, playlist: Playlist, page: int=1) -> disnake.Embed:
-        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，目前為第 {page+1} 頁", colour=0xF2F3EE)
+        embed = disnake.Embed(title=":information_source: | 候播清單", description="以下清單為歌曲候播列表", colour=0xF2F3EE)
+        if len(playlist) > 4: embed.description += "，目前為第 {page+1} 頁"
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist)): break
             length = sec_to_hms(self, playlist[index].length, "symbol")
             embed.add_field(
                 name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream else "", playlist[index].requester),
-                value=f"作者: {playlist[index].author} / 歌曲時長: {length}",
+                value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream else "", length if not playlist[index].is_stream else ""),
                 inline=False,
             )
         return embed
+    # Queue Listing
     async def ShowQueue(self, ctx: commands.Context, playlist: Playlist) -> None:
         class Button(disnake.ui.Button):
             def __init__(self, mode, playlist: Playlist, QueueEmbed, embed_opt):
@@ -416,3 +485,47 @@ class UI:
             view.set_mes(mes)
         else:
             await ctx.send(embed=embed)
+    # Remove an entity from queue
+    async def RemoveSucceed(self, ctx: commands.Context, playlist: Playlist, idx: int) -> None:
+        await ctx.send(f'''
+            **:wastebasket: | 已刪除指定歌曲**
+            已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
+            ''', embed=self.__SongInfo__('red', playlist))
+    async def RemoveFailed(self, ctx: commands.Context):
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | RM01**
+            無法刪除指定歌曲，請確認您輸入的順位數有效
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}remove [順位數]** 來刪除待播歌曲*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    # Swap entities in queue
+    async def Embed_SwapSucceed(self, ctx: commands.Context, playlist: Playlist, idx1: int, idx2: int) -> None:
+        embed = disnake.Embed(title=":arrows_counterclockwise: | 調換歌曲順序", description="已調換歌曲順序，以下為詳細資料", colour=0xF2F3EE)
+        embed.add_field(name=f"第 ~~{idx2}~~ -> **{idx1}** 順序", value=f'{playlist[idx1].title}\n{playlist[idx1].author}\n{playlist[idx1].requester} 點歌\n', inline=True)
+        embed.add_field(name=f"第 ~~{idx1}~~ -> **{idx2}** 順序", value=f'{playlist[idx2].title}\n{playlist[idx2].author}\n{playlist[idx2].requester} 點歌\n', inline=True)
+        await ctx.send(embed=embed)
+    async def SwapFailed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | SW01**
+            無法交換指定歌曲，請確認您輸入的順位數有效
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}swap [順位數1] [順位數2]** 來交換待播歌曲*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
+    # Move entity to other place in queue
+    async def MoveToSucceed(self, ctx: commands.Context, playlist: Playlist, origin: int, new: int) -> None:
+        embed = disnake.Embed(title=":arrows_counterclockwise: | 移動歌曲順序", description="已移動歌曲順序，以下為詳細資料", colour=0xF2F3EE)
+        embed.add_field(name=f"第 ~~{origin}~~ -> **{new}** 順序", value=f'{playlist[new].title}\n{playlist[new].author}\n{playlist[new].requester} 點歌\n', inline=True)
+        await ctx.send(embed=embed)
+    async def MoveToFailed(self, ctx) -> None:
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | MT01**
+            無法移動指定歌曲，請確認您輸入的目標順位數有效
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}move [原順位數] [目標順位數]** 來移動待播歌曲*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')

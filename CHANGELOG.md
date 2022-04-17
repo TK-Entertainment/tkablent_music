@@ -6,6 +6,14 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Alpha 20220417 Update 2
++ [UI] Added indicator when bot is searching for music source (typing indicator)
+! [UI] Made "Seek, Replay, Loop, Remove, Swap, Move_to" UI standalone
+# -> UI.SeekSucceed, UI.SeekFailed, UI.ReplaySucceed, UI.ReplayFailed, UI.LoopSucceed, UI.SingleLoopFailed, UI.RemoveSucceed, UI.RemoveFailed, UI.Embed_SwapSucceed, UI.SwapFailed, UI.MoveToSucceed, UI.MoveToFailed
+! [Core] Fixed sec_to_hms function "hour won't show up" problem
+! [Core] Fixed the problem that self.isskip and loopstate won't reset on mainloop done
+! [UI][Core] Fixed various problem
+
 # Alpha 20220417
 + Added "Queue" UI
 + Added Multiserver support (41f37a5 by @GrandTiger1729)

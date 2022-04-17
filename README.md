@@ -13,15 +13,13 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
 
-# Alpha 20220416 Update
-+ Added "Queue" UI
-+ Added Multiserver support (41f37a5 by @GrandTiger1729)
-# UI.ShowQueue
-! Made "Seek" UI standalone
-# UI.SeekSucceed / UI.SeekFailed
-! Rewrote Second to HourMinuteSecond(sec_to_hms) function
-! Fixed SongInfo color conditions
-! Fixed various problem
+# Alpha 20220417 Update 2
++ [UI] Added indicator when bot is searching for music source (typing indicator)
+! [UI] Made "Seek, Replay, Loop, Remove, Swap, Move_to" UI standalone
+# -> UI.SeekSucceed, UI.SeekFailed, UI.ReplaySucceed, UI.ReplayFailed, UI.LoopSucceed, UI.SingleLoopFailed, UI.RemoveSucceed, UI.RemoveFailed, UI.Embed_SwapSucceed, UI.SwapFailed, UI.MoveToSucceed, UI.MoveToFailed
+! [Core] Fixed sec_to_hms function "hour won't show up" problem
+! [Core] Fixed the problem that self.isskip and loopstate won't reset on mainloop done
+! [UI][Core] Fixed various problem
 ```  
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權

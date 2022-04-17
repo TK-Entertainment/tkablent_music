@@ -5,7 +5,7 @@ import disnake
 from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
 from disnake.ext import commands
 
-from .playlist import Song, Playlist
+from .playlist import Song, Playlist, LoopState
 
 INF = int(1e18)
 bot_version = 'LOCAL DEVELOPMENT'
@@ -73,7 +73,7 @@ class Player:
     
     def _stop(self):
         self.playlist.clear()
-        self.skip()
+        self.voice_client.stop()
 
     def _get_current_time(self) -> float:
         if self.voice_client.is_paused():
@@ -81,6 +81,9 @@ class Player:
         return self.playlist[0].left_off + self.voice_client._player.loops / 50
 
     def _seek(self, timestamp: float):
+        if timestamp >= self.playlist[0].length:
+            self.voice_client.stop()
+            return 'Exceed'
         self.playlist[0].seek(timestamp)
         self.voice_client.source = PCMVolumeTransformer(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options), volume=self.volumelevel)
     
@@ -109,12 +112,13 @@ class MusicBot(Player):
             else:
                 return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
         elif format == "zh":
-            if seconds//60%60 == 0:
-                return f"{sec} 秒"
-            elif seconds//3600 == 0:
-                return f"{min} 分 {sec} 秒"
-            else:
+            if hr != 0: 
                 return f"{hr} 小時 {min} 分 {sec} 秒"
+            elif min != 0:
+                return f"{min} 分 {sec} 秒"
+            elif sec != 0:
+                return f"{sec} 秒"
+                
 
     async def join(self, ctx: commands.Context, jointype=None):
         try:
@@ -145,9 +149,10 @@ class MusicBot(Player):
     async def play(self, ctx: commands.Context, *url):
         url = ' '.join(url)
         await self.join(ctx, "playattempt")
-        await self.ui.StartSearch(ctx, url, self.playlist)
-        self._search(url, requester=ctx.message.author)
-        await self.ui.Embed_AddedToQueue(ctx, self.playlist)
+        async with ctx.typing():
+            await self.ui.StartSearch(ctx, url, self.playlist)
+            self._search(url, requester=ctx.message.author)
+            await self.ui.Embed_AddedToQueue(ctx, self.playlist)
         self.voice_client = ctx.guild.voice_client
         self.bot.loop.create_task(self._mainloop(ctx))
 
@@ -160,14 +165,20 @@ class MusicBot(Player):
             if not self.isskip:
                 await self.ui.StartPlaying(ctx, self.playlist, self.ismute)
             else:
+                if self.playlist.flag != LoopState.SINGLEINF:
+                    self.playlist.is_loop = LoopState.NOTHING; self.playlist.times = 0
                 await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
-                self.isskip = False
             await self._play()
             await self.wait()
-            self.playlist[0].cleanup(self.volumelevel)
+            try: self.playlist[0].cleanup(self.volumelevel)
+            except: pass
             self.playlist.rule()
 
         self.in_mainloop = False
+        # Reset value
+        self.playlist.is_loop = LoopState.NOTHING
+        self.playlist.flag = None
+        self.isskip = False
         await self.ui.DonePlaying(ctx)
 
     async def pause(self, ctx: commands.Context):
@@ -213,49 +224,55 @@ class MusicBot(Player):
             self._volume(percent / 100)
 
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
-        if not isinstance(timestamp, float):
-            return await ctx.send('Fail to seek. Maybe you request an invalid timestamp')
-        self._seek(timestamp)
-        await self.ui.SeekSucceed(ctx, timestamp, self)
+        try:
+            if isinstance(timestamp, str) and ":" in timestamp:
+                tmp = timestamp.split(":"); timestamp = 0
+                for i in range(0, len(tmp)):
+                    timestamp += int(tmp[-i-1])*(60**(i))
+            int(timestamp) # For ignoring string with ":" like "o:ro"
+        except ValueError: 
+            await self.ui.SeekFailed(ctx)
+            return
+        if self._seek(timestamp) != 'Exceed':
+            await self.ui.SeekSucceed(ctx, timestamp, self)
 
     async def restart(self, ctx: commands.Context):
-        self._seek(0)
-        await ctx.send(f'''
-        **:repeat: | 重播歌曲**
-        歌曲已重新開始播放
-        *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
-        ''')
+        try:
+            self._seek(0)
+            await self.ui.ReplaySucceed(ctx)
+        except:
+            await self.ui.ReplayFailed(ctx)
 
     async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
         if not isinstance(times, int):
-            return await ctx.send('Fail to loop. Maybe you request an invalid times')
+            return await self.ui.SingleLoopFailed(ctx)
         self.playlist.single_loop(times)
-        await ctx.send('Enable single song loop sucessfully')
+        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
 
     async def whole_loop(self, ctx: commands.Context):
         self.playlist.whole_loop()
-        await ctx.send('Enable whole queue loop successfully')
+        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
 
     async def show(self, ctx: commands.Context):
         await self.ui.ShowQueue(ctx, self.playlist)
 
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
-            self.playlist.pop(idx)
-            await ctx.send('Remove successfully')
+            snapshot = []; snapshot.append(self.playlist.pop(idx))
+            await self.ui.RemoveSucceed(ctx, snapshot, idx)
         except (IndexError, TypeError):
-            await ctx.send('Fail to remove. Maybe you request an invalid index')
+            await self.ui.RemoveFailed(ctx)
     
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
         try:
             self.playlist.swap(idx1, idx2)
-            await ctx.send('Swap successfully')
+            await self.ui.Embed_SwapSucceed(ctx, self.playlist, idx1, idx2)
         except (IndexError, TypeError):
-            await ctx.send('Fail to swap. Maybe you request an invalid index')
+            await self.ui.SwapFailed(ctx)
 
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         try:
             self.playlist.move_to(origin, new)
-            await ctx.send('Move successfully')
+            await self.ui.MoveToSucceed(ctx, self.playlist, origin, new)
         except (IndexError, TypeError):
-            await ctx.send('Fail to move. Maybe you request an invalid index')
+            await self.ui.MoveToFailed(ctx)

@@ -50,7 +50,7 @@ class Song:
     def seek(self, stamp: float):
         if self.is_stream:
             raise SeekError
-        stamp = max(0, min(self.length, stamp))
+        stamp = stamp
         self.set_ffmpeg_options(stamp)
 
 class LoopState(Enum):
@@ -58,11 +58,13 @@ class LoopState(Enum):
     NOTHING = 0
     SINGLE = 1
     WHOLE = 2
+    SINGLEINF = 3
 
 class Playlist(List[Song]):
     def __init__(self):
         self.is_loop: LoopState = LoopState.NOTHING
         self.times: int = 0
+        self.flag: Union[LoopState, None] = None
 
     def nowplaying(self) -> Song:
         return self.index()
@@ -84,10 +86,14 @@ class Playlist(List[Song]):
             self.pop(0)
     
     def single_loop(self, times: int=INF):
-        if (self.is_loop == LoopState.SINGLE):
+        if (self.is_loop == LoopState.SINGLE) and times == INF:
             self.is_loop = LoopState.NOTHING
         else:
             self.is_loop = LoopState.SINGLE
+            if times == INF:
+                self.flag = LoopState.SINGLEINF
+            else:
+                self.flag = None
         self.times = times
 
     def whole_loop(self):
