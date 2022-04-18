@@ -42,8 +42,8 @@ class YTDL:
                     url = info.watch_url
                 streaminfo = ytdl.extract_info(url, download=False)
                 setattr(song, 'url', streaminfo['url'])
-        except Exception as e:
-            print('Failsafe: Using yt_dlp')
+        except Exception:
+            print('[ytdlCore] Failsafe: Using yt_dlp')
             if ("http" not in url) and ("www" not in url):
                 info = ytdl.extract_info(url, download=False)['entries'][0]
             else:

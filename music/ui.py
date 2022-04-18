@@ -214,7 +214,8 @@ class UI:
         if not autostageavailable:
             mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         playinfo = await ctx.send(mes, embed=self.__SongInfo__(playlist=player.playlist, mute=ismute))
-        await self.__UpdateStageTopic__(player)
+        try: await self.__UpdateStageTopic__(player)
+        except: pass
     async def DonePlaying(self, ctx: commands.Context, player: Player) -> None:
         await ctx.send(f'''
             **:clock4: | 播放完畢，等待播放動作**
