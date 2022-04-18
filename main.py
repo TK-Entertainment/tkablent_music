@@ -1,7 +1,7 @@
 bot_version = 'LOCAL DEVELOPMENT'
 
 from typing import *
-import os, dotenv, sys, gc
+import os, dotenv, sys
 
 import disnake
 from disnake.ext import commands
@@ -48,8 +48,8 @@ class Router(commands.Cog):
         if self.router.get(ctx.guild.id) is None:
             self.router[ctx.guild.id] = MusicBot(self.bot)
         await self.router[ctx.guild.id].leave(ctx)
-        del self.router[ctx.guild.id]
-        gc.collect()
+        # if self.router[ctx.guild.id].task != None: 
+        #     self.router[ctx.guild.id].task.cancel()
         
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, *url):
@@ -142,7 +142,7 @@ class Router(commands.Cog):
         await self.router[ctx.guild.id].move_to(ctx, origin, new)
 
     # Error handler
-    @commands.Cog.listener()
+    #@commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
             return

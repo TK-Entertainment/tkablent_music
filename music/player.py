@@ -30,6 +30,7 @@ class Player:
         
     async def _leave(self):
         if (self.voice_client.is_connected()):
+            self._stop()
             await self.voice_client.disconnect()
             self.voice_client = None
         else:
@@ -66,14 +67,18 @@ class Player:
             raise Exception # this exception is for identifying the illegal operation
 
     def _skip(self):
-        if (not self.voice_client._player._end.is_set()):
-            self.voice_client.stop()
-        self.playlist.times = 0
-        self.isskip = True
+        try:
+            if (not self.voice_client._player._end.is_set()):
+                self.voice_client.stop()
+                self.isskip = True
+        except:
+            pass
+        finally:
+            self.playlist.times = 0
     
     def _stop(self):
         self.playlist.clear()
-        self.voice_client.stop()
+        self._skip()
 
     def _get_current_time(self) -> float:
         if self.voice_client.is_paused():
@@ -95,14 +100,12 @@ class Player:
 from .ui import UI       
 
 class MusicBot(Player):
-    def __del__(self):
-        del self
-
     def __init__(self, bot):
         Player.__init__(self)
         self.bot: commands.Bot = bot
         self.ui: UI = UI(bot_version)
         self.ui.InitEmbedFooter(bot)
+        self.task: asyncio.Task = None
 
     def sec_to_hms(self, seconds, format) -> str:
         sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//3600)
@@ -143,18 +146,14 @@ class MusicBot(Player):
 
     async def leave(self, ctx: commands.Context):
         try:
-            botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
             try: 
                 if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
                     await self.ui.EndStage(self)
-                else:
-                    await self._leave()
-            except: await self._leave()
+            except: pass
+            finally: await self._leave()
             await self.ui.LeaveSucceed(ctx)
         except Exception as e:
-            print(e)
             await self.ui.LeaveFailed(ctx)
-        await asyncio.sleep(0.4)
 
     async def play(self, ctx: commands.Context, *url):
         botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
@@ -169,7 +168,8 @@ class MusicBot(Player):
         if botitself.voice.suppress:
             try: await botitself.edit(suppress=False)
             except: pass
-        self.bot.loop.create_task(self._mainloop(ctx))
+        self.task = self.bot.loop.create_task(self._mainloop(ctx))
+        
 
     async def _mainloop(self, ctx: commands.Context):
         if (self.in_mainloop):
@@ -194,6 +194,7 @@ class MusicBot(Player):
         self.playlist.is_loop = LoopState.NOTHING
         self.playlist.flag = None
         self.isskip = False
+        self.task = None
         await self.ui.DonePlaying(ctx, self)
 
     async def pause(self, ctx: commands.Context):
@@ -218,6 +219,7 @@ class MusicBot(Player):
 
     async def stop(self, ctx: commands.Context):
         try:
+            self.in_mainloop = False
             self._stop()
             await self.ui.StopSucceed(ctx)
         except:
