@@ -149,10 +149,12 @@ class MusicBot(Player):
             try: 
                 if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
                     await self.ui.EndStage(self)
-            except: pass
-            finally: await self._leave()
+                else:
+                    await self._leave()
+            except: await self._leave()
             await self.ui.LeaveSucceed(ctx)
         except Exception as e:
+            print(e)
             await self.ui.LeaveFailed(ctx)
 
     async def play(self, ctx: commands.Context, *url):
@@ -165,9 +167,10 @@ class MusicBot(Player):
             self._search(url, requester=ctx.message.author)
             await self.ui.Embed_AddedToQueue(ctx, self.playlist)
         self.voice_client = ctx.guild.voice_client
-        if botitself.voice.suppress:
-            try: await botitself.edit(suppress=False)
-            except: pass
+        if self.ui.autostageavailable:
+            if botitself.voice.suppress:
+                try: await botitself.edit(suppress=False)
+                except: pass
         self.task = self.bot.loop.create_task(self._mainloop(ctx))
         
 
@@ -183,6 +186,7 @@ class MusicBot(Player):
                 if self.playlist.flag != LoopState.SINGLEINF:
                     self.playlist.is_loop = LoopState.NOTHING; self.playlist.times = 0
                 await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
+                await self.ui.__UpdateStageTopic__(self)
             await self._play()
             await self.wait()
             try: self.playlist[0].cleanup(self.volumelevel)

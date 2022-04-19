@@ -8,7 +8,6 @@ searchmes: disnake.Message = None
 addmes: bool = False
 issearch: bool = False
 isqueuedone: bool = False
-autostageavailable: bool = True
 
 # Variables for two kinds of message
 # flag for local server, need to change for multiple server
@@ -40,6 +39,7 @@ from .playlist import Playlist, LoopState
 class UI:
     def __init__(self, bot_version):
         self.__bot_version__: str = bot_version
+        self.autostageavailable: bool = True
 
 
     def InitEmbedFooter(self, bot) -> None:
@@ -56,9 +56,8 @@ class UI:
             已成功加入 {ctx.author.voice.channel.name} 語音頻道
                 ''')
     async def JoinStage(self, ctx: commands.Context) -> None:
-        global autostageavailable
         botitself: disnake.Member = await ctx.guild.fetch_member(self.__bot__.user.id)
-        if botitself not in ctx.author.voice.channel.moderators and autostageavailable == True:
+        if botitself not in ctx.author.voice.channel.moderators and self.autostageavailable == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
@@ -69,9 +68,9 @@ class UI:
             *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
             *此警告僅會出現一次*
                     ''')
-                autostageavailable = False
+                self.autostageavailable = False
             else:
-                autostageavailable = True
+                self.autostageavailable = True
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
@@ -81,7 +80,7 @@ class UI:
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
                 ''')
-            autostageavailable = True
+            self.autostageavailable = True
     async def JoinAlready(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:hushed: | 我已經加入頻道囉**
@@ -103,30 +102,38 @@ class UI:
     # Stage #
     #########
     async def CreateStageInstance(self, ctx: commands.Context) -> None:
-        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or autostageavailable == False:
+        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or self.autostageavailable == False:
             return
         channel: disnake.StageChannel = ctx.author.voice.channel
         await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
     async def EndStage(self, player: Player) -> None:
-        if not autostageavailable: 
+        if not self.autostageavailable: 
             return
         if not isinstance(player.voice_client.channel.instance, disnake.StageInstance):
             return
         instance: disnake.StageInstance = player.voice_client.channel.instance
         await instance.delete()
     async def __UpdateStageTopic__(self, player: Player, mode: str='update') -> None:
-        if autostageavailable == False:
+        if self.autostageavailable == False:
             return
         instance: disnake.StageInstance = player.voice_client.channel.instance
-        if mode == "done":
-            await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
-        elif mode == "pause":
-            if player.playlist[0].is_stream: await instance.edit(topic=f'⏸️|🔴 {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
-            else: await instance.edit(topic=f'⏸️ {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
-        else:
-            if player.playlist[0].is_stream: await instance.edit(topic=f'▶️|🔴 {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
-            else: await instance.edit(topic=f'▶️ {player.playlist[0].title} / {player.playlist[0].requester} 點歌')
-            
+        try:
+            if mode == "done":
+                await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
+            elif mode == "pause":
+                    await instance.edit(topic='⏸️{} {}{} / {} 點歌'.format(
+                        "|🔴" if player.playlist[0].is_stream else "",
+                        player.playlist[0].title[:30] if len(player.playlist[0].title) >= 30 else player.playlist[0].title,
+                        "..." if len(player.playlist[0].title) >= 30 else "",
+                        player.playlist[0].requester))
+            else:
+                await instance.edit(topic='▶️{} {}{} / {} 點歌'.format(
+                        "|🔴" if player.playlist[0].is_stream else "",
+                        player.playlist[0].title[:30] if len(player.playlist[0].title) >= 30 else player.playlist[0].title,
+                        "..." if len(player.playlist[0].title) >= 30 else "",
+                        player.playlist[0].requester))
+        except Exception as e: print(e); pass
+
     #########
     # Leave #
     #########
@@ -200,7 +207,7 @@ class UI:
         mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
-        if not autostageavailable:
+        if not self.autostageavailable:
             mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         await playinfo.edit(content=mes, embed=self.__SongInfo__(playlist=playlist, mute=ismute))
     ########
@@ -211,7 +218,7 @@ class UI:
         mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
-        if not autostageavailable:
+        if not self.autostageavailable:
             mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         playinfo = await ctx.send(mes, embed=self.__SongInfo__(playlist=player.playlist, mute=ismute))
         try: await self.__UpdateStageTopic__(player)
