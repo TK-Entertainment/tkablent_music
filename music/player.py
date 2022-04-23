@@ -140,7 +140,6 @@ class MusicBot(Player):
             else:
                 await self.ui.JoinNormal(ctx)
         except Exception as e:
-            print(e)
             await self.ui.JoinFailed(ctx)
             return 'failed'
 
@@ -154,7 +153,6 @@ class MusicBot(Player):
             except: await self._leave()
             await self.ui.LeaveSucceed(ctx)
         except Exception as e:
-            print(e)
             await self.ui.LeaveFailed(ctx)
 
     async def play(self, ctx: commands.Context, *url):

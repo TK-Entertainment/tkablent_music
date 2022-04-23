@@ -132,7 +132,7 @@ class UI:
                         player.playlist[0].title[:30] if len(player.playlist[0].title) >= 30 else player.playlist[0].title,
                         "..." if len(player.playlist[0].title) >= 30 else "",
                         player.playlist[0].requester))
-        except Exception as e: print(e); pass
+        except Exception as e: pass
 
     #########
     # Leave #

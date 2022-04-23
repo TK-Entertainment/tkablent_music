@@ -19,7 +19,7 @@ dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
 intents = disnake.Intents.all()
-bot = commands.Bot(command_prefix='$', intents=intents, help_command=None)
+bot = commands.Bot(command_prefix='@', intents=intents, help_command=None)
 
 from music import *
 INF = int(1e18)

@@ -8,6 +8,9 @@
 test.py
 ffmpeg.exe
 
+# local virtual environment
+tkablent/
+
 # Below is Python .gitignore list from 
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 # Byte-compiled / optimized / DLL files
