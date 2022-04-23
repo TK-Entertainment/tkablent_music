@@ -8,7 +8,7 @@ from disnake.ext import commands
 from .playlist import Song, Playlist, LoopState
 
 INF = int(1e18)
-bot_version = 'LOCAL DEVELOPMENT'
+bot_version = 'master Branch'
 
 class Player:     
     def __del__(self):
@@ -148,8 +148,7 @@ class MusicBot(Player):
             try: 
                 if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
                     await self.ui.EndStage(self)
-                else:
-                    await self._leave()
+                await self._leave()
             except: await self._leave()
             await self.ui.LeaveSucceed(ctx)
         except Exception as e:
