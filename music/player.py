@@ -6,6 +6,8 @@ from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransfor
 from disnake.ext import commands
 
 from .playlist import Song, Playlist, LoopState
+from pytube import exceptions as PytubeExceptions
+from yt_dlp import utils as YTDLPExceptions
 
 INF = int(1e18)
 bot_version = 'master Branch'
@@ -22,6 +24,7 @@ class Player:
         self.volumelevel: float = 1.0
         self.ismute: bool = False
         self.isskip: bool = False
+        self.totallength: int = 0
     
     async def _join(self, channel: VoiceChannel):
         if (self.voice_client is None) or (not self.voice_client.is_connected()):
@@ -38,7 +41,7 @@ class Player:
 
     def _search(self, url, **kwargs):
         song: Song = Song()
-        song.add_info(url, volumelevel=self.volumelevel, **kwargs)
+        song.add_info(url, **kwargs)
         self.playlist.append(song)
 
     async def _play(self):
@@ -79,6 +82,7 @@ class Player:
     def _stop(self):
         self.playlist.clear()
         self._skip()
+        self.isskip = False
 
     def _get_current_time(self) -> float:
         if self.voice_client.is_paused():
@@ -106,16 +110,30 @@ class MusicBot(Player):
         self.ui: UI = UI(bot_version)
         self.ui.InitEmbedFooter(bot)
         self.task: asyncio.Task = None
+        self.inactive: bool = False
+        self.timedout: bool = False
+
+    async def timeout(self, ctx):
+        if self.inactive:
+            await asyncio.sleep(600)
+            try:
+                await self.leave(ctx, 'timeout')
+            except:
+                pass
 
     def sec_to_hms(self, seconds, format) -> str:
-        sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//3600)
+        sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//24//60%60); day = int(seconds//86400)
         if format == "symbol":
-            if hr == 0:
-                return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-            else:
+            if day != 0:
+                return "{}{}:{}{}:{}{}:{}{}".format("0" if day < 10 else "", day, "0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
+            if hr != 0:
                 return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
+            else:
+                return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
         elif format == "zh":
-            if hr != 0: 
+            if day != 0:
+                return f"{day} 天 {hr} 小時 {min} 分 {sec} 秒"
+            elif hr != 0: 
                 return f"{hr} 小時 {min} 分 {sec} 秒"
             elif min != 0:
                 return f"{min} 分 {sec} 秒"
@@ -123,15 +141,33 @@ class MusicBot(Player):
                 return f"{sec} 秒"
                 
 
-    async def join(self, ctx: commands.Context, jointype=None):
+    async def join(self, ctx: commands.Context, jointype: str='normal'):
+        if self.task is not None:
+            self.task.cancel()
+        botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
         try:
             isinstance(self.voice_client.channel, None)
             notin = False
         except: notin = True
         if isinstance(self.voice_client, disnake.VoiceClient) or notin == False:
-            if jointype == None:
+            if self.voice_client.channel != ctx.author.voice.channel:
+                former = self.voice_client.channel; formerstate = self.voice_client.is_paused()
+                pause_after_rejoin = False
+                if not formerstate:
+                    self._pause()
+                    pause_after_rejoin = True
+                await botitself.move_to(ctx.author.voice.channel)
+                if pause_after_rejoin: self._resume()
+                if formerstate: self.task = self.bot.loop.create_task(self.timeout(ctx))
+                await self.ui.JoinNormal(ctx, 'rejoin')
+                if isinstance(former, disnake.StageChannel):
+                    if isinstance(former.instance, disnake.StageInstance):
+                        await former.delete()
+                return
+            else:
+                if jointype == 'playattempt': return
                 await self.ui.JoinAlready(ctx)
-            return
+                return
         try:
             await self._join(ctx.author.voice.channel)
             if isinstance(ctx.author.voice.channel, disnake.StageChannel):
@@ -143,40 +179,61 @@ class MusicBot(Player):
             await self.ui.JoinFailed(ctx)
             return 'failed'
 
-    async def leave(self, ctx: commands.Context):
+    async def leave(self, ctx: commands.Context, mode: str='normal'):
         try:
             try: 
                 if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
                     await self.ui.EndStage(self)
                 await self._leave()
             except: await self._leave()
-            await self.ui.LeaveSucceed(ctx)
-        except Exception as e:
+            if mode == 'timeout': 
+                self.timedout: bool = True
+                await self.ui.LeaveOnTimeout(ctx)
+            else: 
+                if self.task is not None:
+                    self.task.cancel()
+                await self.ui.LeaveSucceed(ctx)
+        except:
             await self.ui.LeaveFailed(ctx)
 
     async def play(self, ctx: commands.Context, *url):
         botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
         url = ' '.join(url)
-        status = await self.join(ctx, "playattempt")
+        status = await self.join(ctx, 'playattempt')
         if status == 'failed': return
         async with ctx.typing():
             await self.ui.StartSearch(ctx, url, self.playlist)
-            self._search(url, requester=ctx.message.author)
+            try: 
+                self._search(url, requester=ctx.message.author)
+            except Exception as e:
+                await self._SearchFailedHandler(ctx, e, url)
+                return
             await self.ui.Embed_AddedToQueue(ctx, self.playlist)
+            if len(self.playlist) > 1:
+                self.totallength += self.playlist[-1].length
         self.voice_client = ctx.guild.voice_client
         if self.ui.autostageavailable:
             if botitself.voice.suppress:
                 try: await botitself.edit(suppress=False)
                 except: pass
-        self.task = self.bot.loop.create_task(self._mainloop(ctx))
-        
+        self.bot.loop.create_task(self._mainloop(ctx))
 
+    async def _SearchFailedHandler(self, ctx: commands.Context, exception: Exception, url: str):
+        if isinstance(exception, PytubeExceptions.VideoPrivate) or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+            await self.ui.SearchFailed(ctx, url, "VideoPrivate")
+        elif isinstance(exception, PytubeExceptions.MembersOnly):
+            await self.ui.SearchFailed(ctx, url, 'MembersOnly')
+        else:
+            await self.ui.SearchFailed(ctx, url, 'Unknown')
     async def _mainloop(self, ctx: commands.Context):
         if (self.in_mainloop):
             return
         self.in_mainloop = True
         
         while len(self.playlist):
+            if self.task is not None:
+                self.task.cancel()
+            self.inactive = False
             if not self.isskip:
                 await self.ui.StartPlaying(ctx, self, self.ismute)
             else:
@@ -184,30 +241,44 @@ class MusicBot(Player):
                     self.playlist.is_loop = LoopState.NOTHING; self.playlist.times = 0
                 await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
                 await self.ui.__UpdateStageTopic__(self)
+                self.isskip = False
             await self._play()
             await self.wait()
             try: self.playlist[0].cleanup(self.volumelevel)
             except: pass
-            self.playlist.rule()
+            self.totallength -= self.playlist.rule()
 
         self.in_mainloop = False
+        if self.isskip: await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
         # Reset value
         self.playlist.is_loop = LoopState.NOTHING
         self.playlist.flag = None
         self.isskip = False
-        self.task = None
-        await self.ui.DonePlaying(ctx, self)
+        if not self.timedout:
+            await self.ui.DonePlaying(ctx, self)
+        if not self.timedout:
+            self.inactive = True
+            self.task = self.bot.loop.create_task(self.timeout(ctx))
 
-    async def pause(self, ctx: commands.Context):
+    async def pause(self, ctx: commands.Context, onlybotin: bool=False):
         try:
             self._pause()
-            await self.ui.PauseSucceed(ctx, self)
-        except:
+            if self.task is not None:
+                self.task.cancel()
+            self.inactive = True
+            self.task = self.bot.loop.create_task(self.timeout(ctx))
+            if onlybotin: await self.ui.PauseOnAllMemberLeave(ctx, self)
+            else: await self.ui.PauseSucceed(ctx, self)
+        except Exception as e:
+            print(e)
             await self.ui.PauseFailed(ctx)
 
     async def resume(self, ctx: commands.Context):
         try:
+            if self.task is not None:
+                self.task.cancel()
             self._resume()
+            self.inactive = False
             await self.ui.ResumeSucceed(ctx, self)
         except:
             await self.ui.ResumeFailed(ctx)
@@ -221,7 +292,10 @@ class MusicBot(Player):
     async def stop(self, ctx: commands.Context):
         try:
             self.in_mainloop = False
-            self._stop()
+            if self.task is not None:
+                self.task.cancel()
+            self.task = self.bot.loop.create_task(self.timeout(ctx))
+            self.inactive = True
             await self.ui.StopSucceed(ctx)
         except:
             await self.ui.StopFailed(ctx)
@@ -272,7 +346,7 @@ class MusicBot(Player):
         await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
 
     async def show(self, ctx: commands.Context):
-        await self.ui.ShowQueue(ctx, self.playlist)
+        await self.ui.ShowQueue(ctx, self.playlist, self.totallength)
 
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:

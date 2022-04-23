@@ -18,14 +18,18 @@ cdt = datetime.datetime.now().date()
 year = cdt.strftime("%Y")
 
 def sec_to_hms(self, seconds, format) -> str:
-    sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//3600)
+    sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//24//60%60); day = int(seconds//86400)
     if format == "symbol":
-        if hr == 0:
-            return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-        else:
+        if day != 0:
+            return "{}{}:{}{}:{}{}:{}{}".format("0" if day < 10 else "", day, "0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
+        if hr != 0:
             return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
+        else:
+            return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
     elif format == "zh":
-        if hr != 0: 
+        if day != 0:
+            return f"{day} 天 {hr} 小時 {min} 分 {sec} 秒"
+        elif hr != 0: 
             return f"{hr} 小時 {min} 分 {sec} 秒"
         elif min != 0:
             return f"{min} 分 {sec} 秒"
@@ -50,11 +54,18 @@ class UI:
     ########
     # Join #
     ########
-    async def JoinNormal(self, ctx: commands.Context) -> None:
+    async def JoinNormal(self, ctx: commands.Context, mode: str='normal') -> None:
+        if mode == 'rejoin': 
+            await ctx.send(f'''
+            **:inbox_tray: | 已更換語音頻道**
+            已更換至 {ctx.author.voice.channel.name} 語音頻道
+                ''')
+            return
         await ctx.send(f'''
             **:inbox_tray: | 已加入語音頻道**
             已成功加入 {ctx.author.voice.channel.name} 語音頻道
                 ''')
+        return
     async def JoinStage(self, ctx: commands.Context) -> None:
         botitself: disnake.Member = await ctx.guild.fetch_member(self.__bot__.user.id)
         if botitself not in ctx.author.voice.channel.moderators and self.autostageavailable == True:
@@ -69,18 +80,21 @@ class UI:
             *此警告僅會出現一次*
                     ''')
                 self.autostageavailable = False
+                return
             else:
                 self.autostageavailable = True
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
                 ''')
+                return
         else:
             await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
                 ''')
             self.autostageavailable = True
+            return
     async def JoinAlready(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:hushed: | 我已經加入頻道囉**
@@ -89,6 +103,7 @@ class UI:
             輸入 **{self.__bot__.command_prefix}leave** 以離開原有頻道
             然後使用 **{self.__bot__.command_prefix}join 加入新的頻道***
                 ''')
+        return
     async def JoinFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | JOINFAIL**
@@ -98,6 +113,7 @@ class UI:
             *再次嘗試使用 **{self.__bot__.command_prefix}join** 來把我加入頻道*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+        return
     #########
     # Stage #
     #########
@@ -116,8 +132,8 @@ class UI:
     async def __UpdateStageTopic__(self, player: Player, mode: str='update') -> None:
         if self.autostageavailable == False:
             return
-        instance: disnake.StageInstance = player.voice_client.channel.instance
         try:
+            instance: disnake.StageInstance = player.voice_client.channel.instance
             if mode == "done":
                 await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
             elif mode == "pause":
@@ -142,6 +158,12 @@ class UI:
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
+    async def LeaveOnTimeout(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
+            **:outbox_tray: | 等待超時**
+            機器人已閒置超過 10 分鐘
+            已停止所有音樂並離開目前所在的語音/舞台頻道
+            ''')
     async def LeaveFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | LEAVEFAIL**
@@ -164,7 +186,22 @@ class UI:
             issearch = True
         else: issearch = False
         addmes = len(playlist) != 0
-    
+    async def SearchFailed(self, ctx: commands.Context, url: str, reason: str) -> None:
+        reasons = {
+            'VideoPrivate': ['VIDPRIVATE', '私人影片'],
+            'MembersOnly': ['FORMEMBERS', '會員限定影片'],
+            'Unknown': ['NOTAVAILIBLE', '無法存取的影片']
+        }
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | {reasons[reason][0]}**
+            您所指定的音樂 {url}
+            為 **{reasons[reason][1]}**，機器人無法存取
+            請更換其他音樂播放
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.__bot__.command_prefix}play** 來播放音樂*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            ''')
     ########
     # Info #
     ########
@@ -240,7 +277,16 @@ class UI:
             歌曲已暫停播放
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
-        await self.__UpdateStageTopic__(player, 'pause')
+        try: await self.__UpdateStageTopic__(player, 'pause')
+        except: pass
+    async def PauseOnAllMemberLeave(self, ctx: commands.Context, player: Player) -> None:
+        await ctx.send(f'''
+            **:pause_button: | 暫停歌曲**
+            所有人皆已退出語音頻道，歌曲已暫停播放
+            *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
+            ''')
+        try: await self.__UpdateStageTopic__(player, 'pause')
+        except: pass
     async def PauseFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL01**
@@ -259,7 +305,8 @@ class UI:
             歌曲已繼續播放
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
             ''')
-        await self.__UpdateStageTopic__(player, 'resume')
+        try: await self.__UpdateStageTopic__(player, 'resume')
+        except: pass
     async def ResumeFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL02**
@@ -477,9 +524,10 @@ class UI:
         else: 
             if issearch: await searchmes.delete()
     # Queue Embed Generator
-    def __QueueEmbed__(self, playlist: Playlist, page: int=1) -> disnake.Embed:
-        embed = disnake.Embed(title=":information_source: | 候播清單", description="以下清單為歌曲候播列表", colour=0xF2F3EE)
-        if len(playlist) > 4: embed.description += "，目前為第 {page+1} 頁"
+    def __QueueEmbed__(self, playlist: Playlist, page: int=1, totallength: int=None) -> disnake.Embed:
+        tl = sec_to_hms(self, totallength, "symbol")
+        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist)-1} 首，總時長 {tl}", colour=0xF2F3EE)
+        if len(playlist) > 4: embed.description += "\n目前為第 {page+1} 頁"
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist)): break
@@ -491,7 +539,7 @@ class UI:
             )
         return embed
     # Queue Listing
-    async def ShowQueue(self, ctx: commands.Context, playlist: Playlist) -> None:
+    async def ShowQueue(self, ctx: commands.Context, playlist: Playlist, totallength: int) -> None:
         class Button(disnake.ui.Button):
             def __init__(self, mode, playlist: Playlist, QueueEmbed, embed_opt):
                 self.mode: bool = mode
@@ -516,7 +564,7 @@ class UI:
                     if view.page == (len(self.playlist)-1)//3: view.children[1].disabled = True
                     if view.page != 0: view.children[0].disabled = False
                 if self.mode == 'done': view.clear_items(); isqueuedone = True
-                embed = self.queueembed(self.playlist, view.page)
+                embed = self.queueembed(self.playlist, view.page, totallength)
                 embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
                 if self.mode == 'done': 
@@ -545,7 +593,7 @@ class UI:
             *輸入 ** '{self.__bot__.command_prefix}play 關鍵字或網址' **可繼續點歌*
             ''')
             return
-        embed = self.__QueueEmbed__(playlist, 0)
+        embed = self.__QueueEmbed__(playlist, 0, totallength)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         if not (len(playlist)) <= 4:
             view = QueuePage(playlist, self.__QueueEmbed__, self.__embed_opt__)

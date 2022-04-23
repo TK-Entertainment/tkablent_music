@@ -1,7 +1,7 @@
 bot_version = 'LOCAL DEVELOPMENT'
 
 from typing import *
-import os, dotenv, sys
+import os, dotenv, sys, pytube, yt_dlp
 
 import disnake
 from disnake.ext import commands
@@ -34,112 +34,135 @@ class Router(commands.Cog):
     def __init__(self, bot):
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
-        self.router: Dict[int, MusicBot] = {}
+        self.router: Dict[int, List[MusicBot, commands.Context]] = {}
         self.ui = UI(bot_version)
-    
+
+    def initmusicbot(self, ctx: commands.Context):
+        self.router[ctx.guild.id] = []
+        self.router[ctx.guild.id].append(MusicBot(bot))
+        self.router[ctx.guild.id].append(ctx)
+
     @commands.command(name='join')
     async def join(self, ctx: commands.Context, jointype=None):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].join(ctx, jointype)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].join(ctx, jointype)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='leave')
     async def leave(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].leave(ctx)
-        # if self.router[ctx.guild.id].task != None: 
-        #     self.router[ctx.guild.id].task.cancel()
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].leave(ctx)
+        self.router[ctx.guild.id][1] = ctx
+        # if self.router[ctx.guild.id][0].task != None: 
+        #     self.router[ctx.guild.id][0].task.cancel()
         
     @commands.command(name='play', aliases=['p'])
     async def play(self, ctx: commands.Context, *url):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].play(ctx, *url)
+            
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].play(ctx, *url)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='pause')
     async def pause(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].pause(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].pause(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='resume')
     async def resume(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].resume(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].resume(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].skip(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].skip(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].stop(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].stop(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name="mute", aliases=['quiet', 'shutup'])
     async def mute(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].mute(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].mute(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='volume')
     async def volume(self, ctx: commands.Context, percent: Union[float, str]=None, unmute: bool=False):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].volume(ctx, percent, unmute)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].volume(ctx, percent, unmute)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].seek(ctx, timestamp)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].seek(ctx, timestamp)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='restart', aliases=['replay'])
     async def restart(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].restart(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].restart(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='loop', aliases=['songloop'])
     async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].single_loop(ctx, times)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].single_loop(ctx, times)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='wholeloop', aliases=['queueloop', 'qloop'])
     async def whole_loop(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].whole_loop(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].whole_loop(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='show', aliases=['queuelist', 'queue'])
     async def show(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].show(ctx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].show(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='remove', aliases=['queuedel'])
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].remove(ctx, idx)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].remove(ctx, idx)
+        self.router[ctx.guild.id][1] = ctx
     
     @commands.command(name='swap')
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].swap(ctx, idx1, idx2)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].swap(ctx, idx1, idx2)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         if self.router.get(ctx.guild.id) is None:
-            self.router[ctx.guild.id] = MusicBot(self.bot)
-        await self.router[ctx.guild.id].move_to(ctx, origin, new)
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].move_to(ctx, origin, new)
+        self.router[ctx.guild.id][1] = ctx
 
     # Error handler
     #@commands.Cog.listener()
@@ -157,6 +180,17 @@ class Router(commands.Cog):
             --------
             *若您覺得有Bug或錯誤，請參照上方資訊及代碼回報至 Github*
             ''') 
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: disnake.Member, before, after: disnake.VoiceState):
+        try:
+            guild = member.voice.channel.guild
+            bot = await guild.fetch_member(self.bot.user.id)
+        
+            if len(bot.voice.channel.members) == 1 and bot in bot.voice.channel.members:
+                if self.router.get(guild.id) is None: return
+                await self.router[guild.id][0].pause(self.router[guild.id][1], True) 
+        except: pass
 
     @commands.Cog.listener()
     async def on_ready(self):

@@ -42,19 +42,24 @@ class YTDL:
                     url = info.watch_url
                 streaminfo = ytdl.extract_info(url, download=False)
                 setattr(song, 'url', streaminfo['url'])
-        except Exception:
-            print('[ytdlCore] Failsafe: Using yt_dlp')
-            if ("http" not in url) and ("www" not in url):
-                info = ytdl.extract_info(url, download=False)['entries'][0]
-            else:
-                info = ytdl.extract_info(url, download=False)
-            setattr(song, 'title', info["title"])
-            setattr(song, 'author', info["uploader"])
-            setattr(song, 'channel_url', info["uploader_url"])
-            setattr(song, 'watch_url', info["webpage_url"])
-            setattr(song, 'thumbnail_url', info['thumbnail'])
-            setattr(song, 'length', info['duration'])
-            setattr(song, 'url', info['url'])
+        except pytube.exceptions.VideoPrivate or pytube.exceptions.MembersOnly as e:
+            raise e
+        else:
+            try:
+                print('[ytdlCore] Failsafe: Using yt_dlp')
+                if ("http" not in url) and ("www" not in url):
+                    info = ytdl.extract_info(url, download=False)['entries'][0]
+                else:
+                    info = ytdl.extract_info(url, download=False)
+                setattr(song, 'title', info["title"])
+                setattr(song, 'author', info["uploader"])
+                setattr(song, 'channel_url', info["uploader_url"])
+                setattr(song, 'watch_url', info["webpage_url"])
+                setattr(song, 'thumbnail_url', info['thumbnail'])
+                setattr(song, 'length', info['duration'])
+                setattr(song, 'url', info['url'])
+            except Exception as e: 
+                raise e
 
         # Debugging Message
     #     if song.length != 0:

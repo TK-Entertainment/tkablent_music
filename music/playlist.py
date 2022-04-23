@@ -31,7 +31,7 @@ class Song:
         self.is_stream: bool = False
         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
 
-    def add_info(self, url, requester, volumelevel):
+    def add_info(self, url, requester):
         ytdl.get_info(self, url)
         self.requester = requester
         self.is_stream = (self.length == 0)
@@ -77,13 +77,18 @@ class Playlist(List[Song]):
 
     def rule(self):
         if len(self) == 0:
-            return
+            return 0
         if self.is_loop == LoopState.SINGLE and self.times > 0:
             self.times -= 1
+            return 0
         elif self.is_loop == LoopState.WHOLE:
             self.append(self.pop(0))
+            return 0
         else:
+            length = self[0].length
             self.pop(0)
+            return length
+            
     
     def single_loop(self, times: int=INF):
         if (self.is_loop == LoopState.SINGLE) and times == INF:

@@ -6,6 +6,19 @@ Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
 
+# Alpha 20220424 Update
++ [Core] Added timeout leaving function (after 10 minutes)
++ [Core] Added pause when nobody is in the voice channel
++ [Core] Added channel switching function
++ [Core][UI] Added Pytube/yt_dlp exception handler
+# Private videos/Member-only videos/Unknown reason
++ [UI] Added showing number of all inqueue songs and total length on queue listing interface
++ [Core] Added requirements.txt to download all required packages and fixed version of pytube from kinshuk-h's repo
+! [Github] Updated .gitignore to avoid testing file from uploading
+! [UI] Updated sec_to_hms(Second to HourMinuteSecond) function to handle when video length is longer than 1 day
+! [Github] Updated .gitignore file to prevent virtualenv directory from uploading
+- [Core] Removed debugging message when exceptions were raised
+
 # Alpha 20220417 Update 2
 + [UI] Added indicator when bot is searching for music source (typing indicator)
 ! [UI] Made "Seek, Replay, Loop, Remove, Swap, Move_to" UI standalone
