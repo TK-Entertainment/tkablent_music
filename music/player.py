@@ -214,7 +214,7 @@ class MusicBot(Player):
             if len(self.playlist) > 1:
                 self.totallength += self.playlist[-1].length
         self.voice_client = ctx.guild.voice_client
-        if self.ui.autostageavailable:
+        if self.ui.autostageavailable and isinstance(ctx.author.voice.channel, disnake.StageChannel):
             if botitself.voice.suppress:
                 try: await botitself.edit(suppress=False)
                 except: pass
@@ -227,6 +227,7 @@ class MusicBot(Player):
             await self.ui.SearchFailed(ctx, url, 'MembersOnly')
         else:
             await self.ui.SearchFailed(ctx, url, 'Unknown')
+
     async def _mainloop(self, ctx: commands.Context):
         if (self.in_mainloop):
             return
@@ -353,6 +354,7 @@ class MusicBot(Player):
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
             snapshot = []; snapshot.append(self.playlist.pop(idx))
+            self.totallength -= snapshot[0].length
             await self.ui.RemoveSucceed(ctx, snapshot, idx)
         except (IndexError, TypeError):
             await self.ui.RemoveFailed(ctx)
