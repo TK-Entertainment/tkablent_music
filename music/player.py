@@ -140,6 +140,8 @@ class MusicBot(Player):
             elif sec != 0:
                 return f"{sec} 秒"
                 
+    async def help(self, ctx: commands.Context):
+        await self.ui.Help(ctx)
 
     async def join(self, ctx: commands.Context, jointype: str='normal'):
         if self.task is not None:

@@ -1,7 +1,7 @@
 bot_version = 'LOCAL DEVELOPMENT'
 
 from typing import *
-import os, dotenv, sys, pytube, yt_dlp
+import os, dotenv, sys
 
 import disnake
 from disnake.ext import commands
@@ -18,8 +18,9 @@ Current Version
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
+presence = disnake.Game(name='播放音樂 | $play')
 intents = disnake.Intents.all()
-bot = commands.Bot(command_prefix='$', intents=intents, help_command=None)
+bot = commands.Bot(command_prefix='$', intents=intents, help_command=None, activity=presence, status=disnake.Status.online)
 
 from music import *
 INF = int(1e18)
@@ -41,6 +42,13 @@ class Router(commands.Cog):
         self.router[ctx.guild.id] = []
         self.router[ctx.guild.id].append(MusicBot(bot))
         self.router[ctx.guild.id].append(ctx)
+
+    @commands.command(name='help')
+    async def help(self, ctx: commands.Context):
+        if self.router.get(ctx.guild.id) is None:
+            self.initmusicbot(ctx)
+        await self.router[ctx.guild.id][0].help(ctx)
+        self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='join')
     async def join(self, ctx: commands.Context, jointype=None):
@@ -211,11 +219,13 @@ class Router(commands.Cog):
     若此訊息下方沒有任何錯誤訊息
     即代表此機器人已成功開機
     ''')
+        
 
 bot.add_cog(Router(bot))
 
 try:
     bot.run(TOKEN)
+
 except AttributeError:
     print(f'''
     =========================================

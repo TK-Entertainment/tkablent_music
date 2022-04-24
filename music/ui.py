@@ -8,6 +8,7 @@ searchmes: disnake.Message = None
 addmes: bool = False
 issearch: bool = False
 isqueuedone: bool = False
+ishelpdone: bool = False; lasthelpmode: int = 0
 
 # Variables for two kinds of message
 # flag for local server, need to change for multiple server
@@ -51,6 +52,92 @@ class UI:
         self.__embed_opt__: dict = {
         'footer': {'text': f"{self.__bot__.user.name} | 版本: {self.__bot_version__}\nCopyright @ {year} TK Entertainment", 'icon_url': "https://i.imgur.com/wApgX8J.png"},
         }
+    ########
+    # Help #
+    ########
+    def __HelpEmbed__(self, item: int=0):
+        if item == 0:
+            embed = disnake.Embed(title=":regional_indicator_q: | 指令說明 | 基本指令", description=f'''
+        {self.__bot__.command_prefix}help | 顯示此提示框，列出指令說明
+        {self.__bot__.command_prefix}join | 將機器人加入到您目前所在的語音頻道
+        {self.__bot__.command_prefix}leave | 使機器人離開其所在的語音頻道
+        ''', colour=0xF2F3EE)
+        elif item == 1:
+            embed = disnake.Embed(title=":regional_indicator_q: | 指令說明 | 播放相關指令", description=f'''
+        {self.__bot__.command_prefix}play [URL/名稱] | 開始播放指定歌曲(輸入名稱會啟動搜尋)
+        {self.__bot__.command_prefix}pause | 暫停歌曲播放
+        {self.__bot__.command_prefix}resume | 續播歌曲
+        {self.__bot__.command_prefix}skip | 跳過目前歌曲
+        {self.__bot__.command_prefix}stop | 停止歌曲並清除所有隊列
+        {self.__bot__.command_prefix}mute | 切換靜音狀態
+        {self.__bot__.command_prefix}volume [音量] | 顯示機器人目前音量/更改音量(加上指定 [音量])
+        {self.__bot__.command_prefix}seek [秒/時間戳] | 快轉至指定時間 (時間戳格式 ex.00:04)
+        {self.__bot__.command_prefix}restart | 重新播放目前歌曲
+        {self.__bot__.command_prefix}loop | 切換單曲循環開關
+        {self.__bot__.command_prefix}wholeloop | 切換全隊列循環開關
+        ''', colour=0xF2F3EE)
+        elif item == 2:
+            embed = disnake.Embed(title=":regional_indicator_q: | 指令說明 | 隊列相關指令", description=f'''
+        {self.__bot__.command_prefix}queue | 顯示待播歌曲列表
+        {self.__bot__.command_prefix}remove [順位數] | 移除指定待播歌曲
+        {self.__bot__.command_prefix}swap [順位數1] [順位數2] | 交換指定待播歌曲順序
+        {self.__bot__.command_prefix}move [原順位數] [目標順位數] | 移動指定待播歌曲至指定順序
+        ''', colour=0xF2F3EE)
+        return embed
+    async def Help(self, ctx: commands.Context) -> None:
+        global ishelpdone, lasthelpmode
+        ishelpdone = False; lasthelpmode = 0
+        class Button(disnake.ui.Button):
+            def __init__(self, mode, HelpEmbed, embed_opt):
+                self.mode: bool = mode
+                self.helpembed = HelpEmbed
+                self.embed_opt = embed_opt
+                super().__init__(style=disnake.ButtonStyle.blurple)
+                if self.mode == 'basic': self.label = '基本指令'; self.disabled = True; self.style=disnake.ButtonStyle.gray
+                if self.mode == 'playing': self.label = '播放相關'
+                if self.mode == 'queue': self.label = '隊列相關'
+                if self.mode == 'done': self.label = '❎'; self.style = disnake.ButtonStyle.danger
+
+            async def callback(self, interaction: disnake.Interaction):
+                global ishelpdone, lasthelpmode
+                # view.children[0] = 基本; view.children[1] = 播放
+                # view.children[2] = 隊列; view.children[3] = 取消
+                view = self.view
+                mode = 0
+                if self.mode != 'done':
+                    view.children[lasthelpmode].disabled = False; view.children[lasthelpmode].style = disnake.ButtonStyle.blurple
+                    if self.mode == 'basic': mode = 0
+                    if self.mode == 'playing': mode = 1
+                    if self.mode == 'queue': mode = 2
+                    embed = self.helpembed(mode)
+                    view.children[mode].disabled = True; view.children[mode].style = disnake.ButtonStyle.gray; lasthelpmode = mode
+                else: view.clear_items(); lasthelpmode = mode; ishelpdone = True; embed = self.helpembed(lasthelpmode)
+                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+                await interaction.response.edit_message(embed=embed, view=view)
+                if self.mode == 'done': 
+                    editedmes = await interaction.original_message()
+                    await editedmes.add_reaction('✅')
+        class QueuePage(disnake.ui.View):
+            def __init__(self, HelpEmbed, embed_opt, *, timeout=60):
+                global ishelpdone
+                ishelpdone = False
+                super().__init__(timeout=timeout)
+                self.basic = self.add_item(Button('basic', HelpEmbed, embed_opt))
+                self.playing = self.add_item(Button('playing', HelpEmbed, embed_opt))
+                self.queue = self.add_item(Button('queue', HelpEmbed, embed_opt))
+                self.donebutton = self.add_item(Button('done', HelpEmbed, embed_opt))
+            def set_mes(self, mes):
+                self.mes: disnake.Message = mes
+            async def on_timeout(self):
+                if ishelpdone: return
+                self.clear_items()
+                await self.mes.edit(view=view)
+                await self.mes.add_reaction('🛑')
+        embed = self.__HelpEmbed__()
+        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
+        view = QueuePage(self.__HelpEmbed__, self.__embed_opt__)
+        mes = await ctx.send(embed=embed, view=view)
+        view.set_mes(mes)
     ########
     # Join #
     ########
@@ -547,9 +634,9 @@ class UI:
                 self.queueembed = QueueEmbed
                 self.embed_opt = embed_opt
                 super().__init__(style=disnake.ButtonStyle.blurple)
-                if self.mode == 'backward': self.label = '⬅️'; self.disabled = True
+                if self.mode == 'backward': self.label = '⬅️'; self.disabled = True; self.style = disnake.ButtonStyle.gray
                 if self.mode == 'forward': self.label = '➡️'
-                if self.mode == 'done': self.label = '❎'
+                if self.mode == 'done': self.label = '❎'; self.style = disnake.ButtonStyle.danger
 
             async def callback(self, interaction: disnake.Interaction):
                 global isqueuedone
@@ -557,12 +644,12 @@ class UI:
                 view = self.view
                 if self.mode == 'backward':
                     view.page -= 1; self.isdone = False
-                    if view.page == 0: view.children[0].disabled = True
-                    if view.page != (len(self.playlist)-1)//3: view.children[1].disabled = False
+                    if view.page == 0: view.children[0].disabled = True; view.children[0].style = disnake.ButtonStyle.gray
+                    if view.page != (len(self.playlist)-1)//3: view.children[1].disabled = False; view.children[1].style = disnake.ButtonStyle.blurple
                 if self.mode == 'forward':
                     view.page += 1; self.isdone = False
-                    if view.page == (len(self.playlist)-1)//3: view.children[1].disabled = True
-                    if view.page != 0: view.children[0].disabled = False
+                    if view.page == (len(self.playlist)-1)//3: view.children[1].disabled = True; view.children[1].style = disnake.ButtonStyle.gray
+                    if view.page != 0: view.children[0].disabled = False; view.children[0].style = disnake.ButtonStyle.blurple
                 if self.mode == 'done': view.clear_items(); isqueuedone = True
                 embed = self.queueembed(self.playlist, view.page, totallength)
                 embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
@@ -571,7 +658,7 @@ class UI:
                     editedmes = await interaction.original_message()
                     await editedmes.add_reaction('✅')
         class QueuePage(disnake.ui.View):
-            def __init__(self, playlist: Playlist, QueueEmbed, embed_opt, *, timeout=10):
+            def __init__(self, playlist: Playlist, QueueEmbed, embed_opt, *, timeout=60):
                 global isqueuedone
                 isqueuedone = False
                 self.page = 0
