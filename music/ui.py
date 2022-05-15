@@ -44,7 +44,7 @@ from .playlist import Playlist, LoopState
 class UI:
     def __init__(self, bot_version):
         self.__bot_version__: str = bot_version
-        self.autostageavailable: bool = True
+        self.is_auto_stage_available: bool = True
 
 
     def InitEmbedFooter(self, bot) -> None:
@@ -155,7 +155,7 @@ class UI:
         return
     async def JoinStage(self, ctx: commands.Context) -> None:
         botitself: disnake.Member = await ctx.guild.fetch_member(self.__bot__.user.id)
-        if botitself not in ctx.author.voice.channel.moderators and self.autostageavailable == True:
+        if botitself not in ctx.author.voice.channel.moderators and self.is_auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
@@ -166,10 +166,10 @@ class UI:
             *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
             *此警告僅會出現一次*
                     ''')
-                self.autostageavailable = False
+                self.is_auto_stage_available = False
                 return
             else:
-                self.autostageavailable = True
+                self.is_auto_stage_available = True
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
@@ -180,7 +180,7 @@ class UI:
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
                 ''')
-            self.autostageavailable = True
+            self.is_auto_stage_available = True
             return
     async def JoinAlready(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
@@ -205,19 +205,19 @@ class UI:
     # Stage #
     #########
     async def CreateStageInstance(self, ctx: commands.Context) -> None:
-        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or self.autostageavailable == False:
+        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or self.is_auto_stage_available == False:
             return
         channel: disnake.StageChannel = ctx.author.voice.channel
         await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
     async def EndStage(self, player: Player) -> None:
-        if not self.autostageavailable: 
+        if not self.is_auto_stage_available: 
             return
         if not isinstance(player.voice_client.channel.instance, disnake.StageInstance):
             return
         instance: disnake.StageInstance = player.voice_client.channel.instance
         await instance.delete()
     async def __UpdateStageTopic__(self, player: Player, mode: str='update') -> None:
-        if self.autostageavailable == False:
+        if self.is_auto_stage_available == False:
             return
         try:
             instance: disnake.StageInstance = player.voice_client.channel.instance
@@ -299,11 +299,11 @@ class UI:
         else: colorcode = disnake.Colour.from_rgb(255, 255, 255)
         # Generate Loop Icon
         if color != "red":
-            loopstate: LoopState = playlist.is_loop
+            loopstate: LoopState = playlist.loop_state
             loopicon = ''; looptimes = ''
             if loopstate == LoopState.SINGLE:
                 loopicon = ' | 🔂'
-                if playlist.flag != LoopState.SINGLEINF:
+                if loopstate != LoopState.SINGLEINF:
                     looptimes = f' 🕗 {playlist.times} 次'
             elif loopstate == LoopState.WHOLE: loopicon = ' | 🔁'
         else:
@@ -331,22 +331,41 @@ class UI:
         mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
-        if not self.autostageavailable:
+        if not self.is_auto_stage_available:
             mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         await playinfo.edit(content=mes, embed=self.__SongInfo__(playlist=playlist, mute=ismute))
     ########
     # Play #
     ########
-    async def StartPlaying(self, ctx: commands.Context, player: Player, ismute: bool):
+    async def StartPlaying(self, ctx: commands.Context, player: Player):
         global playinfo
-        mes = f'''
+        if player.isskip:
+            if len(player.playlist) > 0:
+                mes = '''
+            **:fast_forward: | 跳過歌曲**
+            目前歌曲已成功跳過，即將播放下一首歌曲，資訊如下所示
+            *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
+                '''
+            else:
+                mes = '''
+            **:fast_forward: | 跳過歌曲**
+            目前歌曲已成功跳過，因候播清單已無歌曲，將完成播放
+            *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
+                '''
+            player.isskip = False
+            if self.player.playlist.loop_state != LoopState.SINGLEINF:
+                self.player.playlist.loop_state = LoopState.NOTHING; self.playlist.times = 0
+        else:
+            mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
-        if not self.autostageavailable:
+        if not self.is_auto_stage_available:
             mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        playinfo = await ctx.send(mes, embed=self.__SongInfo__(playlist=player.playlist, mute=ismute))
-        try: await self.__UpdateStageTopic__(player)
-        except: pass
+        playinfo = await ctx.send(mes, embed=self.__SongInfo__(playlist=player.playlist, mute=player.ismute))
+        try: 
+            await self.__UpdateStageTopic__(player)
+        except: 
+            pass
     async def DonePlaying(self, ctx: commands.Context, player: Player) -> None:
         await ctx.send(f'''
             **:clock4: | 播放完畢，等待播放動作**
@@ -406,20 +425,7 @@ class UI:
     ########
     # Skip #
     ########
-    async def SkipSucceed(self, ctx: commands.Context, playlist: Playlist=None, mute: bool= None) -> None:
-        global playinfo
-        if len(playlist) > 0:
-            playinfo = await ctx.send(f'''
-            **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，即將播放下一首歌曲，資訊如下所示
-            *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
-            ''', embed=self.__SongInfo__(color="yellow", playlist=playlist, index=0, mute=mute))
-        else:
-            await ctx.send(f'''
-            **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，因候播清單已無歌曲，將完成播放
-            *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
-            ''')   
+    # SkipSucceed has been merged into StartPlaying
     async def SkipFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | SK01**
@@ -563,17 +569,17 @@ class UI:
     # Loop #
     ########
     async def LoopSucceed(self, ctx: commands.Context, playlist: Playlist, ismute: bool) -> None:
-        if playlist.is_loop == LoopState.SINGLE and playlist.flag == LoopState.SINGLEINF:
+        if playlist.loop_state == LoopState.SINGLE and playlist.flag == LoopState.SINGLEINF:
             await ctx.send(f'''
             **:repeat_one: | 單曲重複播放**
             已啟動單曲重複播放
             ''')
-        elif playlist.is_loop == LoopState.SINGLE:
+        elif playlist.loop_state == LoopState.SINGLE:
             await ctx.send(f'''
             **:repeat_one: | 單曲重複播放**
             已啟動單曲重播，將重複播放 {playlist.times} 次後關閉單曲重播
             ''')
-        elif playlist.is_loop == LoopState.WHOLE:
+        elif playlist.loop_state == LoopState.WHOLE:
             await ctx.send(f'''
             **:repeat: | 全佇列重複播放**
             已啟動全佇列重複播放

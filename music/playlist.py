@@ -65,7 +65,6 @@ class Playlist(List[Song]):
     def __init__(self):
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0
-        self.flag: Union[LoopState, None] = None
 
     def nowplaying(self) -> Song:
         return self.index()
@@ -95,11 +94,10 @@ class Playlist(List[Song]):
         if (self.loop_state == LoopState.SINGLE) and times == INF:
             self.loop_state = LoopState.NOTHING
         else:
+            # "times" value only availible in Single Loop mode
             self.loop_state = LoopState.SINGLE
             if times == INF:
-                self.flag = LoopState.SINGLEINF
-            else:
-                self.flag = None
+                self.loop_state = LoopState.SINGLEINF
         self.times = times
 
     def whole_loop(self):

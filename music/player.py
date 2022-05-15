@@ -119,53 +119,50 @@ class MusicBot(Player):
                 await self.leave(ctx, 'timeout')
             except:
                 pass
-
-    def sec_to_hms(self, seconds, format) -> str:
-        sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//24//60%60); day = int(seconds//86400)
-        if format == "symbol":
-            if day != 0:
-                return "{}{}:{}{}:{}{}:{}{}".format("0" if day < 10 else "", day, "0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-            if hr != 0:
-                return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-            else:
-                return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-        elif format == "zh":
-            if day != 0:
-                return f"{day} 天 {hr} 小時 {min} 分 {sec} 秒"
-            elif hr != 0: 
-                return f"{hr} 小時 {min} 分 {sec} 秒"
-            elif min != 0:
-                return f"{min} 分 {sec} 秒"
-            elif sec != 0:
-                return f"{sec} 秒"
-    
+                
     async def help(self, ctx: commands.Context):
         await self.ui.Help(ctx)
 
     async def join(self, ctx: commands.Context, jointype: str='normal'):
+        # Becoming active (cancel timer)
         if self.task is not None:
             self.task.cancel()
+        # Get bot user data
         botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        # To check whether the bot is in the voice channel
         try:
             isinstance(self.voice_client.channel, None)
             notin = False
         except: notin = True
         if isinstance(self.voice_client, disnake.VoiceClient) or notin == False:
             if self.voice_client.channel != ctx.author.voice.channel:
-                former = self.voice_client.channel; formerstate = self.voice_client.is_paused()
+                # Get the bot former playing state
+                former = self.voice_client.channel
+                formerstate = self.voice_client.is_paused()
                 pause_after_rejoin = False
-                if not formerstate:
+                # To determine is the music paused before rejoining or not
+                if not formerstate: 
                     self._pause()
                     pause_after_rejoin = True
+                # Moving itself to author's channel
                 await botitself.move_to(ctx.author.voice.channel)
-                if pause_after_rejoin: self._resume()
-                if formerstate: self.task = self.bot.loop.create_task(self.timeout(ctx))
+                # If paused after rejoining, resume the music
+                if pause_after_rejoin: 
+                    self._resume()
+                # If paused before rejoining, reflag itself as inactive
+                # (leaving channel after 10 minutes)
+                if formerstate: 
+                    self.task = self.bot.loop.create_task(self.timeout(ctx))
+                # Send a rejoin message
                 await self.ui.JoinNormal(ctx, 'rejoin')
+                # If the former channel is a disnake.StageInstance which is the stage
+                # channel with topics, end that stage instance
                 if isinstance(former, disnake.StageChannel):
                     if isinstance(former.instance, disnake.StageInstance):
                         await former.delete()
                 return
             else:
+                # If bot joined the same channel, send a message to notice user
                 if jointype == 'playattempt': return
                 await self.ui.JoinAlready(ctx)
                 return
@@ -186,7 +183,8 @@ class MusicBot(Player):
                 if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
                     await self.ui.EndStage(self)
                 await self._leave()
-            except: await self._leave()
+            except:
+                await self._leave()
             if mode == 'timeout': 
                 self.timedout: bool = True
                 await self.ui.LeaveOnTimeout(ctx)
@@ -198,25 +196,40 @@ class MusicBot(Player):
             await self.ui.LeaveFailed(ctx)
 
     async def play(self, ctx: commands.Context, *url):
+        # Get bot user value
         botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        # Get user defined url/keyword
         url = ' '.join(url)
+
+        # Try to make bot join author's channel
         status = await self.join(ctx, 'playattempt')
         if status == 'failed': return
+
+        # Start search process
         async with ctx.typing():
+            # Show searching UI (if user provide exact url, then it
+            # won't send the UI)
             await self.ui.StartSearch(ctx, url, self.playlist)
+            # Call search function
             try: 
                 self._search(url, requester=ctx.message.author)
             except Exception as e:
+                # If search failed, sent to handler
                 await self._SearchFailedHandler(ctx, e, url)
                 return
+            # If queue has more than 1 songs, then show the UI
             await self.ui.Embed_AddedToQueue(ctx, self.playlist)
+            # Experiment features (show total length in queuelist)
             if len(self.playlist) > 1:
                 self.totallength += self.playlist[-1].length
+
         self.voice_client = ctx.guild.voice_client
-        if self.ui.autostageavailable and isinstance(ctx.author.voice.channel, disnake.StageChannel):
+
+        if self.ui.is_auto_stage_available and isinstance(ctx.author.voice.channel, disnake.StageChannel):
             if botitself.voice.suppress:
                 try: await botitself.edit(suppress=False)
                 except: pass
+
         self.bot.loop.create_task(self._mainloop(ctx))
 
     async def _SearchFailedHandler(self, ctx: commands.Context, exception: Exception, url: str):
@@ -236,14 +249,8 @@ class MusicBot(Player):
             if self.task is not None:
                 self.task.cancel()
             self.inactive = False
-            if not self.isskip:
-                await self.ui.StartPlaying(ctx, self, self.ismute)
-            else:
-                if self.playlist.flag != LoopState.SINGLEINF:
-                    self.playlist.loop_state = LoopState.NOTHING; self.playlist.times = 0
-                await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
-                await self.ui.__UpdateStageTopic__(self)
-                self.isskip = False
+            await self.ui.StartPlaying(ctx, self)
+            await self.ui.__UpdateStageTopic__(self)
             await self._play()
             await self.wait()
             try: self.playlist[0].set_source(self.volume_level)
@@ -254,7 +261,6 @@ class MusicBot(Player):
         if self.isskip: await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
         # Reset value
         self.playlist.loop_state = LoopState.NOTHING
-        self.playlist.flag = None
         self.isskip = False
         if not self.timedout:
             await self.ui.DonePlaying(ctx, self)
