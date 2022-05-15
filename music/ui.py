@@ -19,7 +19,7 @@ cdt = datetime.datetime.now().date()
 year = cdt.strftime("%Y")
 
 def sec_to_hms(self, seconds, format) -> str:
-    sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//24//60%60); day = int(seconds//86400)
+    sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//60//60%24); day = int(seconds//86400)
     if format == "symbol":
         if day != 0:
             return "{}{}:{}{}:{}{}:{}{}".format("0" if day < 10 else "", day, "0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
