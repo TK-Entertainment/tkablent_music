@@ -1,5 +1,5 @@
 from typing import *
-from enum import Enum
+from enum import Enum, auto
 import disnake
 from disnake import FFmpegPCMAudio, PCMVolumeTransformer
 
@@ -55,16 +55,15 @@ class Song:
         self.set_ffmpeg_options(stamp)
 
 class LoopState(Enum):
-    # 0 is for not looping, 1 is for single, 2 is for whole
-    NOTHING = 0
-    SINGLE = 1
-    WHOLE = 2
-    SINGLEINF = 3
+    NOTHING = auto()
+    SINGLE = auto()
+    PLAYLIST = auto()
+    SINGLEINF = auto()
 
 class Playlist(List[Song]):
     def __init__(self):
         self.loop_state: LoopState = LoopState.NOTHING
-        self.times: int = 0
+        self.times: int = 0 # use to indicate the times left to play current song
 
     def nowplaying(self) -> Song:
         return self.index()
@@ -81,7 +80,7 @@ class Playlist(List[Song]):
         if self.loop_state == LoopState.SINGLE and self.times > 0:
             self.times -= 1
             return 0
-        elif self.loop_state == LoopState.WHOLE:
+        elif self.loop_state == LoopState.PLAYLIST:
             self.append(self.pop(0))
             return 0
         else:
@@ -100,8 +99,8 @@ class Playlist(List[Song]):
                 self.loop_state = LoopState.SINGLEINF
         self.times = times
 
-    def whole_loop(self):
-        if (self.loop_state == LoopState.WHOLE):
+    def PLAYLIST_loop(self):
+        if (self.loop_state == LoopState.PLAYLIST):
             self.loop_state = LoopState.NOTHING
         else:
-            self.loop_state = LoopState.WHOLE
+            self.loop_state = LoopState.PLAYLIST

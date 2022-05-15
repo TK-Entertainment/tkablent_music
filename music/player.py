@@ -128,7 +128,7 @@ class MusicBot(Player):
         if self.task is not None:
             self.task.cancel()
         # Get bot user data
-        botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
         # To check whether the bot is in the voice channel
         try:
             isinstance(self.voice_client.channel, None)
@@ -138,20 +138,20 @@ class MusicBot(Player):
             if self.voice_client.channel != ctx.author.voice.channel:
                 # Get the bot former playing state
                 former = self.voice_client.channel
-                formerstate = self.voice_client.is_paused()
+                former_state = self.voice_client.is_paused()
                 pause_after_rejoin = False
                 # To determine is the music paused before rejoining or not
-                if not formerstate: 
+                if not former_state: 
                     self._pause()
                     pause_after_rejoin = True
                 # Moving itself to author's channel
-                await botitself.move_to(ctx.author.voice.channel)
+                await bot_itself.move_to(ctx.author.voice.channel)
                 # If paused after rejoining, resume the music
                 if pause_after_rejoin: 
                     self._resume()
                 # If paused before rejoining, reflag itself as inactive
                 # (leaving channel after 10 minutes)
-                if formerstate: 
+                if former_state: 
                     self.task = self.bot.loop.create_task(self.timeout(ctx))
                 # Send a rejoin message
                 await self.ui.JoinNormal(ctx, 'rejoin')
@@ -197,7 +197,7 @@ class MusicBot(Player):
 
     async def play(self, ctx: commands.Context, *url):
         # Get bot user value
-        botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
         # Get user defined url/keyword
         url = ' '.join(url)
 
@@ -226,8 +226,8 @@ class MusicBot(Player):
         self.voice_client = ctx.guild.voice_client
 
         if self.ui.is_auto_stage_available and isinstance(ctx.author.voice.channel, disnake.StageChannel):
-            if botitself.voice.suppress:
-                try: await botitself.edit(suppress=False)
+            if bot_itself.voice.suppress:
+                try: await bot_itself.edit(suppress=False)
                 except: pass
 
         self.bot.loop.create_task(self._mainloop(ctx))
