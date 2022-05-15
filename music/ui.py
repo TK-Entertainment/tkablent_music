@@ -141,6 +141,11 @@ class UI:
     ########
     # Join #
     ########
+    async def RejoinNormal(self, ctx: commands.Context, mode: str='normal') -> None:
+        await ctx.send(f'''
+        **:inbox_tray: | 已更換語音頻道**
+        已更換至 {ctx.author.voice.channel.name} 語音頻道
+            ''')
     async def JoinNormal(self, ctx: commands.Context, mode: str='normal') -> None:
         if mode == 'rejoin': 
             await ctx.send(f'''
@@ -341,27 +346,28 @@ class UI:
         global playinfo
         if player.isskip:
             if len(player.playlist) > 0:
-                mes = '''
+                msg = f'''
             **:fast_forward: | 跳過歌曲**
             目前歌曲已成功跳過，即將播放下一首歌曲，資訊如下所示
             *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
                 '''
             else:
-                mes = '''
+                msg = f'''
             **:fast_forward: | 跳過歌曲**
             目前歌曲已成功跳過，因候播清單已無歌曲，將完成播放
             *輸入 **{self.__bot__.command_prefix}play** 以加入新歌曲*
                 '''
             player.isskip = False
-            if self.player.playlist.loop_state != LoopState.SINGLEINF:
-                self.player.playlist.loop_state = LoopState.NOTHING; self.playlist.times = 0
+            if player.playlist.loop_state != LoopState.SINGLEINF:
+                player.playlist.loop_state = LoopState.NOTHING
+                player.playlist.times = 0
         else:
-            mes = f'''
+            msg = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
         if not self.is_auto_stage_available:
-            mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        playinfo = await ctx.send(mes, embed=self.__SongInfo__(playlist=player.playlist, mute=player.ismute))
+            msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
+        playinfo = await ctx.send(msg, embed=self.__SongInfo__(playlist=player.playlist, mute=player.ismute))
         try: 
             await self.__UpdateStageTopic__(player)
         except: 

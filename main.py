@@ -20,7 +20,7 @@ TOKEN = os.getenv('TOKEN')
 
 presence = disnake.Game(name='播放音樂 | $play')
 intents = disnake.Intents.all()
-bot = commands.Bot(command_prefix='>', intents=intents, help_command=None, activity=presence, status=disnake.Status.online)
+bot = commands.Bot(command_prefix='$', intents=intents, help_command=None, activity=presence, status=disnake.Status.online)
 
 from music import *
 INF = int(1e18)
@@ -51,10 +51,10 @@ class Router(commands.Cog):
         self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='join')
-    async def join(self, ctx: commands.Context, jointype=None):
+    async def join(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
             self.initmusicbot(ctx)
-        await self.router[ctx.guild.id][0].join(ctx, jointype)
+        await self.router[ctx.guild.id][0].join(ctx)
         self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='leave')
@@ -198,7 +198,8 @@ class Router(commands.Cog):
             if len(bot.voice.channel.members) == 1 and bot in bot.voice.channel.members:
                 if self.router.get(guild.id) is None: return
                 await self.router[guild.id][0].pause(self.router[guild.id][1], True) 
-        except: pass
+        except: 
+            pass
 
     @commands.Cog.listener()
     async def on_ready(self):

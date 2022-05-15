@@ -124,50 +124,41 @@ class MusicBot(Player):
     async def help(self, ctx: commands.Context):
         await self.ui.Help(ctx)
 
-    async def join(self, ctx: commands.Context, jointype: str='normal'):
+    async def rejoin(self, ctx):
+        # Get the bot former playing state
+        former = self.voice_client.channel
+        former_state = self.voice_client.is_paused()
+        # To determine is the music paused before rejoining or not
+        if not former_state: 
+            self._pause()
+        # Moving itself to author's channel
+        await self.voice_client.move_to(ctx.author.voice.channel)
+        # If paused before rejoining, resume the music
+        if not former_state: 
+            self._resume()
+        # If paused before rejoining, reflag itself as inactive
+        # (leaving channel after 10 minutes)
+        if former_state: 
+            self.task = self.bot.loop.create_task(self.timeout(ctx))
+        # Send a rejoin message
+        await self.ui.RejoinNormal(ctx)
+        # If the former channel is a disnake.StageInstance which is the stage
+        # channel with topics, end that stage instance
+        if isinstance(former, disnake.StageChannel):
+            if isinstance(former.instance, disnake.StageInstance):
+                await former.delete()
+
+    async def join(self, ctx: commands.Context):
         # Becoming active (cancel timer)
         if self.task is not None:
             self.task.cancel()
-        # Get bot user data
-        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
-        # To check whether the bot is in the voice channel
-        # try:
-        #     isinstance(self.voice_client.channel, None)
-        #     notin = False
-        # except: 
-        #     notin = True
         if isinstance(self.voice_client, disnake.VoiceClient):
             if self.voice_client.channel != ctx.author.voice.channel:
-                # Get the bot former playing state
-                former = self.voice_client.channel
-                former_state = self.voice_client.is_paused()
-                pause_after_rejoin = False
-                # To determine is the music paused before rejoining or not
-                if not former_state: 
-                    self._pause()
-                    pause_after_rejoin = True
-                # Moving itself to author's channel
-                await bot_itself.move_to(ctx.author.voice.channel)
-                # If paused after rejoining, resume the music
-                if pause_after_rejoin: 
-                    self._resume()
-                # If paused before rejoining, reflag itself as inactive
-                # (leaving channel after 10 minutes)
-                if former_state: 
-                    self.task = self.bot.loop.create_task(self.timeout(ctx))
-                # Send a rejoin message
-                await self.ui.JoinNormal(ctx, 'rejoin')
-                # If the former channel is a disnake.StageInstance which is the stage
-                # channel with topics, end that stage instance
-                if isinstance(former, disnake.StageChannel):
-                    if isinstance(former.instance, disnake.StageInstance):
-                        await former.delete()
-                return
+                await self.rejoin(ctx)
             else:
                 # If bot joined the same channel, send a message to notice user
-                if jointype == 'playattempt': return
                 await self.ui.JoinAlready(ctx)
-                return
+            return
         try:
             await self._join(ctx.author.voice.channel)
             if isinstance(ctx.author.voice.channel, disnake.StageChannel):
@@ -196,17 +187,10 @@ class MusicBot(Player):
         except:
             await self.ui.LeaveFailed(ctx)
 
-    async def play(self, ctx: commands.Context, *url):
-        # Get bot user value
-        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+    async def search(self, ctx: commands.Context, *url):
         # Get user defined url/keyword
         url = ' '.join(url)
 
-        # Try to make bot join author's channel
-        status = await self.join(ctx, 'playattempt')
-        if status == 'failed': return
-
-        # Start search process
         async with ctx.typing():
             # Show searching UI (if user provide exact url, then it
             # won't send the UI)
@@ -224,18 +208,39 @@ class MusicBot(Player):
             if len(self.playlist) > 1:
                 self.totallength += self.playlist[-1].length
 
+    async def play(self, ctx: commands.Context, *url):
+        # Get bot user value
+        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        
+        # Try to make bot join author's channel
+        if not isinstance(self.voice_client, disnake.VoiceClient) or \
+            self.voice_client.channel != ctx.author.voice.channel:
+
+            status = await self.join(ctx)
+            if status == 'failed': 
+                return
+
+        # Start search process
+        await self.search(ctx, *url)
+
         self.voice_client = ctx.guild.voice_client
 
-        if self.ui.is_auto_stage_available and isinstance(ctx.author.voice.channel, disnake.StageChannel):
-            if bot_itself.voice.suppress:
-                try: await bot_itself.edit(suppress=False)
-                except: pass
+        if self.ui.is_auto_stage_available and \
+        isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
+        bot_itself.voice.suppress:
+
+            try: 
+                await bot_itself.edit(suppress=False)
+            except: 
+                pass
 
         self.bot.loop.create_task(self._mainloop(ctx))
 
-    async def _SearchFailedHandler(self, ctx: commands.Context, exception: Exception, url: str):
+    async def _SearchFailedHandler(self, ctx: commands.Context, exception: Union[YTDLPExceptions.DownloadError, Exception], url: str):
         # Video Private error handler
-        if isinstance(exception, PytubeExceptions.VideoPrivate) or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+        if isinstance(exception, PytubeExceptions.VideoPrivate)\
+            or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+            
             await self.ui.SearchFailed(ctx, url, "VideoPrivate")
         # Members Only Video error handler
         elif isinstance(exception, PytubeExceptions.MembersOnly):
@@ -257,12 +262,15 @@ class MusicBot(Player):
             await self.ui.__UpdateStageTopic__(self)
             await self._play()
             await self.wait()
-            try: self.playlist[0].set_source(self.volume_level)
-            except: pass
+            try: 
+                self.playlist[0].set_source(self.volume_level)
+            except: 
+                pass
             self.totallength -= self.playlist.rule()
 
         self.in_mainloop = False
-        if self.isskip: await self.ui.PlayingMsg(ctx, self)
+        if self.isskip: 
+            await self.ui.PlayingMsg(ctx, self)
         # Reset value
         self.playlist.loop_state = LoopState.NOTHING
         self.isskip = False
@@ -279,8 +287,10 @@ class MusicBot(Player):
                 self.task.cancel()
             self.inactive = True
             self.task = self.bot.loop.create_task(self.timeout(ctx))
-            if onlybotin: await self.ui.PauseOnAllMemberLeave(ctx, self)
-            else: await self.ui.PauseSucceed(ctx, self)
+            if onlybotin: 
+                await self.ui.PauseOnAllMemberLeave(ctx, self)
+            else: 
+                await self.ui.PauseSucceed(ctx, self)
         except Exception as e:
             print(e)
             await self.ui.PauseFailed(ctx)
