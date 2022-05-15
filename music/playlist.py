@@ -99,7 +99,7 @@ class Playlist(List[Song]):
                 self.loop_state = LoopState.SINGLEINF
         self.times = times
 
-    def PLAYLIST_loop(self):
+    def playlist_loop(self):
         if (self.loop_state == LoopState.PLAYLIST):
             self.loop_state = LoopState.NOTHING
         else:
