@@ -462,24 +462,24 @@ class UI:
         if percent == None: 
             await ctx.send(f'''
             **:loud_sound: | 音量調整**
-            目前音量為 {player.volumelevel*100}%
+            目前音量為 {player.volume_level*100}%
         ''')
             return mute
         # Volume unchanged
-        if (percent / 100) == player.volumelevel:
+        if (percent / 100) == player.volume_level:
             await ctx.send(f'''
             **:loud_sound: | 音量調整**
             音量沒有變更，仍為 {percent}%
         ''')
         # Volume up
-        elif (percent / 100) > player.volumelevel:
+        elif (percent / 100) > player.volume_level:
             await ctx.send(f'''
             **:loud_sound: | 調高音量**
             音量已設定為 {percent}%
         ''')
             mute = False
         # Volume down
-        elif (percent / 100) < player.volumelevel:
+        elif (percent / 100) < player.volume_level:
             await ctx.send(f'''
             **:sound: | 降低音量**
             音量已設定為 {percent}%

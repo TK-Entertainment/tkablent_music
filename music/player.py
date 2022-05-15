@@ -93,6 +93,7 @@ class Player:
             return 'Exceed'
         self.playlist[0].seek(timestamp)
         self.playlist[0].set_source(self.volume_level)
+        self.voice_client.source = self.playlist[0].source
     
     def _volume(self, volume: float):
         self.volume_level = volume
@@ -329,7 +330,7 @@ class MusicBot(Player):
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
         try:
             if isinstance(timestamp, str):
-                tmp = map(int, timestamp.split(":").reverse())
+                tmp = map(int, reversed(timestamp.split(":")))
                 timestamp = 0
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val

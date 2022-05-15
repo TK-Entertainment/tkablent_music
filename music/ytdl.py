@@ -44,7 +44,7 @@ class YTDL:
                 setattr(song, 'url', streaminfo['url'])
         except pytube.exceptions.VideoPrivate or pytube.exceptions.MembersOnly as e:
             raise e
-        else:
+        except:
             try:
                 print('[ytdlCore] Failsafe: Using yt_dlp')
                 if ("http" not in url) and ("www" not in url):
