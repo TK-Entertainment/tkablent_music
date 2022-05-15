@@ -347,7 +347,7 @@ class MusicBot(Player):
         self.playlist.whole_loop()
         await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
 
-    async def show(self, ctx: commands.Context):
+    async def show_queue(self, ctx: commands.Context):
         await self.ui.ShowQueue(ctx, self.playlist, self.totallength)
 
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):

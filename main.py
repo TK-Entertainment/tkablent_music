@@ -144,11 +144,11 @@ class Router(commands.Cog):
         await self.router[ctx.guild.id][0].whole_loop(ctx)
         self.router[ctx.guild.id][1] = ctx
 
-    @commands.command(name='show', aliases=['queuelist', 'queue'])
-    async def show(self, ctx: commands.Context):
+    @commands.command(name='show_queue', aliases=['queuelist', 'queue', 'show'])
+    async def show_queue(self, ctx: commands.Context):
         if self.router.get(ctx.guild.id) is None:
             self.initmusicbot(ctx)
-        await self.router[ctx.guild.id][0].show(ctx)
+        await self.router[ctx.guild.id][0].show_queue(ctx)
         self.router[ctx.guild.id][1] = ctx
 
     @commands.command(name='remove', aliases=['queuedel'])
