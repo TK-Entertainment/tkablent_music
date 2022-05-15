@@ -130,11 +130,12 @@ class MusicBot(Player):
         # Get bot user data
         bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
         # To check whether the bot is in the voice channel
-        try:
-            isinstance(self.voice_client.channel, None)
-            notin = False
-        except: notin = True
-        if isinstance(self.voice_client, disnake.VoiceClient) or notin == False:
+        # try:
+        #     isinstance(self.voice_client.channel, None)
+        #     notin = False
+        # except: 
+        #     notin = True
+        if isinstance(self.voice_client, disnake.VoiceClient):
             if self.voice_client.channel != ctx.author.voice.channel:
                 # Get the bot former playing state
                 former = self.voice_client.channel
@@ -182,8 +183,7 @@ class MusicBot(Player):
             try: 
                 if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
                     await self.ui.EndStage(self)
-                await self._leave()
-            except:
+            finally:
                 await self._leave()
             if mode == 'timeout': 
                 self.timedout: bool = True
@@ -328,12 +328,12 @@ class MusicBot(Player):
 
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
         try:
-            if isinstance(timestamp, str) and ":" in timestamp:
-                tmp = timestamp.split(":"); timestamp = 0
-                for i in range(0, len(tmp)):
-                    timestamp += int(tmp[-i-1])*(60**(i))
-            int(timestamp) # For ignoring string with ":" like "o:ro"
-        except ValueError: 
+            if isinstance(timestamp, str):
+                tmp = map(int, timestamp.split(":").reverse())
+                timestamp = 0
+                for idx, val in enumerate(tmp):
+                    timestamp += (60 ** idx) * val
+        except ValueError:  # For ignoring string with ":" like "o:ro"
             await self.ui.SeekFailed(ctx)
             return
         if self._seek(timestamp) != 'Exceed':
