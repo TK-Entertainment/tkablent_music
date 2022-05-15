@@ -305,7 +305,7 @@ class UI:
                 loopicon = ' | 🔂'
                 if loopstate != LoopState.SINGLEINF:
                     looptimes = f' 🕗 {playlist.times} 次'
-            elif loopstate == LoopState.WHOLE: loopicon = ' | 🔁'
+            elif loopstate == LoopState.PLAYLIST: loopicon = ' | 🔁'
         else:
             loopstate = None; loopicon = ''; looptimes = ''
         # Generate Embed Body
@@ -337,7 +337,7 @@ class UI:
     ########
     # Play #
     ########
-    async def StartPlaying(self, ctx: commands.Context, player: Player):
+    async def PlayingMsg(self, ctx: commands.Context, player: Player):
         global playinfo
         if player.isskip:
             if len(player.playlist) > 0:
@@ -425,7 +425,7 @@ class UI:
     ########
     # Skip #
     ########
-    # SkipSucceed has been merged into StartPlaying
+    # SkipSucceed has been merged into PlayingMsg
     async def SkipFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | SK01**
@@ -579,7 +579,7 @@ class UI:
             **:repeat_one: | 單曲重複播放**
             已啟動單曲重播，將重複播放 {playlist.times} 次後關閉單曲重播
             ''')
-        elif playlist.loop_state == LoopState.WHOLE:
+        elif playlist.loop_state == LoopState.PLAYLIST:
             await ctx.send(f'''
             **:repeat: | 全佇列重複播放**
             已啟動全佇列重複播放

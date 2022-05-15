@@ -233,10 +233,13 @@ class MusicBot(Player):
         self.bot.loop.create_task(self._mainloop(ctx))
 
     async def _SearchFailedHandler(self, ctx: commands.Context, exception: Exception, url: str):
+        # Video Private error handler
         if isinstance(exception, PytubeExceptions.VideoPrivate) or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
             await self.ui.SearchFailed(ctx, url, "VideoPrivate")
+        # Members Only Video error handler
         elif isinstance(exception, PytubeExceptions.MembersOnly):
             await self.ui.SearchFailed(ctx, url, 'MembersOnly')
+        # Otherwise, go here
         else:
             await self.ui.SearchFailed(ctx, url, 'Unknown')
 
@@ -249,7 +252,7 @@ class MusicBot(Player):
             if self.task is not None:
                 self.task.cancel()
             self.inactive = False
-            await self.ui.StartPlaying(ctx, self)
+            await self.ui.PlayingMsg(ctx, self)
             await self.ui.__UpdateStageTopic__(self)
             await self._play()
             await self.wait()
@@ -258,7 +261,7 @@ class MusicBot(Player):
             self.totallength -= self.playlist.rule()
 
         self.in_mainloop = False
-        if self.isskip: await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
+        if self.isskip: await self.ui.PlayingMsg(ctx, self)
         # Reset value
         self.playlist.loop_state = LoopState.NOTHING
         self.isskip = False

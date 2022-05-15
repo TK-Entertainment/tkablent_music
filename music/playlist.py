@@ -51,7 +51,6 @@ class Song:
     def seek(self, stamp: float):
         if self.is_stream:
             raise SeekError
-        stamp = stamp
         self.set_ffmpeg_options(stamp)
 
 class LoopState(Enum):
