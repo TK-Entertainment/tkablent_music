@@ -12,7 +12,7 @@ from yt_dlp import utils as YTDLPExceptions
 INF = int(1e18)
 bot_version = 'master Branch'
 
-class Player:     
+class Player:
     def __del__(self):
         print('collected')  
 
@@ -21,61 +21,64 @@ class Player:
         self.voice_client: VoiceClient = None
         self.playlist: Playlist = Playlist()
         self.in_mainloop: bool = False
-        self.volumelevel: float = 1.0
+        self.volume_level: float = 1.0
         self.ismute: bool = False
         self.isskip: bool = False
         self.totallength: int = 0
+
+    @property
+    def current_timestamp(self) -> float:
+        if self.voice_client.is_paused():
+            return self.playlist[0].left_off
+        return self.playlist[0].left_off + self.voice_client._player.loops / 50
     
     async def _join(self, channel: VoiceChannel):
-        if (self.voice_client is None) or (not self.voice_client.is_connected()):
+        if self.voice_client is None or not self.voice_client.is_connected():
             await channel.connect()
             self.voice_client = channel.guild.voice_client
         
     async def _leave(self):
-        if (self.voice_client.is_connected()):
+        if self.voice_client.is_connected():
             self._stop()
             await self.voice_client.disconnect()
             self.voice_client = None
         else:
             raise Exception # this exception is for identifying the illegal operation
 
-    def _search(self, url, **kwargs):
-        song: Song = Song()
-        song.add_info(url, **kwargs)
+    def _search(self, url: str, requester: disnake.Member):
+        song: Song = Song(url, requester)
         self.playlist.append(song)
 
     async def _play(self):
-        self.playlist[0].cleanup(self.volumelevel)
-        self.playlist[0].source.volume = self.volumelevel
+        self.playlist[0].set_source(self.volume_level)
+        self.playlist[0].source.volume = self.volume_level
         self.voice_client.play(self.playlist[0].source)
 
     async def wait(self):
         try:
             while not self.voice_client._player._end.is_set():
                 await asyncio.sleep(1.0)
-        except:
+        finally:
             return
 
     def _pause(self):
-        if (not self.voice_client.is_paused() and self.voice_client.is_playing()):
+        if not self.voice_client.is_paused() and self.voice_client.is_playing():
             self.voice_client.pause()
             self.playlist[0].left_off += self.voice_client._player.loops / 50
         else:
             raise Exception # this exception is for identifying the illegal operation
 
     def _resume(self):
-        if (self.voice_client.is_paused()):
+        if self.voice_client.is_paused():
             self.voice_client.resume()
         else:
             raise Exception # this exception is for identifying the illegal operation
 
     def _skip(self):
         try:
-            if (not self.voice_client._player._end.is_set()):
+            if not self.voice_client._player._end.is_set():
                 self.voice_client.stop()
                 self.isskip = True
-        except:
-            pass
         finally:
             self.playlist.times = 0
     
@@ -84,27 +87,23 @@ class Player:
         self._skip()
         self.isskip = False
 
-    def _get_current_time(self) -> float:
-        if self.voice_client.is_paused():
-            return self.playlist[0].left_off
-        return self.playlist[0].left_off + self.voice_client._player.loops / 50
-
     def _seek(self, timestamp: float):
         if timestamp >= self.playlist[0].length:
             self.voice_client.stop()
             return 'Exceed'
         self.playlist[0].seek(timestamp)
-        self.voice_client.source = PCMVolumeTransformer(FFmpegPCMAudio(self.playlist[0].url, **self.playlist[0].ffmpeg_options), volume=self.volumelevel)
+        self.playlist[0].set_source(self.volume_level)
     
     def _volume(self, volume: float):
-        self.volumelevel = volume
+        self.volume_level = volume
         if not self.voice_client is None:
-            self.voice_client.source.volume = self.volumelevel
+            self.voice_client.source.volume = self.volume_level
 
-from .ui import UI       
+from .ui import UI
 
 class MusicBot(Player):
     def __init__(self, bot):
+        commands.Cog.__init__(self)
         Player.__init__(self)
         self.bot: commands.Bot = bot
         self.ui: UI = UI(bot_version)
@@ -139,7 +138,7 @@ class MusicBot(Player):
                 return f"{min} 分 {sec} 秒"
             elif sec != 0:
                 return f"{sec} 秒"
-                
+    
     async def help(self, ctx: commands.Context):
         await self.ui.Help(ctx)
 
@@ -241,20 +240,20 @@ class MusicBot(Player):
                 await self.ui.StartPlaying(ctx, self, self.ismute)
             else:
                 if self.playlist.flag != LoopState.SINGLEINF:
-                    self.playlist.is_loop = LoopState.NOTHING; self.playlist.times = 0
+                    self.playlist.loop_state = LoopState.NOTHING; self.playlist.times = 0
                 await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
                 await self.ui.__UpdateStageTopic__(self)
                 self.isskip = False
             await self._play()
             await self.wait()
-            try: self.playlist[0].cleanup(self.volumelevel)
+            try: self.playlist[0].set_source(self.volume_level)
             except: pass
             self.totallength -= self.playlist.rule()
 
         self.in_mainloop = False
         if self.isskip: await self.ui.SkipSucceed(ctx, self.playlist, self.ismute)
         # Reset value
-        self.playlist.is_loop = LoopState.NOTHING
+        self.playlist.loop_state = LoopState.NOTHING
         self.playlist.flag = None
         self.isskip = False
         if not self.timedout:

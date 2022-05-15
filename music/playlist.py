@@ -23,13 +23,14 @@ class Song:
     url: str
     source: PCMVolumeTransformer[FFmpegPCMAudio]
 
-    def __init__(self):
-        self.requester: disnake.Member = None
+    def __init__(self, url: str, requester: disnake.Member):
+        self.requester: disnake.Member = requester
         self.left_off: float = 0
         
         # flag for local server, need to change for multiple server
         self.is_stream: bool = False
         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
+        self.add_info(url, requester)
 
     def add_info(self, url, requester):
         ytdl.get_info(self, url)
@@ -37,7 +38,7 @@ class Song:
         self.is_stream = (self.length == 0)
         self.set_ffmpeg_options(0)
 
-    def cleanup(self, volumelevel):
+    def set_source(self, volumelevel):
         self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
         
     def set_ffmpeg_options(self, timestamp):
@@ -62,7 +63,7 @@ class LoopState(Enum):
 
 class Playlist(List[Song]):
     def __init__(self):
-        self.is_loop: LoopState = LoopState.NOTHING
+        self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0
         self.flag: Union[LoopState, None] = None
 
@@ -78,10 +79,10 @@ class Playlist(List[Song]):
     def rule(self):
         if len(self) == 0:
             return 0
-        if self.is_loop == LoopState.SINGLE and self.times > 0:
+        if self.loop_state == LoopState.SINGLE and self.times > 0:
             self.times -= 1
             return 0
-        elif self.is_loop == LoopState.WHOLE:
+        elif self.loop_state == LoopState.WHOLE:
             self.append(self.pop(0))
             return 0
         else:
@@ -91,10 +92,10 @@ class Playlist(List[Song]):
             
     
     def single_loop(self, times: int=INF):
-        if (self.is_loop == LoopState.SINGLE) and times == INF:
-            self.is_loop = LoopState.NOTHING
+        if (self.loop_state == LoopState.SINGLE) and times == INF:
+            self.loop_state = LoopState.NOTHING
         else:
-            self.is_loop = LoopState.SINGLE
+            self.loop_state = LoopState.SINGLE
             if times == INF:
                 self.flag = LoopState.SINGLEINF
             else:
@@ -102,7 +103,7 @@ class Playlist(List[Song]):
         self.times = times
 
     def whole_loop(self):
-        if (self.is_loop == LoopState.WHOLE):
-            self.is_loop = LoopState.NOTHING
+        if (self.loop_state == LoopState.WHOLE):
+            self.loop_state = LoopState.NOTHING
         else:
-            self.is_loop = LoopState.WHOLE
+            self.loop_state = LoopState.WHOLE
