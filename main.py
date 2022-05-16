@@ -6,10 +6,6 @@ import os, dotenv, sys
 import disnake
 from disnake.ext import commands
 
-if os.name != "nt":
-    import uvloop
-    uvloop.install()
-
 print(f'''
 Current Version
 {sys.version}
