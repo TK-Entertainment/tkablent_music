@@ -292,7 +292,6 @@ class MusicBot(Player):
             else: 
                 await self.ui.PauseSucceed(ctx, self)
         except Exception as e:
-            print(e)
             await self.ui.PauseFailed(ctx)
 
     async def resume(self, ctx: commands.Context):
