@@ -344,6 +344,7 @@ class UI:
     ########
     async def PlayingMsg(self, ctx: commands.Context, player: Player):
         global playinfo
+        color = None
         if player.isskip:
             if len(player.playlist) > 0:
                 msg = f'''
@@ -361,13 +362,14 @@ class UI:
             if player.playlist.loop_state != LoopState.SINGLEINF:
                 player.playlist.loop_state = LoopState.NOTHING
                 player.playlist.times = 0
+            color = "yellow"
         else:
             msg = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
         if not self.is_auto_stage_available:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        playinfo = await ctx.send(msg, embed=self.__SongInfo__(playlist=player.playlist, mute=player.ismute))
+        playinfo = await ctx.send(msg, embed=self.__SongInfo__(color=color, playlist=player.playlist, mute=player.ismute))
         try: 
             await self.__UpdateStageTopic__(player)
         except: 
@@ -378,8 +380,10 @@ class UI:
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.__bot__.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
-        try: await self.__UpdateStageTopic__(player, 'done')
-        except: pass
+        try: 
+            await self.__UpdateStageTopic__(player, 'done')
+        except: 
+            pass
     #########
     # Pause #
     ######### 
@@ -389,16 +393,20 @@ class UI:
             歌曲已暫停播放
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
-        try: await self.__UpdateStageTopic__(player, 'pause')
-        except: pass
+        try: 
+            await self.__UpdateStageTopic__(player, 'pause')
+        except: 
+            pass
     async def PauseOnAllMemberLeave(self, ctx: commands.Context, player: Player) -> None:
         await ctx.send(f'''
             **:pause_button: | 暫停歌曲**
             所有人皆已退出語音頻道，歌曲已暫停播放
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
-        try: await self.__UpdateStageTopic__(player, 'pause')
-        except: pass
+        try: 
+            await self.__UpdateStageTopic__(player, 'pause')
+        except: 
+            pass
     async def PauseFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL01**
@@ -417,8 +425,10 @@ class UI:
             歌曲已繼續播放
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
             ''')
-        try: await self.__UpdateStageTopic__(player, 'resume')
-        except: pass
+        try: 
+            await self.__UpdateStageTopic__(player, 'resume')
+        except: 
+            pass
     async def ResumeFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL02**
