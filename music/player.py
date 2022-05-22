@@ -102,7 +102,7 @@ class Player:
 
 from .ui import UI
 
-class MusicBot(Player):
+class MusicBot(commands.Cog, Player):
     def __init__(self, bot):
         commands.Cog.__init__(self)
         Player.__init__(self)
