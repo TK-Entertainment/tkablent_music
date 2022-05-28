@@ -2,6 +2,7 @@ from typing import *
 from enum import Enum, auto
 import disnake
 from disnake import FFmpegPCMAudio, PCMVolumeTransformer
+from .database import Database
 
 from .ytdl import YTDL
 
@@ -11,6 +12,7 @@ class SeekError(Exception): ...
 class OutOfBound(Exception): ...
 
 ytdl = YTDL()
+db = Database()
 
 class Song:
     
@@ -59,7 +61,7 @@ class LoopState(Enum):
     PLAYLIST = auto()
     SINGLEINF = auto()
 
-class Playlist(List[Song]):
+class Playlist(Song):
     def __init__(self):
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
@@ -87,7 +89,6 @@ class Playlist(List[Song]):
             self.pop(0)
             return length
             
-    
     def single_loop(self, times: int=INF):
         if (self.loop_state == LoopState.SINGLE) and times == INF:
             self.loop_state = LoopState.NOTHING

@@ -1,4 +1,5 @@
 import os, dotenv
+import hashlib
 from typing import *
 
 from mysql.connector import connect, Error
@@ -50,4 +51,55 @@ class Database:
     def set_volume(self, guild_id: int, volume: int):
         self.cursor.execute(f"UPDATE guild SET volume={volume} WHERE id={guild_id}")
         self.connection.commit()
-        
+
+    def md5_encryption(self, guild_id: int):
+        md5 = hashlib.md5(str(guild_id).encode('utf8'))
+        return md5.hexdigest()
+
+    def create_session(self, guild_id: int):
+        guild_id_md5 = self.md5_encryption(guild_id)
+        self.cursor.execute(f"SHOW TABLES LIKE '{guild_id_md5}'")
+        if len(self.cursor.fetchall()) == 0:
+            self.cursor.execute(f'''CREATE TABLE {guild_id_md5}(
+                video_id text,
+                title text, 
+                author text, 
+                channel_url text, 
+                watch_url text, 
+                thumbnail_url text, 
+                length double, 
+                url text)
+                ''')
+
+    def get_music_info(self, guild_id: int, video_id):    
+        guild_id_md5 = self.md5_encryption(guild_id)
+        self.cursor.execute(f"SELECT * FROM {guild_id_md5} WHERE video_id='{video_id}'")
+        return self.cursor.fetchall()
+
+    def add_music_info(self, guild_id: int, video_info: dict):
+        guild_id_md5 = self.md5_encryption(guild_id)
+
+        self.cursor.execute(f'''INSERT INTO {guild_id_md5}(
+                video_id, 
+                title, 
+                author, 
+                channel_url, 
+                watch_url, 
+                thumbnail_url, 
+                length, 
+                url)
+            VALUES (
+                '{video_info['video_id']}',
+                '{video_info['title']}',
+                '{video_info['author']}',
+                '{video_info['channel_url']}',
+                '{video_info['watch_url']}',
+                '{video_info['thumbnail_url']}',
+                {video_info['length']},
+                '{video_info['url']}'
+            )''')
+        self.connection.commit()
+
+    def end_session(self, guild_id: int):
+        guild_id_md5 = self.md5_encryption(guild_id)
+        self.cursor.execute(f"DROP TABLE {guild_id_md5}")
