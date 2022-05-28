@@ -30,7 +30,7 @@ class Database:
     def create_columns(self, guild_id)-> Union[Tuple[List], None]: 
         self.cursor.execute(f"SELECT * FROM guild WHERE id={guild_id}")
         if len(self.cursor.fetchall()) == 0:
-            self.cursor.execute(f"INSERT INTO guild(id, prefix, volume) VALUES ({guild_id}, '$', 100")
+            self.cursor.execute(f"INSERT INTO guild(id, prefix, volume) VALUES ({guild_id}, '$', 100)")
             self.connection.commit()
             # Return default values (list)
             return [('$', 100)]
