@@ -2,6 +2,7 @@ from typing import *
 from enum import Enum, auto
 import disnake
 from disnake import FFmpegPCMAudio, PCMVolumeTransformer
+
 from .database import Database
 
 from .ytdl import YTDL
@@ -12,7 +13,7 @@ class SeekError(Exception): ...
 class OutOfBound(Exception): ...
 
 ytdl = YTDL()
-db = Database()
+# db = _database()
 
 class Song:
     
@@ -61,36 +62,37 @@ class LoopState(Enum):
     PLAYLIST = auto()
     SINGLEINF = auto()
 
-class Playlist(Song):
-    def __init__(self):
+class PlaylistBase:
+    '''maintain some info in a playlist for single guild'''
+    def __init__(self, guild_id):
+        self.guild_id = guild_id
+        self.order = list() # maintain the song order in a playlist
+        self.count = dict() # indicate the frequency of a given video_id
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
 
-    def nowplaying(self) -> Song:
-        return self.index()
+    def __getitem__(self, idx):
+        return self.order[idx]
 
+    def nowplaying(self):
+        return self[0]
+    
     def swap(self, idx1: int, idx2: int):
         self[idx1], self[idx2] = self[idx2], self[idx1]
 
     def move_to(self, origin: int, new: int):
-        self.insert(new, self.pop(origin))
-
+        self.order.insert(new, self.order.pop(origin))
+    
     def rule(self):
-        if len(self) == 0:
-            return 0
         if self.loop_state == LoopState.SINGLE and self.times > 0:
             self.times -= 1
-            return 0
         elif self.loop_state == LoopState.PLAYLIST:
-            self.append(self.pop(0))
-            return 0
+            self.order.append(self.order.pop(0))
         else:
-            length = self[0].length
-            self.pop(0)
-            return length
+            self.order.pop(0)
             
     def single_loop(self, times: int=INF):
-        if (self.loop_state == LoopState.SINGLE) and times == INF:
+        if self.loop_state == LoopState.SINGLE and times == INF:
             self.loop_state = LoopState.NOTHING
         else:
             # "times" value only availible in Single Loop mode
@@ -100,7 +102,35 @@ class Playlist(Song):
         self.times = times
 
     def playlist_loop(self):
-        if (self.loop_state == LoopState.PLAYLIST):
+        if self.loop_state == LoopState.PLAYLIST:
             self.loop_state = LoopState.NOTHING
         else:
             self.loop_state = LoopState.PLAYLIST
+
+class Playlist:
+    '''return info from a specific guild data'''
+    def __init__(self):
+        self._database = Database()
+        self._guilds_info = dict()
+
+    def __getitem__(self, guild_id) -> PlaylistBase:
+        return self._guilds_info.get(guild_id, PlaylistBase())
+
+    def nowplaying(self, guild_id: int) -> dict:
+        info = self._database.get_music_info(guild_id, self[guild_id].nowplaying())
+        return info
+
+    def swap(self, guild_id: int, idx1: int, idx2: int):
+        self[guild_id].swap(idx1, idx2)
+
+    def move_to(self, guild_id: int, origin: int, new: int):
+        self[guild_id].move_to(origin, new)
+
+    def rule(self, guild_id: int):
+        return self[guild_id].rule()
+            
+    def single_loop(self, guild_id: int, times: int = INF):
+        return self[guild_id].single_loop(times)
+
+    def playlist_loop(self, guild_id: int):
+        return self[guild_id].playlist_loop()

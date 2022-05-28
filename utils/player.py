@@ -13,9 +13,6 @@ INF = int(1e18)
 bot_version = 'master Branch'
 
 class Player:
-    def __del__(self):
-        print('collected')  
-
     def __init__(self):
         # flag for local server, need to change for multiple server
         self.voice_client: VoiceClient = None
@@ -226,9 +223,8 @@ class MusicBot(commands.Cog, Player):
         self.voice_client = ctx.guild.voice_client
 
         if self.ui.is_auto_stage_available and \
-        isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
-        bot_itself.voice.suppress:
-
+                isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
+                bot_itself.voice.suppress:
             try: 
                 await bot_itself.edit(suppress=False)
             except: 
@@ -238,9 +234,8 @@ class MusicBot(commands.Cog, Player):
 
     async def _SearchFailedHandler(self, ctx: commands.Context, exception: Union[YTDLPExceptions.DownloadError, Exception], url: str):
         # Video Private error handler
-        if isinstance(exception, PytubeExceptions.VideoPrivate)\
-            or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
-            
+        if isinstance(exception, PytubeExceptions.VideoPrivate) \
+                or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
             await self.ui.SearchFailed(ctx, url, "VideoPrivate")
         # Members Only Video error handler
         elif isinstance(exception, PytubeExceptions.MembersOnly):
