@@ -9,6 +9,9 @@ from mysql.connector.cursor_cext import CMySQLCursorBuffered
 class Database:
     def __init__(self):
         self.connect()
+        self.cursor.execute('SHOW TABLES LIKE "guild"')
+        if len(self.cursor.fetchall()) == 0:
+            self.cursor.execute("CREATE TABLE guild(id int, prefix varchar(255), volume int)")
     
     def connect(self):
         self.connection: CMySQLConnection = connect(
@@ -22,64 +25,29 @@ class Database:
     def disconnect(self):
         self.connection.disconnect()
 
-    def initdb(self):
-        self.cursor.execute(f"SELECT * FROM guild")
-        if len(self.cursor.fetchall()) == 0:
-            self.cursor.execute(f"CREATE TABLE guild(id int, prefix varchar(255), volume int)")
+    def create_guild_info(self, guild_id)-> Tuple: 
+        self.cursor.execute(f"INSERT INTO guild(id, prefix, volume) VALUES ({guild_id}, '$', 100)")
+        self.connection.commit()
+        return '$', 100
 
-    def create_columns(self, guild_id)-> Union[Tuple[List], None]: 
+    def get_guild_info(self, guild_id) -> Tuple:
         self.cursor.execute(f"SELECT * FROM guild WHERE id={guild_id}")
-        if len(self.cursor.fetchall()) == 0:
-            self.cursor.execute(f"INSERT INTO guild(id, prefix, volume) VALUES ({guild_id}, '$', 100)")
-            self.connection.commit()
-            # Return default values (list)
-            return [('$', 100)]
-        else:
-            self.cursor.execute(f"SELECT prefix FROM guild WHERE id={guild_id}")
-            result1 = self.cursor.fetchall()
+        result = self.cursor.fetchall()
+        if len(result) == 0:
+            return self.create_guild_info(guild_id)
+        return result[0][1:] # return info without id
 
-            self.cursor.execute(f"SELECT volume FROM guild WHERE id={guild_id}")
-            result2 = self.cursor.fetchall()
+    def get_prefix(self, guild_id: int) -> str:
+        return self.get_guild_info(guild_id)[0]
+    
+    def set_prefix(self, guild_id: int, prefix: str):
+        self.cursor.execute(f'UPDATE guild SET prefix="{prefix}" WHERE id={guild_id}')
+        self.connection.commit()
 
-            if len(result1) == 0:
-                self.cursor.execute(f"INSERT INTO guild(id, prefix) VALUES ({guild_id}, '$')")
+    def get_volume(self, guild_id: int) -> int:
+        return self.get_guild_info(guild_id)[1]
 
-            elif len(result2) == 0:
-                self.cursor.execute(f"INSERT INTO guild(id, volume) VALUES ({guild_id}, 100)")
-            
-            else: # No case
-                return
-
-            self.connection.commit()
-            self.cursor.execute(f"SELECT * FROM guild WHERE id={guild_id}")
-            return self.cursor.fetchall()
-
-
-    def get_prefix(self, guild_id: int, mode: str, prefix: str=None) -> Union[str, None]:
-        # mode: "get", "set"
-        if mode == "get":
-            self.cursor.execute(f'SELECT prefix FROM guild WHERE id={guild_id}')
-            result = self.cursor.fetchall()
-            if len(result) == 0:
-                return self.create_columns(guild_id)[0][0]
-            return result[0][0]
-        elif mode == "set":
-            self.cursor.execute(f'UPDATE guild SET prefix={prefix} WHERE id={guild_id}')
-            self.connection.commit()
-
-    def volume_data(self, guild_id: int, mode: str, volume: int=None) -> Union[str, None]:
-        # mode: "get", "set"
-        if mode == "get":
-            self.cursor.execute(f"SELECT volume FROM guild WHERE id={guild_id}")
-            result = self.cursor.fetchall()
-            if len(result) == 0:
-                return self.create_columns(guild_id)[0][1]
-            return result[0][1]
-        elif mode == "set":
-            self.cursor.execute(f"UPDATE guild SET volume={volume} WHERE id={guild_id}")
-            self.connection.commit()
-            
-'''
-guild:
-id, prefix, volume
-'''
+    def set_volume(self, guild_id: int, volume: int):
+        self.cursor.execute(f"UPDATE guild SET volume={volume} WHERE id={guild_id}")
+        self.connection.commit()
+        
