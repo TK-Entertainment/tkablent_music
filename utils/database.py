@@ -68,36 +68,67 @@ class Database:
                 watch_url text, 
                 thumbnail_url text, 
                 length double, 
-                url text)
+                url text, 
+                stream boolean
+                )
                 ''')
 
-    def get_music_info(self, guild_id: int, video_id):    
+    def get_music_info(self, guild_id: int, video_id) -> dict:
+        '''
+        This function will return a list that contains 8 music info
+
+        Index Table:
+        0: video_id, 1: title, 2: author, 3: channel_url
+        4: watch_url, 5: thumbnail_url, 6: length, 7: url
+        8: stream (is_stream)
+        '''    
         guild_id_md5 = self.md5_encryption(guild_id)
         self.cursor.execute(f"SELECT * FROM {guild_id_md5} WHERE video_id='{video_id}'")
-        return self.cursor.fetchall()
+        db_info = self.cursor.fetchall()[0]
+        info = {
+            'video_id': db_info[0],
+            'title': db_info[1],
+            'author': db_info[2],
+            'channel_url': db_info[3],
+            'watch_url': db_info[4],
+            'thumbnail_url': db_info[5],
+            'length': db_info[6],
+            'url': db_info[7],
+            'stream': bool(db_info[8])
+        }
+        return info
 
     def add_music_info(self, guild_id: int, video_info: dict):
         guild_id_md5 = self.md5_encryption(guild_id)
+        self.cursor.execute("SELECT * FROM {} WHERE video_id='{}'".format(guild_id_md5, video_info['video_id']))
+        if len(self.cursor.fetchall()) == 0:
+            self.cursor.execute(f'''INSERT INTO {guild_id_md5}(
+                    video_id, 
+                    title, 
+                    author, 
+                    channel_url, 
+                    watch_url, 
+                    thumbnail_url, 
+                    length, 
+                    url,
+                    stream)
+                VALUES (
+                    '{video_info['video_id']}',
+                    '{video_info['title']}',
+                    '{video_info['author']}',
+                    '{video_info['channel_url']}',
+                    '{video_info['watch_url']}',
+                    '{video_info['thumbnail_url']}',
+                    {video_info['length']},
+                    '{video_info['url']}',
+                    {video_info['stream']}
+                )''')
+            self.connection.commit()
 
-        self.cursor.execute(f'''INSERT INTO {guild_id_md5}(
-                video_id, 
-                title, 
-                author, 
-                channel_url, 
-                watch_url, 
-                thumbnail_url, 
-                length, 
-                url)
-            VALUES (
-                '{video_info['video_id']}',
-                '{video_info['title']}',
-                '{video_info['author']}',
-                '{video_info['channel_url']}',
-                '{video_info['watch_url']}',
-                '{video_info['thumbnail_url']}',
-                {video_info['length']},
-                '{video_info['url']}'
-            )''')
+    def del_music_info(self, guild_id: int, video_id: str):
+        guild_id_md5 = self.md5_encryption(guild_id)
+
+        self.cursor.execute(f"DELETE FROM {guild_id_md5} WHERE video_id='{guild_id_md5}'")
         self.connection.commit()
 
     def end_session(self, guild_id: int):

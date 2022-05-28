@@ -35,12 +35,6 @@ class Song:
         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
         self.add_info(url, requester)
 
-    def add_info(self, url, requester):
-        ytdl.get_info(self, url)
-        self.requester = requester
-        self.is_stream = (self.length == 0)
-        self.set_ffmpeg_options(0)
-
     def set_source(self, volumelevel):
         self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
         
@@ -115,6 +109,11 @@ class Playlist:
 
     def __getitem__(self, guild_id) -> PlaylistBase:
         return self._guilds_info.get(guild_id, PlaylistBase())
+
+    def add_info(self, url, guild_id, requester):
+        self._database.add_music_info(guild_id, ytdl.get_info(url))
+        # self.requester = requester
+        # self.set_ffmpeg_options(0)
 
     def nowplaying(self, guild_id: int) -> dict:
         info = self._database.get_music_info(guild_id, self[guild_id].nowplaying())

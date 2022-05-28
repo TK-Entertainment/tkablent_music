@@ -634,8 +634,7 @@ class UI:
             if issearch: await searchmes.delete()
     # Queue Embed Generator
     def __QueueEmbed__(self, playlist: Playlist, page: int=1, totallength: int=None) -> disnake.Embed:
-        tl = sec_to_hms(self, totallength, "symbol")
-        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist)-1} 首，總時長 {tl}", colour=0xF2F3EE)
+        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist)-1} 首", colour=0xF2F3EE)
         if len(playlist) > 4: embed.description += f"\n目前為第 {page+1} 頁"
         for i in range(1, 4):
             index = page*3+i
