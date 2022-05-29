@@ -218,7 +218,8 @@ class Router(commands.Cog):
     ''')
         
 
-bot.add_cog(Router(bot))
+# bot.add_cog(Router(bot))
+bot.add_cog(MusicBot(bot))
 
 try:
     bot.run(TOKEN)

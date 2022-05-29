@@ -1,7 +1,10 @@
 from typing import *
 from enum import Enum, auto
+
+import asyncio
+
 import disnake
-from disnake import FFmpegPCMAudio, PCMVolumeTransformer
+from disnake import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
 
 from .database import DatabaseSession
 
@@ -68,7 +71,7 @@ class PlaylistBase:
     def __getitem__(self, idx):
         return self.order[idx]
 
-    def nowplaying(self):
+    def current(self):
         return self[0]
     
     def swap(self, idx1: int, idx2: int):
@@ -120,8 +123,34 @@ class Playlist:
     def end_session(self, guild_id: int):
         self._database.end_session(guild_id)
 
+    async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
+        if self._database.check_session(guild.id):
+            return
+        async def check():
+            while not len(self[guild.id].order):
+                await asyncio.sleep(1.0)
+            return True
+        async def inner():
+            self._database.create_session(guild.id)
+            await asyncio.wait_for(check, timeout=30.0)
+            while len(self[guild.id].order):
+                await channel.send('now playing')
+                voice_client: VoiceClient = guild.voice_client
+                video_id = self[guild.id].current()
+                source: dict = self._database.get_music_info(guild.id, video_id)
+                voice_client.play(disnake.FFmpegPCMAudio(source['url']))
+                try:
+                    while voice_client.is_playing() or voice_client.is_paused():
+                        await asyncio.sleep(1.0)
+                finally:
+                    self.rule(guild.id)
+            self._database.end_session(guild.id)
+        return inner
+    
     def add_info(self, url, guild_id, requester):
-        self._database.add_music_info(guild_id, ytdl.get_info(url))
+        info = ytdl.get_info(url)
+        self._database.add_music_info(guild_id, info)
+        self[guild_id].order.append(info['video_id'])
         # self.requester = requester
         # self.set_ffmpeg_options(0)
 
@@ -134,7 +163,7 @@ class Playlist:
 
     def move_to(self, guild_id: int, origin: int, new: int):
         self[guild_id].move_to(origin, new)
-
+    
     def rule(self, guild_id: int):
         self[guild_id].rule()
             

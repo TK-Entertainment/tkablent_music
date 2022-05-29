@@ -5,7 +5,8 @@ import disnake
 from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
 from disnake.ext import commands
 
-from utils.database import Database
+from .database import DatabaseGuild, DatabaseSession
+from .ytdl import YTDL
 
 from .playlist import Song, Playlist, LoopState
 from pytube import exceptions as PytubeExceptions
@@ -18,6 +19,7 @@ class Player(commands.Cog):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
+        self.ytdl = YTDL()
         self._playlist: Playlist = Playlist()
 
     @commands.Cog.listener(name='on_voice_state_update')
@@ -34,14 +36,29 @@ class Player(commands.Cog):
         if voice_client is None:
             await channel.connect()
 
-    async def _play(self):
-        pass
+    async def _search(self, ctx: commands.Context, url):
+        self._playlist.add_info(url, ctx.guild.id, None)
 
-class MusicBot(Player):
-    @commands.command()
-    async def play(self, ctx: commands.Context):
-        self._join()
+    async def _play(self, ctx: commands.Context, url: str):
+        await self._mainloop(ctx.guild, ctx.channel)
+
+    async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
+        start = await self._playlist._mainloop(guild, channel)
+        if start is None:
+            return
+        await start()
+
+class MusicBot(Player, commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        Player.__init__(self, bot)
+        commands.Cog.__init__(self)
+    @commands.command(name='play', aliases=['p', 'P'])
+    async def play(self, ctx: commands.Context, url: str):
+        await self._mainloop(ctx.guild, ctx.channel)
+        await self._join(ctx.author.voice.channel)
         voice_client = ctx.guild.voice_client
+        await self._search(ctx, url)
+        await self._play(ctx, url)
         
 
 '''
@@ -98,9 +115,9 @@ class Player:
         else:
             raise Exception # this exception is for identifying the illegal operation
 
-    def _resume(self):
+    def _startume(self):
         if self.voice_client.is_paused():
-            self.voice_client.resume()
+            self.voice_client.startume()
         else:
             raise Exception # this exception is for identifying the illegal operation
 
@@ -163,9 +180,9 @@ class MusicBot(commands.Cog, Player):
             self._pause()
         # Moving itself to author's channel
         await self.voice_client.move_to(ctx.author.voice.channel)
-        # If paused before rejoining, resume the music
+        # If paused before rejoining, startume the music
         if not former_state: 
-            self._resume()
+            self._startume()
         # If paused before rejoining, reflag itself as inactive
         # (leaving channel after 10 minutes)
         if former_state: 
@@ -234,7 +251,7 @@ class MusicBot(commands.Cog, Player):
                 return
             # If queue has more than 1 songs, then show the UI
             await self.ui.Embed_AddedToQueue(ctx, self.playlist)
-            # Experiment features (show total length in queuelist)
+            # Experiment featustart (show total length in queuelist)
             if len(self.playlist) > 1:
                 self.totallength += self.playlist[-1].length
 
@@ -257,9 +274,9 @@ class MusicBot(commands.Cog, Player):
 
         if self.ui.is_auto_stage_available and \
                 isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
-                bot_itself.voice.suppress:
+                bot_itself.voice.suppstarts:
             try: 
-                await bot_itself.edit(suppress=False)
+                await bot_itself.edit(suppstarts=False)
             except: 
                 pass
 
@@ -299,7 +316,7 @@ class MusicBot(commands.Cog, Player):
         self.in_mainloop = False
         if self.isskip: 
             await self.ui.PlayingMsg(ctx, self)
-        # Reset value
+        # startet value
         self.playlist.loop_state = LoopState.NOTHING
         self.isskip = False
         if not self.timedout:
@@ -322,15 +339,15 @@ class MusicBot(commands.Cog, Player):
         except Exception as e:
             await self.ui.PauseFailed(ctx)
 
-    async def resume(self, ctx: commands.Context):
+    async def startume(self, ctx: commands.Context):
         try:
             if self.task is not None:
                 self.task.cancel()
-            self._resume()
+            self._startume()
             self.inactive = False
-            await self.ui.ResumeSucceed(ctx, self)
+            await self.ui.startumeSucceed(ctx, self)
         except:
-            await self.ui.ResumeFailed(ctx)
+            await self.ui.startumeFailed(ctx)
 
     async def skip(self, ctx: commands.Context):
         try:
@@ -377,7 +394,7 @@ class MusicBot(commands.Cog, Player):
         if self._seek(timestamp) != 'Exceed':
             await self.ui.SeekSucceed(ctx, timestamp, self)
 
-    async def restart(self, ctx: commands.Context):
+    async def starttart(self, ctx: commands.Context):
         try:
             self._seek(0)
             await self.ui.ReplaySucceed(ctx)
