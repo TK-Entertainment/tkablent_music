@@ -25,9 +25,9 @@ class Player(commands.Cog):
         if member.id != self.bot.user.id:
             return
         if before.channel is None and after.channel is not None:
-            self._playlist.create_session()
+            self._playlist.create_session(after.channel.guild.id)
         elif before.channel is not None and after.channel is None:
-            self._playlist.end_session()
+            self._playlist.end_session(before.channel.guild.id)
 
     async def _join(self, channel: disnake.VoiceChannel):
         voice_client = channel.guild.voice_client

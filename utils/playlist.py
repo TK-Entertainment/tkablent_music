@@ -114,11 +114,11 @@ class Playlist:
     def __getitem__(self, guild_id) -> PlaylistBase:
         return self._guilds_info.get(guild_id, PlaylistBase())
 
-    def create_session(self):
-        pass
+    def create_session(self, guild_id: int):
+        self._database.create_session(guild_id)
 
-    def end_session(self):
-        pass
+    def end_session(self, guild_id: int):
+        self._database.end_session(guild_id)
 
     def add_info(self, url, guild_id, requester):
         self._database.add_music_info(guild_id, ytdl.get_info(url))

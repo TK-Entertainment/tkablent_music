@@ -1,5 +1,5 @@
 import pytube, yt_dlp
-
+import pytube.exceptions
 
 ytdl_format_options = {
     'format': 'bestaudio/best',
