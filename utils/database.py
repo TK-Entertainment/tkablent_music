@@ -80,7 +80,7 @@ class DatabaseSession(DatabaseConnection):
         guild_id_md5 = self.md5_encryption(guild_id)
         
         self.cursor.execute(f"SHOW TABLES LIKE '{guild_id_md5}'")
-        return len(self.cursor.fetchall()) == 0
+        return len(self.cursor.fetchall()) != 0
 
     def get_music_info(self, guild_id: int, video_id) -> dict:
         '''

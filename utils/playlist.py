@@ -61,8 +61,7 @@ class LoopState(Enum):
 
 class PlaylistBase:
     '''maintain some info in a playlist for single guild'''
-    def __init__(self, guild_id):
-        self.guild_id = guild_id
+    def __init__(self):
         self.order = list() # maintain the song order in a playlist
         self.count = dict() # indicate the frequency of a given video_id
         self.loop_state: LoopState = LoopState.NOTHING
@@ -115,7 +114,9 @@ class Playlist:
         self._guilds_info = dict()
 
     def __getitem__(self, guild_id) -> PlaylistBase:
-        return self._guilds_info.get(guild_id, PlaylistBase())
+        if self._guilds_info.get(guild_id) is None:
+            self._guilds_info[guild_id] = PlaylistBase()
+        return self._guilds_info[guild_id]
 
     def create_session(self, guild_id: int):
         self._database.create_session(guild_id)
@@ -124,15 +125,14 @@ class Playlist:
         self._database.end_session(guild_id)
 
     async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
-        if self._database.check_session(guild.id):
-            return
+        if not self._database.check_session(guild.id):
+            self._database.create_session(guild.id)
         async def check():
             while not len(self[guild.id].order):
                 await asyncio.sleep(1.0)
             return True
         async def inner():
-            self._database.create_session(guild.id)
-            await asyncio.wait_for(check, timeout=30.0)
+            await asyncio.wait_for(check(), timeout=30.0)
             while len(self[guild.id].order):
                 await channel.send('now playing')
                 voice_client: VoiceClient = guild.voice_client
@@ -148,6 +148,8 @@ class Playlist:
         return inner
     
     def add_info(self, url, guild_id, requester):
+        if not self._database.check_session(guild_id):
+            self._database.create_session(guild_id)
         info = ytdl.get_info(url)
         self._database.add_music_info(guild_id, info)
         self[guild_id].order.append(info['video_id'])

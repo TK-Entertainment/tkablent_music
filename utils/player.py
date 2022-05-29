@@ -54,7 +54,6 @@ class MusicBot(Player, commands.Cog):
         commands.Cog.__init__(self)
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, url: str):
-        await self._mainloop(ctx.guild, ctx.channel)
         await self._join(ctx.author.voice.channel)
         voice_client = ctx.guild.voice_client
         await self._search(ctx, url)
