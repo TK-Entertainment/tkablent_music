@@ -5,6 +5,8 @@ import disnake
 from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
 from disnake.ext import commands
 
+from utils.database import Database
+
 from .playlist import Song, Playlist, LoopState
 from pytube import exceptions as PytubeExceptions
 from yt_dlp import utils as YTDLPExceptions
@@ -12,6 +14,37 @@ from yt_dlp import utils as YTDLPExceptions
 INF = int(1e18)
 bot_version = 'master Branch'
 
+class Player(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        super().__init__()
+        self.bot = bot
+        self._playlist: Playlist = Playlist()
+
+    @commands.Cog.listener(name='on_voice_state_update')
+    async def check_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+        if member.id != self.bot.user.id:
+            return
+        if before.channel is None and after.channel is not None:
+            self._playlist.create_session()
+        elif before.channel is not None and after.channel is None:
+            self._playlist.end_session()
+
+    async def _join(self, channel: disnake.VoiceChannel):
+        voice_client = channel.guild.voice_client
+        if voice_client is None:
+            await channel.connect()
+
+    async def _play(self):
+        pass
+
+class MusicBot(Player):
+    @commands.command()
+    async def play(self, ctx: commands.Context):
+        self._join()
+        voice_client = ctx.guild.voice_client
+        
+
+'''
 class Player:
     def __init__(self):
         # flag for local server, need to change for multiple server
@@ -385,3 +418,5 @@ class MusicBot(commands.Cog, Player):
             await self.ui.MoveToSucceed(ctx, self.playlist, origin, new)
         except (IndexError, TypeError):
             await self.ui.MoveToFailed(ctx)
+
+'''

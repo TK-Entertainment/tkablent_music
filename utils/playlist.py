@@ -106,13 +106,19 @@ class PlaylistBase:
             self.loop_state = LoopState.PLAYLIST
 
 class Playlist:
-    '''return info from a specific guild data'''
+    '''a connector between Python data and MySQL data'''
     def __init__(self):
         self._database = DatabaseSession()
         self._guilds_info = dict()
 
     def __getitem__(self, guild_id) -> PlaylistBase:
         return self._guilds_info.get(guild_id, PlaylistBase())
+
+    def create_session(self):
+        pass
+
+    def end_session(self):
+        pass
 
     def add_info(self, url, guild_id, requester):
         self._database.add_music_info(guild_id, ytdl.get_info(url))

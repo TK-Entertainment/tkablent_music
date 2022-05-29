@@ -20,21 +20,20 @@ class DatabaseConnection:
     def disconnect(self):
         self.connection.disconnect()
 
-class DatabaseGuild:
+class DatabaseGuild(DatabaseConnection):
     def __init__(self):
-        self.db = DatabaseConnection()
-        self.db.cursor.execute('SHOW TABLES LIKE "guild"')
-        if len(self.db.cursor.fetchall()) == 0:
-            self.db.cursor.execute("CREATE TABLE guild(id int, prefix varchar(255), volume int)")
+        self.cursor.execute('SHOW TABLES LIKE "guild"')
+        if len(self.cursor.fetchall()) == 0:
+            self.cursor.execute("CREATE TABLE guild(id int, prefix varchar(255), volume int)")
     
     def create_guild_info(self, guild_id)-> Tuple: 
-        self.db.cursor.execute(f"INSERT INTO guild(id, prefix, volume) VALUES ({guild_id}, '$', 100)")
-        self.db.connection.commit()
+        self.cursor.execute(f"INSERT INTO guild(id, prefix, volume) VALUES ({guild_id}, '$', 100)")
+        self.connection.commit()
         return '$', 100
 
     def get_guild_info(self, guild_id) -> Tuple:
-        self.db.cursor.execute(f"SELECT * FROM guild WHERE id={guild_id}")
-        result = self.db.cursor.fetchall()
+        self.cursor.execute(f"SELECT * FROM guild WHERE id={guild_id}")
+        result = self.cursor.fetchall()
         if len(result) == 0:
             return self.create_guild_info(guild_id)
         return result[0][1:] # return info without id
@@ -43,27 +42,24 @@ class DatabaseGuild:
         return self.get_guild_info(guild_id)[0]
     
     def set_prefix(self, guild_id: int, prefix: str):
-        self.db.cursor.execute(f'UPDATE guild SET prefix="{prefix}" WHERE id={guild_id}')
-        self.db.connection.commit()
+        self.cursor.execute(f'UPDATE guild SET prefix="{prefix}" WHERE id={guild_id}')
+        self.connection.commit()
 
     def get_volume(self, guild_id: int) -> int:
         return self.get_guild_info(guild_id)[1]
 
     def set_volume(self, guild_id: int, volume: int):
-        self.db.cursor.execute(f"UPDATE guild SET volume={volume} WHERE id={guild_id}")
-        self.db.connection.commit()
+        self.cursor.execute(f"UPDATE guild SET volume={volume} WHERE id={guild_id}")
+        self.connection.commit()
 
-class DatabaseSession():
-    def __init__(self):
-        self.db = DatabaseConnection()
-
+class DatabaseSession(DatabaseConnection):
     def md5_encryption(self, guild_id: int):
         md5 = hashlib.md5(str(guild_id).encode('utf8'))
         return md5.hexdigest()
 
     def create_session(self, guild_id: int):
         guild_id_md5 = self.md5_encryption(guild_id)
-        self.db.cursor.execute(f'''CREATE TABLE {guild_id_md5}(
+        self.cursor.execute(f'''CREATE TABLE {guild_id_md5}(
             video_id text,
             title text, 
             author text, 
@@ -86,8 +82,8 @@ class DatabaseSession():
         8: stream (is_stream)
         '''    
         guild_id_md5 = self.md5_encryption(guild_id)
-        self.db.cursor.execute(f"SELECT * FROM {guild_id_md5} WHERE video_id='{video_id}'")
-        db_info = self.db.cursor.fetchall()[0]
+        self.cursor.execute(f"SELECT * FROM {guild_id_md5} WHERE video_id='{video_id}'")
+        db_info = self.cursor.fetchall()[0]
         info = {
             'video_id': db_info[0],
             'title': db_info[1],
@@ -103,9 +99,9 @@ class DatabaseSession():
 
     def add_music_info(self, guild_id: int, video_info: dict):
         guild_id_md5 = self.md5_encryption(guild_id)
-        self.db.cursor.execute("SELECT * FROM {} WHERE video_id='{}'".format(guild_id_md5, video_info['video_id']))
-        if len(self.db.cursor.fetchall()) == 0:
-            self.db.cursor.execute(f'''INSERT INTO {guild_id_md5}(
+        self.cursor.execute("SELECT * FROM {} WHERE video_id='{}'".format(guild_id_md5, video_info['video_id']))
+        if len(self.cursor.fetchall()) == 0:
+            self.cursor.execute(f'''INSERT INTO {guild_id_md5}(
                     video_id, 
                     title, 
                     author, 
@@ -126,14 +122,14 @@ class DatabaseSession():
                     '{video_info['url']}',
                     {video_info['stream']}
                 )''')
-            self.db.connection.commit()
+            self.connection.commit()
 
     def del_music_info(self, guild_id: int, video_id: str):
         guild_id_md5 = self.md5_encryption(guild_id)
 
-        self.db.cursor.execute(f"DELETE FROM {guild_id_md5} WHERE video_id='{guild_id_md5}'")
-        self.db.connection.commit()
+        self.cursor.execute(f"DELETE FROM {guild_id_md5} WHERE video_id='{guild_id_md5}'")
+        self.connection.commit()
 
     def end_session(self, guild_id: int):
         guild_id_md5 = self.md5_encryption(guild_id)
-        self.db.cursor.execute(f"DROP TABLE {guild_id_md5}")
+        self.cursor.execute(f"DROP TABLE {guild_id_md5}")
