@@ -1,5 +1,5 @@
 from typing import *
-import threading, asyncio, gc
+import threading, asyncio, gc, weakref
 
 import disnake
 from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
@@ -19,7 +19,8 @@ class Player(commands.Cog):
         self.bot = bot
         self.ytdl = YTDL()
         self._playlist: Playlist = Playlist()
-        self._tasks: Dict[int, asyncio.Task] = dict()
+        self._tasks: weakref.WeakValueDictionary[int, asyncio.Task] = weakref.WeakValueDictionary()
+        weakref.finalize(self._playlist, print, 'self._playlist object is collected')
 
     async def _join(self, channel: disnake.VoiceChannel):
         voice_client = channel.guild.voice_client
@@ -36,8 +37,11 @@ class Player(commands.Cog):
         if self._tasks.get(guild.id) is not None:
             return
         coro = self._playlist._mainloop(guild, channel)
-        self._tasks[guild.id] = self.bot.loop.create_task(coro)
-        self._tasks[guild.id].add_done_callback(lambda guild_id=guild.id: self.cleanup(guild_id))
+        weakref.finalize(coro, print, 'mainloop object is collected')
+        task = self.bot.loop.create_task(coro)
+        weakref.finalize(task, print, 'task object is collected')
+        self._tasks[guild.id] = task
+        self._tasks[guild.id].add_done_callback(lambda junk, guild_id=guild.id: self.cleanup(guild_id))
         
     def cleanup(self, guild_id: int):
         del self._tasks[guild_id]
