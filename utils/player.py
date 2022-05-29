@@ -8,14 +8,55 @@ from disnake.ext import commands
 from .playlist import Song, Playlist, LoopState
 from pytube import exceptions as PytubeExceptions
 from yt_dlp import utils as YTDLPExceptions
+from .ytdl import YTDL
 
 INF = int(1e18)
 bot_version = 'master Branch'
 
-class Player:
-    def __del__(self):
-        print('collected')  
+class Player(commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        super().__init__()
+        self.bot = bot
+        self.ytdl = YTDL()
+        self._playlist: Playlist = Playlist()
+        self._tasks: Dict[int, asyncio.Task] = dict()
 
+    async def _join(self, channel: disnake.VoiceChannel):
+        voice_client = channel.guild.voice_client
+        if voice_client is None:
+            await channel.connect()
+
+    async def _search(self, ctx: commands.Context, url):
+        self._playlist.add_info(ctx.guild.id, url, None)
+
+    async def _play(self, ctx: commands.Context, url: str):
+        await self._mainloop(ctx.guild, ctx.channel)
+
+    async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
+        if self._tasks.get(guild.id) is not None:
+            return
+        coro = self._playlist._mainloop(guild, channel)
+        self._tasks[guild.id] = self.bot.loop.create_task(coro)
+        self._tasks[guild.id].add_done_callback(lambda guild_id=guild.id: self.cleanup(guild_id))
+        
+    def cleanup(self, guild_id: int):
+        del self._tasks[guild_id]
+        del self._playlist[guild_id]
+
+class MusicBot(Player, commands.Cog):
+    def __init__(self, bot: commands.Bot):
+        Player.__init__(self, bot)
+        commands.Cog.__init__(self)
+    
+    @commands.command(name='play', aliases=['p', 'P'])
+    async def play(self, ctx: commands.Context, url: str):
+        await self._join(ctx.author.voice.channel)
+        await self._search(ctx, url)
+        await self._play(ctx, url)
+        
+
+'''
+class Player:
     def __init__(self):
         # flag for local server, need to change for multiple server
         self.voice_client: VoiceClient = None
@@ -390,3 +431,4 @@ class MusicBot(Player):
             await self.ui.MoveToSucceed(ctx, self.playlist, origin, new)
         except (IndexError, TypeError):
             await self.ui.MoveToFailed(ctx)
+'''
