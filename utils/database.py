@@ -72,14 +72,26 @@ class DatabaseSession(DatabaseConnection):
             )
             ''')
 
+    def check_session(self, guild_id: int) -> bool:
+        '''
+        To check whether session is exist or not.
+        This function returns boolean
+        '''
+        guild_id_md5 = self.md5_encryption(guild_id)
+        
+        self.cursor.execute(f"SHOW TABLES LIKE '{guild_id_md5}'")
+        return len(self.cursor.fetchall()) == 0
+
     def get_music_info(self, guild_id: int, video_id) -> dict:
         '''
-        This function will return a list that contains 8 music info
+        This function will return a list that contains 9 music info
 
         Index Table:
         0: video_id, 1: title, 2: author, 3: channel_url
         4: watch_url, 5: thumbnail_url, 6: length, 7: url
         8: stream (is_stream)
+
+        This function returns a dict object that contains all stuff.
         '''    
         guild_id_md5 = self.md5_encryption(guild_id)
         self.cursor.execute(f"SELECT * FROM {guild_id_md5} WHERE video_id='{video_id}'")
@@ -98,6 +110,11 @@ class DatabaseSession(DatabaseConnection):
         return info
 
     def add_music_info(self, guild_id: int, video_info: dict):
+        '''
+        This function will add a music info into the session table.
+
+        This function returns NoneType object.
+        '''
         guild_id_md5 = self.md5_encryption(guild_id)
         self.cursor.execute("SELECT * FROM {} WHERE video_id='{}'".format(guild_id_md5, video_info['video_id']))
         if len(self.cursor.fetchall()) == 0:
@@ -127,7 +144,7 @@ class DatabaseSession(DatabaseConnection):
     def del_music_info(self, guild_id: int, video_id: str):
         guild_id_md5 = self.md5_encryption(guild_id)
 
-        self.cursor.execute(f"DELETE FROM {guild_id_md5} WHERE video_id='{guild_id_md5}'")
+        self.cursor.execute(f"DELETE FROM {guild_id_md5} WHERE video_id='{video_id}'")
         self.connection.commit()
 
     def end_session(self, guild_id: int):
