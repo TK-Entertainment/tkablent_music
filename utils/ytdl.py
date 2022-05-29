@@ -56,7 +56,7 @@ class YTDL:
                 else:
                     info = ytdl.extract_info(url, download=False)
 
-                song_info_dict['video_id'] = info.video_id
+                song_info_dict['video_id'] = info['video_id']
                 song_info_dict['title'] = info["title"]
                 song_info_dict['author'] = info["uploader"]
                 song_info_dict['channel_url'] = info["uploader_url"]

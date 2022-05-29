@@ -33,7 +33,7 @@ class Song:
         # flag for local server, need to change for multiple server
         self.is_stream: bool = False
         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
-        self.add_info(url, requester)
+        # self.add_info(url, requester)
 
     def set_source(self, volumelevel):
         self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
@@ -78,22 +78,26 @@ class PlaylistBase:
         self.order.insert(new, self.order.pop(origin))
     
     def rule(self):
-        if self.loop_state == LoopState.SINGLE and self.times > 0:
+        if self.loop_state == LoopState.SINGLEINF:
+            return
+        if self.loop_state == LoopState.SINGLE:
             self.times -= 1
         elif self.loop_state == LoopState.PLAYLIST:
             self.order.append(self.order.pop(0))
         else:
             self.order.pop(0)
+        if self.loop_state == LoopState.SINGLE and self.times == 0:
+            self.loop_state =  LoopState.NOTHING
             
-    def single_loop(self, times: int=INF):
-        if self.loop_state == LoopState.SINGLE and times == INF:
-            self.loop_state = LoopState.NOTHING
-        else:
-            # "times" value only availible in Single Loop mode
+    def single_loop(self, times: int = INF):
+        if self.loop_state != LoopState.SINGLE and self.loop_state != LoopState.SINGLEINF:
             self.loop_state = LoopState.SINGLE
-            if times == INF:
+            self.times = times # "times" value only availible in Single Loop mode
+            if self.times == INF:
                 self.loop_state = LoopState.SINGLEINF
-        self.times = times
+        else:
+            self.loop_state = LoopState.NOTHING
+            self.times = 0
 
     def playlist_loop(self):
         if self.loop_state == LoopState.PLAYLIST:
@@ -126,10 +130,10 @@ class Playlist:
         self[guild_id].move_to(origin, new)
 
     def rule(self, guild_id: int):
-        return self[guild_id].rule()
+        self[guild_id].rule()
             
     def single_loop(self, guild_id: int, times: int = INF):
-        return self[guild_id].single_loop(times)
+        self[guild_id].single_loop(times)
 
     def playlist_loop(self, guild_id: int):
-        return self[guild_id].playlist_loop()
+        self[guild_id].playlist_loop()
