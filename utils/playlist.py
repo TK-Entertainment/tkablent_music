@@ -3,7 +3,7 @@ from enum import Enum, auto
 import disnake
 from disnake import FFmpegPCMAudio, PCMVolumeTransformer
 
-from .database import Database
+from .database import DatabaseSession
 
 from .ytdl import YTDL
 
@@ -108,7 +108,7 @@ class PlaylistBase:
 class Playlist:
     '''return info from a specific guild data'''
     def __init__(self):
-        self._database = Database()
+        self._database = DatabaseSession()
         self._guilds_info = dict()
 
     def __getitem__(self, guild_id) -> PlaylistBase:
