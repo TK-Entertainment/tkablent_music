@@ -18,7 +18,7 @@ presence = disnake.Game(name='播放音樂 | $play')
 intents = disnake.Intents.all()
 bot = commands.Bot(command_prefix='$', intents=intents, help_command=None, activity=presence, status=disnake.Status.online)
 
-from utils import *
+from music import *
 INF = int(1e18)
 
 class Router(commands.Cog):
@@ -218,8 +218,7 @@ class Router(commands.Cog):
     ''')
         
 
-# bot.add_cog(Router(bot))
-bot.add_cog(MusicBot(bot))
+bot.add_cog(Router(bot))
 
 try:
     bot.run(TOKEN)

@@ -5,9 +5,6 @@ import disnake
 from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
 from disnake.ext import commands
 
-from .database import DatabaseGuild, DatabaseSession
-from .ytdl import YTDL
-
 from .playlist import Song, Playlist, LoopState
 from pytube import exceptions as PytubeExceptions
 from yt_dlp import utils as YTDLPExceptions
@@ -15,53 +12,10 @@ from yt_dlp import utils as YTDLPExceptions
 INF = int(1e18)
 bot_version = 'master Branch'
 
-class Player(commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        super().__init__()
-        self.bot = bot
-        self.ytdl = YTDL()
-        self._playlist: Playlist = Playlist()
-
-    @commands.Cog.listener(name='on_voice_state_update')
-    async def check_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
-        if member.id != self.bot.user.id:
-            return
-        if before.channel is None and after.channel is not None:
-            self._playlist.create_session(after.channel.guild.id)
-        elif before.channel is not None and after.channel is None:
-            self._playlist.end_session(before.channel.guild.id)
-
-    async def _join(self, channel: disnake.VoiceChannel):
-        voice_client = channel.guild.voice_client
-        if voice_client is None:
-            await channel.connect()
-
-    async def _search(self, ctx: commands.Context, url):
-        self._playlist.add_info(url, ctx.guild.id, None)
-
-    async def _play(self, ctx: commands.Context, url: str):
-        await self._mainloop(ctx.guild, ctx.channel)
-
-    async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
-        start = await self._playlist._mainloop(guild, channel)
-        if start is None:
-            return
-        await start()
-
-class MusicBot(Player, commands.Cog):
-    def __init__(self, bot: commands.Bot):
-        Player.__init__(self, bot)
-        commands.Cog.__init__(self)
-    @commands.command(name='play', aliases=['p', 'P'])
-    async def play(self, ctx: commands.Context, url: str):
-        await self._join(ctx.author.voice.channel)
-        voice_client = ctx.guild.voice_client
-        await self._search(ctx, url)
-        await self._play(ctx, url)
-        
-
-'''
 class Player:
+    def __del__(self):
+        print('collected')  
+
     def __init__(self):
         # flag for local server, need to change for multiple server
         self.voice_client: VoiceClient = None
@@ -114,9 +68,9 @@ class Player:
         else:
             raise Exception # this exception is for identifying the illegal operation
 
-    def _startume(self):
+    def _resume(self):
         if self.voice_client.is_paused():
-            self.voice_client.startume()
+            self.voice_client.resume()
         else:
             raise Exception # this exception is for identifying the illegal operation
 
@@ -179,9 +133,9 @@ class MusicBot(Player):
             self._pause()
         # Moving itself to author's channel
         await self.voice_client.move_to(ctx.author.voice.channel)
-        # If paused before rejoining, startume the music
+        # If paused before rejoining, resume the music
         if not former_state: 
-            self._startume()
+            self._resume()
         # If paused before rejoining, reflag itself as inactive
         # (leaving channel after 10 minutes)
         if former_state: 
@@ -250,7 +204,7 @@ class MusicBot(Player):
                 return
             # If queue has more than 1 songs, then show the UI
             await self.ui.Embed_AddedToQueue(ctx, self.playlist)
-            # Experiment featustart (show total length in queuelist)
+            # Experiment features (show total length in queuelist)
             if len(self.playlist) > 1:
                 self.totallength += self.playlist[-1].length
 
@@ -272,10 +226,11 @@ class MusicBot(Player):
         self.voice_client = ctx.guild.voice_client
 
         if self.ui.is_auto_stage_available and \
-                isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
-                bot_itself.voice.suppstarts:
+        isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
+        bot_itself.voice.suppress:
+
             try: 
-                await bot_itself.edit(suppstarts=False)
+                await bot_itself.edit(suppress=False)
             except: 
                 pass
 
@@ -283,8 +238,9 @@ class MusicBot(Player):
 
     async def _SearchFailedHandler(self, ctx: commands.Context, exception: Union[YTDLPExceptions.DownloadError, Exception], url: str):
         # Video Private error handler
-        if isinstance(exception, PytubeExceptions.VideoPrivate) \
-                or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+        if isinstance(exception, PytubeExceptions.VideoPrivate)\
+            or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+            
             await self.ui.SearchFailed(ctx, url, "VideoPrivate")
         # Members Only Video error handler
         elif isinstance(exception, PytubeExceptions.MembersOnly):
@@ -315,7 +271,7 @@ class MusicBot(Player):
         self.in_mainloop = False
         if self.isskip: 
             await self.ui.PlayingMsg(ctx, self)
-        # startet value
+        # Reset value
         self.playlist.loop_state = LoopState.NOTHING
         self.isskip = False
         if not self.timedout:
@@ -338,15 +294,15 @@ class MusicBot(Player):
         except Exception as e:
             await self.ui.PauseFailed(ctx)
 
-    async def startume(self, ctx: commands.Context):
+    async def resume(self, ctx: commands.Context):
         try:
             if self.task is not None:
                 self.task.cancel()
-            self._startume()
+            self._resume()
             self.inactive = False
-            await self.ui.startumeSucceed(ctx, self)
+            await self.ui.ResumeSucceed(ctx, self)
         except:
-            await self.ui.startumeFailed(ctx)
+            await self.ui.ResumeFailed(ctx)
 
     async def skip(self, ctx: commands.Context):
         try:
@@ -393,7 +349,7 @@ class MusicBot(Player):
         if self._seek(timestamp) != 'Exceed':
             await self.ui.SeekSucceed(ctx, timestamp, self)
 
-    async def starttart(self, ctx: commands.Context):
+    async def restart(self, ctx: commands.Context):
         try:
             self._seek(0)
             await self.ui.ReplaySucceed(ctx)
@@ -434,5 +390,3 @@ class MusicBot(Player):
             await self.ui.MoveToSucceed(ctx, self.playlist, origin, new)
         except (IndexError, TypeError):
             await self.ui.MoveToFailed(ctx)
-
-'''
