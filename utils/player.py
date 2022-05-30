@@ -19,6 +19,7 @@ class Player(commands.Cog):
         self.bot = bot
         self.ytdl = YTDL()
         self._playlist: Playlist = Playlist()
+        self._volume_levels: Dict[int, int] = dict()
         self._tasks: weakref.WeakValueDictionary[int, asyncio.Task] = weakref.WeakValueDictionary()
         self._timers: weakref.WeakValueDictionary[int, asyncio.Task] = weakref.WeakValueDictionary()
 
@@ -56,6 +57,22 @@ class Player(commands.Cog):
     def _stop(self, guild: disnake.Guild):
         self._playlist[guild].clear()
         self._skip(guild)
+    
+    def _seek(self, guild: disnake.Guild, timestamp: float):
+        voice_client: disnake.VoiceClient = guild.voice_client
+        if timestamp >= self._playlist[guild.id].current().info['length']:
+            voice_client.stop()
+            return 'Exceed'
+        self._playlist[guild.id].current().seek(timestamp)
+        volume_level = self._volume_levels[guild.id]
+        self._playlist[guild.id].current().set_source(volume_level)
+        voice_client.source = self._playlist[guild.id].current().source
+    
+    def _volume(self, guild: disnake.Guild, volume: float):
+        voice_client: disnake.VoiceClient = guild.voice_client
+        if not voice_client is None:
+            self._volume_levels[guild.id] = volume
+            voice_client.source.volume = volume
 
     async def _play(self, guild: disnake.Guild, channel: disnake.TextChannel):
         self._playlist[guild.id].text_channel = channel
