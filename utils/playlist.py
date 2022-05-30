@@ -1,7 +1,7 @@
 from typing import *
 from enum import Enum, auto
 
-import asyncio, weakref
+import asyncio
 
 import disnake
 from disnake import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
@@ -106,7 +106,7 @@ class PlaylistBase:
 
 class Playlist:
     def __init__(self):
-        self._guilds_info = dict()
+        self._guilds_info: Dict[int, PlaylistBase] = dict()
 
     def __delitem__(self, guild_id: int):
         del self._guilds_info[guild_id]
