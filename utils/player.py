@@ -20,12 +20,18 @@ class Player(commands.Cog):
         self.ytdl = YTDL()
         self._playlist: Playlist = Playlist()
         self._tasks: weakref.WeakValueDictionary[int, asyncio.Task] = weakref.WeakValueDictionary()
+        self._timers: weakref.WeakValueDictionary[int, asyncio.Task] = weakref.WeakValueDictionary()
 
     async def _join(self, channel: disnake.VoiceChannel):
         voice_client = channel.guild.voice_client
         if voice_client is None:
             await channel.connect()
 
+    async def _leave(self, guild: disnake.Guild):
+        voice_client = guild.voice_client
+        if voice_client is not None:
+            await voice_client.disconnect()
+            
     async def _search(self, ctx: commands.Context, url):
         self._playlist.add_info(ctx.guild.id, url, None)
 
@@ -33,15 +39,36 @@ class Player(commands.Cog):
         await self._mainloop(ctx.guild, ctx.channel)
 
     async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
+        if self._timers.get(guild.id) is not None:
+            self._timers[guild.id].cancel()
+            del self._timers[guild.id]
         if self._tasks.get(guild.id) is not None:
             return
         coro = self._playlist._mainloop(guild, channel)
         self._tasks[guild.id] = self.bot.loop.create_task(coro)
-        self._tasks[guild.id].add_done_callback(lambda task, guild_id=guild.id: self.cleanup(guild_id))
+        self._tasks[guild.id].add_done_callback(lambda task, guild_id=guild.id: self._cleanup(guild_id))
         
-    def cleanup(self, guild_id: int):
-        del self._tasks[guild_id]
+    def _cleanup(self, guild_id: int):
+        if self._tasks.get(guild_id) is not None:
+            del self._tasks[guild_id]
         del self._playlist[guild_id]
+        if self._timers.get(guild_id) is None:
+            coro = self._timer(guild_id)
+            self._timers[guild_id] = self.bot.loop.create_task(coro)
+
+    async def _timer(self, guild_id: int):
+        await asyncio.sleep(900.0)
+        guild = self.bot.get_guild(guild_id)
+        await self._leave(guild)
+
+    @commands.Cog.listener(name='on_voice_state_update')
+    async def _end_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+        if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
+            return
+        guild_id = member.guild.id
+        self._cleanup(guild_id)
+        self._timers[guild_id].cancel()
+        del self._timers[guild_id]
 
 class MusicBot(Player, commands.Cog):
     def __init__(self, bot: commands.Bot):

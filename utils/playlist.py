@@ -109,6 +109,8 @@ class Playlist:
         self._guilds_info: Dict[int, PlaylistBase] = dict()
 
     def __delitem__(self, guild_id: int):
+        if self._guilds_info.get(guild_id) is None:
+            return
         del self._guilds_info[guild_id]
         
     def __getitem__(self, guild_id) -> PlaylistBase:
