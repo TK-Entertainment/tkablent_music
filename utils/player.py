@@ -30,10 +30,32 @@ class Player(commands.Cog):
     async def _leave(self, guild: disnake.Guild):
         voice_client = guild.voice_client
         if voice_client is not None:
+            self._stop()
             await voice_client.disconnect()
             
-    async def _search(self, ctx: commands.Context, url):
-        self._playlist.add_info(ctx.guild.id, url, None)
+    async def _search(self, guild: disnake.Guild, url):
+        self._playlist.add_info(guild.id, url, None)
+
+    def _pause(self, guild: disnake.Guild):
+        voice_client: VoiceClient = guild.voice_client
+        if not voice_client.is_paused() and voice_client.is_playing():
+            voice_client.pause()
+            # self.playlist[0].left_off += self.voice_client._player.loops / 50
+
+    def _resume(self, guild: disnake.Guild):
+        voice_client: VoiceClient = guild.voice_client
+        if voice_client.is_paused():
+            voice_client.resume()
+
+    def _skip(self, guild: disnake.Guild):
+        voice_client: VoiceClient = guild.voice_client
+        if voice_client.is_playing() or voice_client.is_paused():
+            voice_client.stop()
+        # self.playlist.times = 0
+    
+    def _stop(self, guild: disnake.Guild):
+        self._playlist[guild].clear()
+        self._skip(guild)
 
     async def _play(self, ctx: commands.Context, url: str):
         await self._mainloop(ctx.guild, ctx.channel)

@@ -67,6 +67,11 @@ class PlaylistBase:
     def __getitem__(self, idx):
         return self.order[idx]
 
+    def clear(self):
+        self.order.clear()
+        self.loop_state = LoopState.NOTHING
+        self.times = 0
+
     def current(self):
         return self[0]
     
@@ -138,6 +143,9 @@ class Playlist:
         self[guild_id].order.append(info)
         # self.requester = requester
         # self.set_ffmpeg_options(0)
+
+    def get_music_info(self, guild_id, index):
+        return self[guild_id].order[index]
 
     def nowplaying(self, guild_id: int) -> dict:
         return self[guild_id].current()
