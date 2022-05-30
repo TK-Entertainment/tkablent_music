@@ -34,39 +34,40 @@ class Player(commands.Cog):
             await voice_client.disconnect()
             
     async def _search(self, guild: disnake.Guild, url):
-        self._playlist.add_info(guild.id, url, None)
+        self._playlist.add_songs(guild.id, url, None)
 
     def _pause(self, guild: disnake.Guild):
         voice_client: VoiceClient = guild.voice_client
         if not voice_client.is_paused() and voice_client.is_playing():
             voice_client.pause()
-            # self.playlist[0].left_off += self.voice_client._player.loops / 50
 
     def _resume(self, guild: disnake.Guild):
         voice_client: VoiceClient = guild.voice_client
         if voice_client.is_paused():
+            self._playlist[guild.id].current().left_off += voice_client._player.loops / 50
             voice_client.resume()
 
     def _skip(self, guild: disnake.Guild):
         voice_client: VoiceClient = guild.voice_client
         if voice_client.is_playing() or voice_client.is_paused():
             voice_client.stop()
-        # self.playlist.times = 0
+        self._playlist[guild].times = 0
     
     def _stop(self, guild: disnake.Guild):
         self._playlist[guild].clear()
         self._skip(guild)
 
-    async def _play(self, ctx: commands.Context, url: str):
-        await self._mainloop(ctx.guild, ctx.channel)
+    async def _play(self, guild: disnake.Guild, channel: disnake.TextChannel):
+        self._playlist[guild.id].text_channel = channel
+        await self._mainloop(guild)
 
-    async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
+    async def _mainloop(self, guild: disnake.Guild):
         if self._timers.get(guild.id) is not None:
             self._timers[guild.id].cancel()
             del self._timers[guild.id]
         if self._tasks.get(guild.id) is not None:
             return
-        coro = self._playlist._mainloop(guild, channel)
+        coro = self._playlist._mainloop(guild)
         self._tasks[guild.id] = self.bot.loop.create_task(coro)
         self._tasks[guild.id].add_done_callback(lambda task, guild_id=guild.id: self._cleanup(guild_id))
         
@@ -100,8 +101,8 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, url: str):
         await self._join(ctx.author.voice.channel)
-        await self._search(ctx, url)
-        await self._play(ctx, url)
+        await self._search(ctx.guild, url)
+        await self._play(ctx.guild, ctx.channel)
         
 
 '''

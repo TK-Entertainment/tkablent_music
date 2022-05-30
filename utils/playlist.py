@@ -17,24 +17,31 @@ ytdl = YTDL()
 # db = _database()
 
 class Song:
-    
-    title: str
-    author: str
-    channel_url: str
-    watch_url: str
-    thumbnail_url: str
-    length: int
-    url: str
+    info: dict
     source: PCMVolumeTransformer[FFmpegPCMAudio]
 
-    def __init__(self, url: str, requester: disnake.Member):
+    # def __new__(cls, url, *args, **kwargs):
+    #     song = object.__new__(cls)
+    #     if ytdl.is_playlist(url):
+    #         pass
+    #     song.info = ytdl.get_info(url)
+    
+    def __init__(self, url, requester: disnake.Member):
         self.requester: disnake.Member = requester
         self.left_off: float = 0
-        
+        self.info = ytdl.get_info(url)
         # flag for local server, need to change for multiple server
         self.is_stream: bool = False
         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
         # self.add_info(url, requester)
+
+    @property
+    def url(self):
+        return ytdl.get_url(self.info['watch_url'])
+
+    # @property
+    # def source(self, volume_level):
+    #     return PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volume_level)
 
     def set_source(self, volumelevel):
         self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
@@ -63,6 +70,7 @@ class PlaylistBase:
         self.order = [] # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
+        self.text_channel: disnake.TextChannel = None # where to show information to user
 
     def __getitem__(self, idx):
         return self.order[idx]
@@ -72,7 +80,7 @@ class PlaylistBase:
         self.loop_state = LoopState.NOTHING
         self.times = 0
 
-    def current(self):
+    def current(self) -> Optional[Song]:
         return self[0]
     
     def swap(self, idx1: int, idx2: int):
@@ -123,24 +131,25 @@ class Playlist:
             self._guilds_info[guild_id] = PlaylistBase()
         return self._guilds_info[guild_id]
 
-    async def _mainloop(self, guild: disnake.Guild, channel: disnake.TextChannel):
+    async def _mainloop(self, guild: disnake.Guild):
         while len(self[guild.id].order):
-            await channel.send('now playing')
+            await self[guild.id].text_channel.send('now playing')
             voice_client: VoiceClient = guild.voice_client
-            info = self[guild.id].current()
-            voice_client.play(disnake.FFmpegPCMAudio(info['url']))
+            song = self[guild.id].current()
+            voice_client.play(disnake.FFmpegPCMAudio(song.url))
             try:
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(1.0)
             finally:
                 self.rule(guild.id)
     
-    def add_info(self, guild_id, url, requester):
+    def add_songs(self, guild_id, url, requester):
         # if not self._database.check_session(guild_id):
         #     self._database.create_session(guild_id)
-        info = ytdl.get_info(url)
+        # info = ytdl.get_info(url)
+        song = Song(url, requester)
         # self._database.add_music_info(guild_id, info)
-        self[guild_id].order.append(info)
+        self[guild_id].order.append(song)
         # self.requester = requester
         # self.set_ffmpeg_options(0)
 
