@@ -34,8 +34,8 @@ class Player(commands.Cog):
             self._stop(guild)
             await voice_client.disconnect()
             
-    async def _search(self, guild: disnake.Guild, url):
-        self._playlist.add_songs(guild.id, url, None)
+    def _search(self, guild: disnake.Guild, url, requester: disnake.Member):
+        self._playlist.add_songs(guild.id, url, requester)
 
     def _pause(self, guild: disnake.Guild):
         voice_client: VoiceClient = guild.voice_client
@@ -81,18 +81,34 @@ class Player(commands.Cog):
 
     async def _play(self, guild: disnake.Guild, channel: disnake.TextChannel):
         self._playlist[guild.id].text_channel = channel
-        await self._mainloop(guild)
+        await self._start_mainloop(guild)
 
-    async def _mainloop(self, guild: disnake.Guild):
+    async def _start_mainloop(self, guild: disnake.Guild):
         if self._timers.get(guild.id) is not None:
             self._timers[guild.id].cancel()
             del self._timers[guild.id]
         if self._tasks.get(guild.id) is not None:
             return
-        coro = self._playlist._mainloop(guild)
+        coro = self._mainloop(guild)
         self._tasks[guild.id] = self.bot.loop.create_task(coro)
         self._tasks[guild.id].add_done_callback(lambda task, guild=guild: self._start_timer(guild))
     
+    async def _mainloop(self, guild: disnake.Guild):
+        # implement in musicbot class for ui support
+        '''
+        while len(self._playlist[guild.id].order):
+            await self._playlist[guild.id].text_channel.send('now playing')
+            voice_client: VoiceClient = guild.voice_client
+            song = self._playlist[guild.id].current()
+            try:
+                voice_client.play(disnake.FFmpegPCMAudio(song.url))
+                while voice_client.is_playing() or voice_client.is_paused():
+                    await asyncio.sleep(1.0)
+            finally:
+                self._playlist.rule(guild.id)
+        '''
+        raise NotImplementedError
+
     def _start_timer(self, guild: disnake.Guild):
         if self._tasks.get(guild.id) is not None:
             self._tasks[guild.id].cancel()
@@ -103,7 +119,7 @@ class Player(commands.Cog):
         self._timers[guild.id] = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: disnake.Guild):
-        await asyncio.sleep(5.0)
+        await asyncio.sleep(15.0)
         await self._leave(guild)
     
     def _cleanup(self, guild: disnake.Guild):
@@ -180,12 +196,63 @@ class MusicBot(Player, commands.Cog):
             await self.ui.LeaveSucceed(ctx)
         except:
             await self.ui.LeaveFailed(ctx)
+
+    async def search(self, ctx: commands.Context, *url):
+        # Get user defined url/keyword
+        url = ' '.join(url)
+
+        async with ctx.typing():
+            # Show searching UI (if user provide exact url, then it
+            # won't send the UI)
+            # await self.ui.StartSearch(ctx, url, self.playlist)
+            # Call search function
+            try: 
+                self._search(ctx.guild, url, requester=ctx.message.author)
+            except Exception as e:
+                # If search failed, sent to handler
+                # await self._SearchFailedHandler(ctx, e, url)
+                return
+            # If queue has more than 1 songs, then show the UI
+            # await self.ui.Embed_AddedToQueue(ctx, self.playlist)
+            # Experiment features (show total length in queuelist)
     
     @commands.command(name='play', aliases=['p', 'P'])
-    async def play(self, ctx: commands.Context, url: str):
-        await self._join(ctx.author.voice.channel)
-        await self._search(ctx.guild, url)
+    async def play(self, ctx: commands.Context, *url):
+        # Try to make bot join author's channel
+        voice_client: VoiceClient = ctx.guild.voice_client
+        if not isinstance(voice_client, disnake.VoiceClient) or \
+                voice_client.channel != ctx.author.voice.channel:
+            await self.join(ctx)
+            voice_client = ctx.guild.voice_client
+            if not isinstance(voice_client, disnake.VoiceClient):
+                return
+
+        # Start search process
+        await self.search(ctx, *url)
+
+        # Get bot user value
+        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        if self.ui.is_auto_stage_available and \
+                isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
+                bot_itself.voice.suppress:
+            try: 
+                await bot_itself.edit(suppress=False)
+            except: 
+                pass
+
         await self._play(ctx.guild, ctx.channel)
+
+    async def _mainloop(self, guild: disnake.Guild):
+        while len(self._playlist[guild.id].order):
+            await self._playlist[guild.id].text_channel.send('now playing')
+            voice_client: VoiceClient = guild.voice_client
+            song = self._playlist[guild.id].current()
+            try:
+                voice_client.play(disnake.FFmpegPCMAudio(song.url))
+                while voice_client.is_playing() or voice_client.is_paused():
+                    await asyncio.sleep(1.0)
+            finally:
+                self._playlist.rule(guild.id)
         
     @commands.Cog.listener(name='on_voice_state_update')
     async def end_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):

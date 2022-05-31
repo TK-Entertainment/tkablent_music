@@ -134,18 +134,6 @@ class Playlist:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = PlaylistBase()
         return self._guilds_info[guild_id]
-
-    async def _mainloop(self, guild: disnake.Guild):
-        while len(self[guild.id].order):
-            await self[guild.id].text_channel.send('now playing')
-            voice_client: VoiceClient = guild.voice_client
-            song = self[guild.id].current()
-            try:
-                voice_client.play(disnake.FFmpegPCMAudio(song.url))
-                while voice_client.is_playing() or voice_client.is_paused():
-                    await asyncio.sleep(1.0)
-            finally:
-                self.rule(guild.id)
     
     def add_songs(self, guild_id, url, requester):
         # if not self._database.check_session(guild_id):
