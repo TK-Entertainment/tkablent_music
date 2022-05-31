@@ -58,7 +58,6 @@ class Player(commands.Cog):
         self._playlist[guild.id].clear()
         self._skip(guild)
     
-    @property
     def current_timestamp(self, guild: disnake.Guild) -> float:
         voice_client: disnake.VoiceClient = guild.voice_client
         return self._playlist[guild.id].current().left_off + voice_client._player.loops / 50
@@ -69,7 +68,7 @@ class Player(commands.Cog):
             voice_client.stop()
             return 'Exceed'
         self._playlist[guild.id].current().seek(timestamp)
-        volume_level = self._volume_levels[guild.id]
+        volume_level = self._volume_levels.get(guild.id, 100)
         self._playlist[guild.id].current().set_source(volume_level)
         voice_client.source = self._playlist[guild.id].current().source
     
@@ -229,6 +228,21 @@ class MusicBot(Player, commands.Cog):
             await self.ui.StopSucceed(ctx)
         except:
             await self.ui.StopFailed(ctx)
+    
+    @commands.command(name='seek')
+    async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
+        try:
+            if isinstance(timestamp, str):
+                tmp = map(int, reversed(timestamp.split(":")))
+                timestamp = 0
+                for idx, val in enumerate(tmp):
+                    timestamp += (60 ** idx) * val
+        except ValueError:  # For ignoring string with ":" like "o:ro"
+            # await self.ui.SeekFailed(ctx)
+            return
+        if self._seek(ctx.guild, timestamp) != 'Exceed':
+            # await self.ui.SeekSucceed(ctx, timestamp, self)
+            return
 
     async def search(self, ctx: commands.Context, *url):
         # Get user defined url/keyword
