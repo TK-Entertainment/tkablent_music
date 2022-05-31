@@ -221,7 +221,7 @@ class UI:
             return
         instance: disnake.StageInstance = player.voice_client.channel.instance
         await instance.delete()
-    async def __UpdateStageTopic(self, player: Player, mode: str='update') -> None:
+    async def _UpdateStageTopic(self, player: Player, mode: str='update') -> None:
         if self.is_auto_stage_available == False:
             return
         try:
@@ -332,7 +332,7 @@ class UI:
         embed.set_thumbnail(url=playlist[index].thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
-    async def __UpdateSongInfo(self, playlist: Playlist, ismute: bool):
+    async def _UpdateSongInfo(self, playlist: Playlist, ismute: bool):
         mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
@@ -371,7 +371,7 @@ class UI:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         playinfo = await ctx.send(msg, embed=self._SongInfo(color=color, playlist=player.playlist, mute=player.ismute))
         try: 
-            await self.__UpdateStageTopic(player)
+            await self._UpdateStageTopic(player)
         except: 
             pass
     async def DonePlaying(self, ctx: commands.Context, player: Player) -> None:
@@ -381,7 +381,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
         try: 
-            await self.__UpdateStageTopic(player, 'done')
+            await self._UpdateStageTopic(player, 'done')
         except: 
             pass
     #########
@@ -394,7 +394,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
         try: 
-            await self.__UpdateStageTopic(player, 'pause')
+            await self._UpdateStageTopic(player, 'pause')
         except: 
             pass
     async def PauseOnAllMemberLeave(self, ctx: commands.Context, player: Player) -> None:
@@ -404,7 +404,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
         try: 
-            await self.__UpdateStageTopic(player, 'pause')
+            await self._UpdateStageTopic(player, 'pause')
         except: 
             pass
     async def PauseFailed(self, ctx: commands.Context) -> None:
@@ -426,7 +426,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
             ''')
         try: 
-            await self.__UpdateStageTopic(player, 'resume')
+            await self._UpdateStageTopic(player, 'resume')
         except: 
             pass
     async def ResumeFailed(self, ctx: commands.Context) -> None:
@@ -501,7 +501,7 @@ class UI:
             音量已設定為 {percent}%
         ''')
             mute = False
-        await self.__UpdateSongInfo(player.playlist, mute)
+        await self._UpdateSongInfo(player.playlist, mute)
         return mute
     async def MuteorUnMute(self, ctx: commands.Context, percent: Union[float, str], player: Player) -> bool:
         mute = player.ismute
@@ -517,10 +517,10 @@ class UI:
             音量已設定為 0%，目前處於靜音模式
         ''')
             mute = True
-        await self.__UpdateSongInfo(player.playlist, mute)
-        return mute
-    async def VolumeAdjustFailed(self, ctx) -> None:
-        await ctx.send(f'''
+        await self._UpdateSongInfo(player.playlist, mute)
+
+    async def VolumeAdjustFailed(self, channel: disnake.TextChannel) -> None:
+        await channel.send(f'''
             **:no_entry: | 失敗 | SA01**
             無法調整音量，請確認您輸入的音量百分比是否有效
             請以百分比格式(ex. 100%)執行指令
@@ -605,7 +605,7 @@ class UI:
             **:arrow_forward: | 關閉重複播放**
             已關閉重複播放功能
             ''')
-        await self.__UpdateSongInfo(playlist, ismute)
+        await self._UpdateSongInfo(playlist, ismute)
     async def SingleLoopFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | LP01**

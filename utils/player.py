@@ -244,6 +244,25 @@ class MusicBot(Player, commands.Cog):
             # await self.ui.SeekSucceed(ctx, timestamp, self)
             return
 
+    @commands.command(name='volume')
+    async def volume(self, ctx: commands.Context, percent: Union[float, str]=None):
+        if not isinstance(percent, float) and percent is not None:
+            await self.ui.VolumeAdjustFailed(ctx)
+            return
+        if percent == 0 or self._volume_levels.get(ctx.guild.id) == 0:
+            await self.ui.MuteorUnMute(ctx, percent, self)
+        else:
+            await self.ui.VolumeAdjust(ctx, percent, self)
+        if percent is not None:
+            self._volume(ctx.guild, percent / 100)
+
+    @commands.command(name="mute", aliases=['quiet', 'shutup'])
+    async def mute(self, ctx: commands.Context):
+        if self._volume_levels.get(ctx.guild.id) == 0: 
+            await self.volume(ctx, 100.0)
+        else: 
+            await self.volume(ctx, 0.0)
+
     async def search(self, ctx: commands.Context, *url):
         # Get user defined url/keyword
         url = ' '.join(url)
