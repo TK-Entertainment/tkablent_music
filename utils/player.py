@@ -195,6 +195,40 @@ class MusicBot(Player, commands.Cog):
             await self.ui.LeaveSucceed(ctx)
         except:
             await self.ui.LeaveFailed(ctx)
+    
+    @commands.command(name='pause')
+    async def pause(self, ctx: commands.Context, onlybotin: bool=False):
+        try:
+            self._pause(ctx.guild)
+            if onlybotin: 
+                await self.ui.PauseOnAllMemberLeave(ctx, self)
+            else: 
+                await self.ui.PauseSucceed(ctx, self)
+        except Exception as e:
+            await self.ui.PauseFailed(ctx)
+    
+    @commands.command(name='resume')
+    async def resume(self, ctx: commands.Context):
+        try:
+            self._resume(ctx.guild)
+            await self.ui.ResumeSucceed(ctx, self)
+        except:
+            await self.ui.ResumeFailed(ctx)
+
+    @commands.command(name='skip')
+    async def skip(self, ctx: commands.Context):
+        try:
+            self._skip(ctx.guild)
+        except:
+            await self.ui.SkipFailed(ctx)
+
+    @commands.command(name='stop')
+    async def stop(self, ctx: commands.Context):
+        try:
+            self._stop(ctx.guild)
+            await self.ui.StopSucceed(ctx)
+        except:
+            await self.ui.StopFailed(ctx)
 
     async def search(self, ctx: commands.Context, *url):
         # Get user defined url/keyword
