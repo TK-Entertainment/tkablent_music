@@ -18,7 +18,7 @@ playinfo: Coroutine[Any, Any, disnake.Message] = None
 cdt = datetime.datetime.now().date()
 year = cdt.strftime("%Y")
 
-def sec_to_hms(self, seconds, format) -> str:
+def __sec_to_hms(self, seconds, format) -> str:
     sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//60//60%24); day = int(seconds//86400)
     if format == "symbol":
         if day != 0:
@@ -55,7 +55,7 @@ class UI:
     ########
     # Help #
     ########
-    def __HelpEmbed__(self, item: int=0):
+    def __HelpEmbed(self, item: int=0):
         if item == 0:
             embed = disnake.Embed(title=":regional_indicator_q: | 指令說明 | 基本指令", description=f'''
         {self.__bot__.command_prefix}help | 顯示此提示框，列出指令說明
@@ -133,9 +133,9 @@ class UI:
                 self.clear_items()
                 await self.mes.edit(view=view)
                 await self.mes.add_reaction('🛑')
-        embed = self.__HelpEmbed__()
+        embed = self.__HelpEmbed()
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
-        view = QueuePage(self.__HelpEmbed__, self.__embed_opt__)
+        view = QueuePage(self.__HelpEmbed, self.__embed_opt__)
         mes = await ctx.send(embed=embed, view=view)
         view.set_mes(mes)
     ########
@@ -221,7 +221,7 @@ class UI:
             return
         instance: disnake.StageInstance = player.voice_client.channel.instance
         await instance.delete()
-    async def __UpdateStageTopic__(self, player: Player, mode: str='update') -> None:
+    async def __UpdateStageTopic(self, player: Player, mode: str='update') -> None:
         if self.is_auto_stage_available == False:
             return
         try:
@@ -268,7 +268,7 @@ class UI:
     ##########
     # Search #
     ##########
-    async def StartSearch(self, ctx: commands.Context, url: str, playlist: Playlist) -> disnake.Message:
+    async def StartSearch(self, ctx: commands.Context, url: str) -> disnake.Message:
         global searchmes, addmes, issearch
         if ("http" not in url) and ("www" not in url):
             searchmes =  await ctx.send(f'''
@@ -277,7 +277,7 @@ class UI:
             ''')
             issearch = True
         else: issearch = False
-        addmes = len(playlist) != 0
+
     async def SearchFailed(self, ctx: commands.Context, url: str, reason: str) -> None:
         reasons = {
             'VideoPrivate': ['VIDPRIVATE', '私人影片'],
@@ -297,7 +297,7 @@ class UI:
     ########
     # Info #
     ########
-    def __SongInfo__(self, color: str=None, playlist: Playlist=None, index: int=0, mute: bool=False):
+    def _SongInfo(self, color: str=None, playlist: Playlist=None, index: int=0, mute: bool=False):
         if color == "green": colorcode = disnake.Colour.from_rgb(97, 219, 83)
         elif color == "yellow": colorcode = disnake.Colour.from_rgb(229, 199, 13)
         elif color == "red": colorcode = disnake.Colour.from_rgb(255, 0, 0)
@@ -321,7 +321,7 @@ class UI:
             embed._author['name'] += " | 🔴 直播"
             if color == None: embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.__bot__.command_prefix}skip / ⏹️ {self.__bot__.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
-            embed.add_field(name="歌曲時長", value=sec_to_hms(self, playlist[index].length, "zh"), inline=True)
+            embed.add_field(name="歌曲時長", value=__sec_to_hms(self, playlist[index].length, "zh"), inline=True)
         if mute: embed._author['name'] += " | 🔇 靜音"
         if loopstate != LoopState.NOTHING: embed._author['name'] += f"{loopicon}{looptimes}"
         if len(playlist) > 1:
@@ -332,13 +332,13 @@ class UI:
         embed.set_thumbnail(url=playlist[index].thumbnail_url)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
-    async def __UpdateSongInfo__(self, playlist: Playlist, ismute: bool):
+    async def __UpdateSongInfo(self, playlist: Playlist, ismute: bool):
         mes = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
         if not self.is_auto_stage_available:
             mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        await playinfo.edit(content=mes, embed=self.__SongInfo__(playlist=playlist, mute=ismute))
+        await playinfo.edit(content=mes, embed=self._SongInfo(playlist=playlist, mute=ismute))
     ########
     # Play #
     ########
@@ -369,9 +369,9 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*'''
         if not self.is_auto_stage_available:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        playinfo = await ctx.send(msg, embed=self.__SongInfo__(color=color, playlist=player.playlist, mute=player.ismute))
+        playinfo = await ctx.send(msg, embed=self._SongInfo(color=color, playlist=player.playlist, mute=player.ismute))
         try: 
-            await self.__UpdateStageTopic__(player)
+            await self.__UpdateStageTopic(player)
         except: 
             pass
     async def DonePlaying(self, ctx: commands.Context, player: Player) -> None:
@@ -381,7 +381,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
         try: 
-            await self.__UpdateStageTopic__(player, 'done')
+            await self.__UpdateStageTopic(player, 'done')
         except: 
             pass
     #########
@@ -394,7 +394,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
         try: 
-            await self.__UpdateStageTopic__(player, 'pause')
+            await self.__UpdateStageTopic(player, 'pause')
         except: 
             pass
     async def PauseOnAllMemberLeave(self, ctx: commands.Context, player: Player) -> None:
@@ -404,7 +404,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}resume** 以繼續播放*
             ''')
         try: 
-            await self.__UpdateStageTopic__(player, 'pause')
+            await self.__UpdateStageTopic(player, 'pause')
         except: 
             pass
     async def PauseFailed(self, ctx: commands.Context) -> None:
@@ -426,7 +426,7 @@ class UI:
             *輸入 **{self.__bot__.command_prefix}pause** 以暫停播放*
             ''')
         try: 
-            await self.__UpdateStageTopic__(player, 'resume')
+            await self.__UpdateStageTopic(player, 'resume')
         except: 
             pass
     async def ResumeFailed(self, ctx: commands.Context) -> None:
@@ -501,7 +501,7 @@ class UI:
             音量已設定為 {percent}%
         ''')
             mute = False
-        await self.__UpdateSongInfo__(player.playlist, mute)
+        await self.__UpdateSongInfo(player.playlist, mute)
         return mute
     async def MuteorUnMute(self, ctx: commands.Context, percent: Union[float, str], player: Player) -> bool:
         mute = player.ismute
@@ -517,7 +517,7 @@ class UI:
             音量已設定為 0%，目前處於靜音模式
         ''')
             mute = True
-        await self.__UpdateSongInfo__(player.playlist, mute)
+        await self.__UpdateSongInfo(player.playlist, mute)
         return mute
     async def VolumeAdjustFailed(self, ctx) -> None:
         await ctx.send(f'''
@@ -532,7 +532,7 @@ class UI:
     ########
     # Seek #
     ########
-    def __ProgressBar__(self, timestamp: int, duration: int, amount: int=15) -> str:
+    def __ProgressBar(self, timestamp: int, duration: int, amount: int=15) -> str:
         bar = ''
         persent = timestamp / duration
         bar += "**"
@@ -544,8 +544,8 @@ class UI:
         bar += "**"
         return bar
     async def SeekSucceed(self, ctx: commands.Context, timestamp: int, player: Player) -> None:
-        seektime = sec_to_hms(self, timestamp, "symbol"); duration = sec_to_hms(self, player.playlist[0].length, "symbol")
-        bar = self.__ProgressBar__(timestamp, player.playlist[0].length)
+        seektime = __sec_to_hms(self, timestamp, "symbol"); duration = __sec_to_hms(self, player.playlist[0].length, "symbol")
+        bar = self.__ProgressBar(timestamp, player.playlist[0].length)
         await ctx.send(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
@@ -605,7 +605,7 @@ class UI:
             **:arrow_forward: | 關閉重複播放**
             已關閉重複播放功能
             ''')
-        await self.__UpdateSongInfo__(playlist, ismute)
+        await self.__UpdateSongInfo(playlist, ismute)
     async def SingleLoopFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | LP01**
@@ -628,19 +628,19 @@ class UI:
             **:white_check_mark: | 成功加入隊列**
                 以下歌曲已加入隊列中，為第 **{len(playlist)-1}** 首歌
             '''
-            if not issearch: await ctx.send(mes, embed=self.__SongInfo__(color="green", playlist=playlist, index=index))
-            else: await searchmes.edit(content=mes, embed=self.__SongInfo__(color="green", playlist=playlist, index=index))
+            if not issearch: await ctx.send(mes, embed=self._SongInfo(color="green", playlist=playlist, index=index))
+            else: await searchmes.edit(content=mes, embed=self._SongInfo(color="green", playlist=playlist, index=index))
         else: 
             if issearch: await searchmes.delete()
     # Queue Embed Generator
-    def __QueueEmbed__(self, playlist: Playlist, page: int=1, totallength: int=None) -> disnake.Embed:
-        tl = sec_to_hms(self, totallength, "symbol")
+    def __QueueEmbed(self, playlist: Playlist, page: int=1, totallength: int=None) -> disnake.Embed:
+        tl = __sec_to_hms(self, totallength, "symbol")
         embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist)-1} 首，總時長 {tl}", colour=0xF2F3EE)
         if len(playlist) > 4: embed.description += f"\n目前為第 {page+1} 頁"
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist)): break
-            length = sec_to_hms(self, playlist[index].length, "symbol")
+            length = __sec_to_hms(self, playlist[index].length, "symbol")
             embed.add_field(
                 name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream else "", playlist[index].requester),
                 value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream else "", length if not playlist[index].is_stream else ""),
@@ -702,10 +702,10 @@ class UI:
             *輸入 ** '{self.__bot__.command_prefix}play 關鍵字或網址' **可繼續點歌*
             ''')
             return
-        embed = self.__QueueEmbed__(playlist, 0, totallength)
+        embed = self.__QueueEmbed(playlist, 0, totallength)
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         if not (len(playlist)) <= 4:
-            view = QueuePage(playlist, self.__QueueEmbed__, self.__embed_opt__)
+            view = QueuePage(playlist, self.__QueueEmbed, self.__embed_opt__)
             mes = await ctx.send(embed=embed, view=view)
             view.set_mes(mes)
         else:
@@ -715,7 +715,7 @@ class UI:
         await ctx.send(f'''
             **:wastebasket: | 已刪除指定歌曲**
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
-            ''', embed=self.__SongInfo__('red', playlist))
+            ''', embed=self._SongInfo('red', playlist))
     async def RemoveFailed(self, ctx: commands.Context):
         await ctx.send(f'''
             **:no_entry: | 失敗 | RM01**

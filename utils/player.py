@@ -138,7 +138,6 @@ class MusicBot(Player, commands.Cog):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.ui = UI(bot_version)
-        # self.ui.InitEmbedFooter(bot)
     
     @commands.command(name='help')
     async def help(self, ctx: commands.Context):
@@ -264,6 +263,26 @@ class MusicBot(Player, commands.Cog):
             await self.ui.LeaveOnTimeout(channel)
         self._cleanup(guild)
     
+    @commands.Cog.listener()
+    async def on_ready(self):
+        print(f'''
+    =========================================
+    Codename TKablent | Version Alpha
+    Copyright 2022-present @ TK Entertainment
+    Shared under CC-NC-SS-4.0 license
+    =========================================
+
+    Discord Bot TOKEN | Vaild 有效
+
+    If there is any problem, open an Issue with log
+    else no any response or answer
+
+    If there isn't any exception under this message,
+    That means bot is online without any problem.
+    若此訊息下方沒有任何錯誤訊息
+    即代表此機器人已成功開機
+    ''')
+        self.ui.InitEmbedFooter(self.bot)
 
 '''
 class MusicBot(Player):
