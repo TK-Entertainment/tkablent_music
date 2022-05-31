@@ -10,6 +10,7 @@ from pytube import exceptions as PytubeExceptions
 from yt_dlp import utils as YTDLPExceptions
 from .ytdl import YTDL
 
+
 INF = int(1e18)
 bot_version = 'master Branch'
 
@@ -17,7 +18,6 @@ class Player(commands.Cog):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
-        self.ytdl = YTDL()
         self._playlist: Playlist = Playlist()
         self._volume_levels: Dict[int, int] = dict()
         self._tasks: Dict[int, asyncio.Task] = dict()
@@ -58,6 +58,11 @@ class Player(commands.Cog):
         self._playlist[guild.id].clear()
         self._skip(guild)
     
+    @property
+    def current_timestamp(self, guild: disnake.Guild) -> float:
+        voice_client: disnake.VoiceClient = guild.voice_client
+        return self._playlist[guild.id].current().left_off + voice_client._player.loops / 50
+    
     def _seek(self, guild: disnake.Guild, timestamp: float):
         voice_client: disnake.VoiceClient = guild.voice_client
         if timestamp >= self._playlist[guild.id].current().info['length']:
@@ -86,33 +91,41 @@ class Player(commands.Cog):
             return
         coro = self._playlist._mainloop(guild)
         self._tasks[guild.id] = self.bot.loop.create_task(coro)
-        self._tasks[guild.id].add_done_callback(lambda task, guild=guild: self._cleanup(guild))
-        
+        self._tasks[guild.id].add_done_callback(lambda task, guild=guild: self._start_timer(guild))
+    
+    def _start_timer(self, guild: disnake.Guild):
+        if self._tasks.get(guild.id) is not None:
+            self._tasks[guild.id].cancel()
+            del self._tasks[guild.id]
+        if self._timers.get(guild.id) is not None:
+            self._timers[guild.id].cancel()
+        coro = self._timer(guild)
+        self._timers[guild.id] = self.bot.loop.create_task(coro)
+    
+    async def _timer(self, guild: disnake.Guild):
+        await asyncio.sleep(5.0)
+        await self._leave(guild)
+    
     def _cleanup(self, guild: disnake.Guild):
         if self._tasks.get(guild.id) is not None:
             del self._tasks[guild.id]
         del self._playlist[guild.id]
-        if self._timers.get(guild.id) is None:
-            coro = self._timer(guild)
-            self._timers[guild.id] = self.bot.loop.create_task(coro)
+        if self._timers.get(guild.id) is not None:
+            self._timers[guild.id].cancel()
+            del self._timers[guild.id]
 
-    async def _timer(self, guild: disnake.Guild):
-        await asyncio.sleep(5.0)
-        await self._leave(guild)
 
-    @commands.Cog.listener(name='on_voice_state_update')
-    async def _end_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
-        if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
-            return
-        guild = member.guild
-        self._cleanup(guild)
-        self._timers[guild.id].cancel()
-        del self._timers[guild.id]
+from .ui import UI
 
 class MusicBot(Player, commands.Cog):
     def __init__(self, bot: commands.Bot):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
+        self.ui = UI(bot_version)
+    
+    @commands.command(name='help')
+    async def help(self, ctx: commands.Context):
+        await self.ui.Help(ctx)
     
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, url: str):
@@ -120,95 +133,17 @@ class MusicBot(Player, commands.Cog):
         await self._search(ctx.guild, url)
         await self._play(ctx.guild, ctx.channel)
         
+    @commands.Cog.listener(name='on_voice_state_update')
+    async def end_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+        if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
+            return
+        guild = member.guild
+        channel = self._playlist[guild.id].text_channel
+        self._cleanup(guild)
+        await channel.send('Leave due to inactivity')
+    
 
 '''
-class Player:
-    def __init__(self):
-        # flag for local server, need to change for multiple server
-        self.voice_client: VoiceClient = None
-        self.playlist: Playlist = Playlist()
-        self.in_mainloop: bool = False
-        self.volume_level: float = 1.0
-        self.ismute: bool = False
-        self.isskip: bool = False
-        self.totallength: int = 0
-
-    @property
-    def current_timestamp(self) -> float:
-        if self.voice_client.is_paused():
-            return self.playlist[0].left_off
-        return self.playlist[0].left_off + self.voice_client._player.loops / 50
-    
-    async def _join(self, channel: VoiceChannel):
-        if self.voice_client is None or not self.voice_client.is_connected():
-            await channel.connect()
-            self.voice_client = channel.guild.voice_client
-        
-    async def _leave(self):
-        if self.voice_client.is_connected():
-            self._stop()
-            await self.voice_client.disconnect()
-            self.voice_client = None
-        else:
-            raise Exception # this exception is for identifying the illegal operation
-
-    def _search(self, url: str, requester: disnake.Member):
-        song: Song = Song(url, requester)
-        self.playlist.append(song)
-
-    async def _play(self):
-        self.playlist[0].set_source(self.volume_level)
-        self.playlist[0].source.volume = self.volume_level
-        self.voice_client.play(self.playlist[0].source)
-
-    async def wait(self):
-        try:
-            while not self.voice_client._player._end.is_set():
-                await asyncio.sleep(1.0)
-        finally:
-            return
-
-    def _pause(self):
-        if not self.voice_client.is_paused() and self.voice_client.is_playing():
-            self.voice_client.pause()
-            self.playlist[0].left_off += self.voice_client._player.loops / 50
-        else:
-            raise Exception # this exception is for identifying the illegal operation
-
-    def _resume(self):
-        if self.voice_client.is_paused():
-            self.voice_client.resume()
-        else:
-            raise Exception # this exception is for identifying the illegal operation
-
-    def _skip(self):
-        try:
-            if not self.voice_client._player._end.is_set():
-                self.voice_client.stop()
-                self.isskip = True
-        finally:
-            self.playlist.times = 0
-    
-    def _stop(self):
-        self.playlist.clear()
-        self._skip()
-        self.isskip = False
-
-    def _seek(self, timestamp: float):
-        if timestamp >= self.playlist[0].length:
-            self.voice_client.stop()
-            return 'Exceed'
-        self.playlist[0].seek(timestamp)
-        self.playlist[0].set_source(self.volume_level)
-        self.voice_client.source = self.playlist[0].source
-    
-    def _volume(self, volume: float):
-        self.volume_level = volume
-        if not self.voice_client is None:
-            self.voice_client.source.volume = self.volume_level
-
-from .ui import UI
-
 class MusicBot(Player):
     def __init__(self, bot):
         commands.Cog.__init__(self)
