@@ -122,10 +122,64 @@ class MusicBot(Player, commands.Cog):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.ui = UI(bot_version)
+        # self.ui.InitEmbedFooter(bot)
     
     @commands.command(name='help')
     async def help(self, ctx: commands.Context):
         await self.ui.Help(ctx)
+    
+    async def rejoin(self, ctx: commands.Context):
+        voice_client: disnake.VoiceClient = ctx.guild.voice_client
+        # Get the bot former playing state
+        former = voice_client.channel
+        former_state = voice_client.is_paused()
+        # To determine is the music paused before rejoining or not
+        if not former_state: 
+            self._pause()
+        # Moving itself to author's channel
+        await voice_client.move_to(ctx.author.voice.channel)
+        # If paused before rejoining, resume the music
+        if not former_state: 
+            self._resume()
+        # Send a rejoin message
+        await self.ui.RejoinNormal(ctx)
+        # If the former channel is a disnake.StageInstance which is the stage
+        # channel with topics, end that stage instance
+        if isinstance(former, disnake.StageChannel) and \
+                isinstance(former.instance, disnake.StageInstance):
+            await former.delete()
+    
+    @commands.command(name='join')
+    async def join(self, ctx: commands.Context):
+        voice_client: disnake.VoiceClient = ctx.guild.voice_client
+        if isinstance(voice_client, disnake.VoiceClient):
+            if voice_client.channel != ctx.author.voice.channel:
+                await self.rejoin(ctx)
+            else:
+                # If bot joined the same channel, send a message to notice user
+                await self.ui.JoinAlready(ctx)
+            return
+        try:
+            await self._join(ctx.author.voice.channel)
+            if isinstance(ctx.author.voice.channel, disnake.StageChannel):
+                await self.ui.JoinStage(ctx)
+                await self.ui.CreateStageInstance(ctx)
+            else:
+                await self.ui.JoinNormal(ctx)
+        except Exception as e:
+            await self.ui.JoinFailed(ctx)
+    
+    @commands.command(name='leave', aliases=['quit'])
+    async def leave(self, ctx: commands.Context):
+        voice_client: disnake.VoiceClient = ctx.guild.voice_client
+        try:
+            if isinstance(voice_client.channel, disnake.StageChannel) and \
+                    isinstance(voice_client.channel.instance, disnake.StageInstance):
+                await self.ui.EndStage(self)
+            await self._leave(ctx.guild)
+            await self.ui.LeaveSucceed(ctx)
+        except:
+            await self.ui.LeaveFailed(ctx)
     
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, url: str):
@@ -139,8 +193,9 @@ class MusicBot(Player, commands.Cog):
             return
         guild = member.guild
         channel = self._playlist[guild.id].text_channel
+        if self._timers.get(guild.id) is not None and self._timers[guild.id].done():
+            await self.ui.LeaveOnTimeout(channel)
         self._cleanup(guild)
-        await channel.send('Leave due to inactivity')
     
 
 '''

@@ -73,6 +73,8 @@ class PlaylistBase:
         self.text_channel: disnake.TextChannel = None # where to show information to user
 
     def __getitem__(self, idx):
+        if len(self.order) == 0:
+            return None
         return self.order[idx]
 
     def clear(self):
@@ -90,6 +92,8 @@ class PlaylistBase:
         self.order.insert(new, self.order.pop(origin))
     
     def rule(self):
+        if len(self.order) == 0:
+            return
         if self.loop_state == LoopState.SINGLEINF:
             return
         if self.loop_state == LoopState.SINGLE:
@@ -136,8 +140,8 @@ class Playlist:
             await self[guild.id].text_channel.send('now playing')
             voice_client: VoiceClient = guild.voice_client
             song = self[guild.id].current()
-            voice_client.play(disnake.FFmpegPCMAudio(song.url))
             try:
+                voice_client.play(disnake.FFmpegPCMAudio(song.url))
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(1.0)
             finally:
