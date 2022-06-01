@@ -263,6 +263,53 @@ class MusicBot(Player, commands.Cog):
         else: 
             await self.volume(ctx, 0.0)
 
+    async def restart(self, ctx: commands.Context):
+        try:
+            self._seek(0)
+            await self.ui.ReplaySucceed(ctx)
+        except:
+            await self.ui.ReplayFailed(ctx)
+
+    @commands.command(name='loop', aliases=['songloop'])
+    async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
+        if not isinstance(times, int):
+            return await self.ui.SingleLoopFailed(ctx)
+        self._playlist.single_loop(ctx.guild.id, times)
+        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
+
+    @commands.command(name='playlistloop', aliases=['queueloop', 'qloop', 'all_loop'])
+    async def playlist_loop(self, ctx: commands.Context):
+        self._playlist.playlist_loop(ctx.guild.id)
+        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
+
+    @commands.command(name='show_queue', aliases=['queuelist', 'queue', 'show'])
+    async def show_queue(self, ctx: commands.Context):
+        await self.ui.ShowQueue(ctx, self._playlist[ctx.guild.id], 0)
+
+    @commands.command(name='remove', aliases=['queuedel'])
+    async def remove(self, ctx: commands.Context, idx: Union[int, str]):
+        try:
+            self._playlist.pop(ctx.guild.id, idx)
+            # await self.ui.RemoveSucceed(ctx, snapshot, idx)
+        except (IndexError, TypeError):
+            await self.ui.RemoveFailed(ctx)
+    
+    @commands.command(name='swap')
+    async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
+        try:
+            self._playlist.swap(ctx.guild.id, idx1, idx2)
+            await self.ui.Embed_SwapSucceed(ctx, self._playlist[ctx.guild.id], idx1, idx2)
+        except (IndexError, TypeError):
+            await self.ui.SwapFailed(ctx)
+
+    @commands.command(name='move_to', aliases=['insert_to', 'move'])
+    async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
+        try:
+            self._playlist.move_to(ctx.guild.id, origin, new)
+            await self.ui.MoveToSucceed(ctx, self._playlist, origin, new)
+        except (IndexError, TypeError):
+            await self.ui.MoveToFailed(ctx)
+
     async def search(self, ctx: commands.Context, *url):
         # Get user defined url/keyword
         url = ' '.join(url)
@@ -333,311 +380,45 @@ class MusicBot(Player, commands.Cog):
     @commands.Cog.listener()
     async def on_ready(self):
         print(f'''
-    =========================================
-    Codename TKablent | Version Alpha
-    Copyright 2022-present @ TK Entertainment
-    Shared under CC-NC-SS-4.0 license
-    =========================================
+            =========================================
+            Codename TKablent | Version Alpha
+            Copyright 2022-present @ TK Entertainment
+            Shared under CC-NC-SS-4.0 license
+            =========================================
 
-    Discord Bot TOKEN | Vaild 有效
+            Discord Bot TOKEN | Vaild 有效
 
-    If there is any problem, open an Issue with log
-    else no any response or answer
+            If there is any problem, open an Issue with log
+            else no any response or answer
 
-    If there isn't any exception under this message,
-    That means bot is online without any problem.
-    若此訊息下方沒有任何錯誤訊息
-    即代表此機器人已成功開機
-    ''')
+            If there isn't any exception under this message,
+            That means bot is online without any problem.
+            若此訊息下方沒有任何錯誤訊息
+            即代表此機器人已成功開機
+        ''')
         self.ui.InitEmbedFooter(self.bot)
 
-'''
-class MusicBot(Player):
-    def __init__(self, bot):
-        commands.Cog.__init__(self)
-        Player.__init__(self)
-        self.bot: commands.Bot = bot
-        self.ui: UI = UI(bot_version)
-        self.ui.InitEmbedFooter(bot)
-        self.task: asyncio.Task = None
-        self.inactive: bool = False
-        self.timedout: bool = False
-
-    async def timeout(self, ctx):
-        if self.inactive:
-            await asyncio.sleep(600)
-            try:
-                await self.leave(ctx, 'timeout')
-            except:
-                pass
-                
-    async def help(self, ctx: commands.Context):
-        await self.ui.Help(ctx)
-
-    async def rejoin(self, ctx):
-        # Get the bot former playing state
-        former = self.voice_client.channel
-        former_state = self.voice_client.is_paused()
-        # To determine is the music paused before rejoining or not
-        if not former_state: 
-            self._pause()
-        # Moving itself to author's channel
-        await self.voice_client.move_to(ctx.author.voice.channel)
-        # If paused before rejoining, resume the music
-        if not former_state: 
-            self._resume()
-        # If paused before rejoining, reflag itself as inactive
-        # (leaving channel after 10 minutes)
-        if former_state: 
-            self.task = self.bot.loop.create_task(self.timeout(ctx))
-        # Send a rejoin message
-        await self.ui.RejoinNormal(ctx)
-        # If the former channel is a disnake.StageInstance which is the stage
-        # channel with topics, end that stage instance
-        if isinstance(former, disnake.StageChannel):
-            if isinstance(former.instance, disnake.StageInstance):
-                await former.delete()
-
-    async def join(self, ctx: commands.Context):
-        # Becoming active (cancel timer)
-        if self.task is not None:
-            self.task.cancel()
-        if isinstance(self.voice_client, disnake.VoiceClient):
-            if self.voice_client.channel != ctx.author.voice.channel:
-                await self.rejoin(ctx)
-            else:
-                # If bot joined the same channel, send a message to notice user
-                await self.ui.JoinAlready(ctx)
+    # Error handler
+    #@commands.Cog.listener()
+    async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
+        if isinstance(error, commands.CommandNotFound):
             return
+        print(error)
+        await ctx.send(f'''
+            **:no_entry: | 失敗 | UNKNOWNERROR**
+            執行指令時發生了一點未知問題，請稍候再嘗試一次
+            --------
+            技術資訊:
+            {error}
+            --------
+            *若您覺得有Bug或錯誤，請參照上方資訊及代碼回報至 Github*
+        ''') 
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
         try:
-            await self._join(ctx.author.voice.channel)
-            if isinstance(ctx.author.voice.channel, disnake.StageChannel):
-                await self.ui.JoinStage(ctx)
-                await self.ui.CreateStageInstance(ctx)
-            else:
-                await self.ui.JoinNormal(ctx)
-        except Exception as e:
-            await self.ui.JoinFailed(ctx)
-            return 'failed'
-
-    async def leave(self, ctx: commands.Context, mode: str='normal'):
-        try:
-            try: 
-                if isinstance(self.voice_client.channel.instance, disnake.StageInstance):
-                    await self.ui.EndStage(self)
-            finally:
-                await self._leave()
-            if mode == 'timeout': 
-                self.timedout: bool = True
-                await self.ui.LeaveOnTimeout(ctx)
-            else: 
-                if self.task is not None:
-                    self.task.cancel()
-                await self.ui.LeaveSucceed(ctx)
-        except:
-            await self.ui.LeaveFailed(ctx)
-
-    async def search(self, ctx: commands.Context, *url):
-        # Get user defined url/keyword
-        url = ' '.join(url)
-
-        async with ctx.typing():
-            # Show searching UI (if user provide exact url, then it
-            # won't send the UI)
-            await self.ui.StartSearch(ctx, url, self.playlist)
-            # Call search function
-            try: 
-                self._search(url, requester=ctx.message.author)
-            except Exception as e:
-                # If search failed, sent to handler
-                await self._SearchFailedHandler(ctx, e, url)
-                return
-            # If queue has more than 1 songs, then show the UI
-            await self.ui.Embed_AddedToQueue(ctx, self.playlist)
-            # Experiment features (show total length in queuelist)
-            if len(self.playlist) > 1:
-                self.totallength += self.playlist[-1].length
-
-    async def play(self, ctx: commands.Context, *url):
-        # Get bot user value
-        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
-        
-        # Try to make bot join author's channel
-        if not isinstance(self.voice_client, disnake.VoiceClient) or \
-            self.voice_client.channel != ctx.author.voice.channel:
-
-            status = await self.join(ctx)
-            if status == 'failed': 
-                return
-
-        # Start search process
-        await self.search(ctx, *url)
-
-        self.voice_client = ctx.guild.voice_client
-
-        if self.ui.is_auto_stage_available and \
-        isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
-        bot_itself.voice.suppress:
-
-            try: 
-                await bot_itself.edit(suppress=False)
-            except: 
-                pass
-
-        self.bot.loop.create_task(self._mainloop(ctx))
-
-    async def _SearchFailedHandler(self, ctx: commands.Context, exception: Union[YTDLPExceptions.DownloadError, Exception], url: str):
-        # Video Private error handler
-        if isinstance(exception, PytubeExceptions.VideoPrivate)\
-            or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
-            
-            await self.ui.SearchFailed(ctx, url, "VideoPrivate")
-        # Members Only Video error handler
-        elif isinstance(exception, PytubeExceptions.MembersOnly):
-            await self.ui.SearchFailed(ctx, url, 'MembersOnly')
-        # Otherwise, go here
-        else:
-            await self.ui.SearchFailed(ctx, url, 'Unknown')
-
-    async def _mainloop(self, ctx: commands.Context):
-        if (self.in_mainloop):
-            return
-        self.in_mainloop = True
-        
-        while len(self.playlist):
-            if self.task is not None:
-                self.task.cancel()
-            self.inactive = False
-            await self.ui.PlayingMsg(ctx, self)
-            await self.ui.__UpdateStageTopic__(self)
-            await self._play()
-            await self.wait()
-            try: 
-                self.playlist[0].set_source(self.volume_level)
-            except: 
-                pass
-            self.totallength -= self.playlist.rule()
-
-        self.in_mainloop = False
-        if self.isskip: 
-            await self.ui.PlayingMsg(ctx, self)
-        # Reset value
-        self.playlist.loop_state = LoopState.NOTHING
-        self.isskip = False
-        if not self.timedout:
-            await self.ui.DonePlaying(ctx, self)
-        if not self.timedout:
-            self.inactive = True
-            self.task = self.bot.loop.create_task(self.timeout(ctx))
-
-    async def pause(self, ctx: commands.Context, onlybotin: bool=False):
-        try:
-            self._pause()
-            if self.task is not None:
-                self.task.cancel()
-            self.inactive = True
-            self.task = self.bot.loop.create_task(self.timeout(ctx))
-            if onlybotin: 
-                await self.ui.PauseOnAllMemberLeave(ctx, self)
-            else: 
-                await self.ui.PauseSucceed(ctx, self)
-        except Exception as e:
-            await self.ui.PauseFailed(ctx)
-
-    async def resume(self, ctx: commands.Context):
-        try:
-            if self.task is not None:
-                self.task.cancel()
-            self._resume()
-            self.inactive = False
-            await self.ui.ResumeSucceed(ctx, self)
-        except:
-            await self.ui.ResumeFailed(ctx)
-
-    async def skip(self, ctx: commands.Context):
-        try:
-            self._skip()
-        except:
-            await self.ui.SkipFailed(ctx)
-
-    async def stop(self, ctx: commands.Context):
-        try:
-            self.in_mainloop = False
-            if self.task is not None:
-                self.task.cancel()
-            self.task = self.bot.loop.create_task(self.timeout(ctx))
-            self.inactive = True
-            await self.ui.StopSucceed(ctx)
-        except:
-            await self.ui.StopFailed(ctx)
-
-    async def mute(self, ctx):
-        if self.ismute: await self.volume(ctx, 100.0, unmute=True)
-        else: await self.volume(ctx, 0.0)
-
-    async def volume(self, ctx: commands.Context, percent: Union[float, str]=None, unmute: bool=False):
-        if not isinstance(percent, float) and percent is not None:
-            await self.ui.VolumeAdjustFailed(ctx)
-            return
-        if percent == 0 or (percent == 100 and unmute):
-            self.ismute = await self.ui.MuteorUnMute(ctx, percent, self)
-        else:
-            self.ismute = await self.ui.VolumeAdjust(ctx, percent, self)
-        if percent is not None:
-            self._volume(percent / 100)
-
-    async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
-        try:
-            if isinstance(timestamp, str):
-                tmp = map(int, reversed(timestamp.split(":")))
-                timestamp = 0
-                for idx, val in enumerate(tmp):
-                    timestamp += (60 ** idx) * val
-        except ValueError:  # For ignoring string with ":" like "o:ro"
-            await self.ui.SeekFailed(ctx)
-            return
-        if self._seek(timestamp) != 'Exceed':
-            await self.ui.SeekSucceed(ctx, timestamp, self)
-
-    async def restart(self, ctx: commands.Context):
-        try:
-            self._seek(0)
-            await self.ui.ReplaySucceed(ctx)
-        except:
-            await self.ui.ReplayFailed(ctx)
-
-    async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
-        if not isinstance(times, int):
-            return await self.ui.SingleLoopFailed(ctx)
-        self.playlist.single_loop(times)
-        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
-
-    async def playlist_loop(self, ctx: commands.Context):
-        self.playlist.playlist_loop()
-        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
-
-    async def show_queue(self, ctx: commands.Context):
-        await self.ui.ShowQueue(ctx, self.playlist, self.totallength)
-
-    async def remove(self, ctx: commands.Context, idx: Union[int, str]):
-        try:
-            snapshot = []; snapshot.append(self.playlist.pop(idx))
-            self.totallength -= snapshot[0].length
-            await self.ui.RemoveSucceed(ctx, snapshot, idx)
-        except (IndexError, TypeError):
-            await self.ui.RemoveFailed(ctx)
-    
-    async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
-        try:
-            self.playlist.swap(idx1, idx2)
-            await self.ui.Embed_SwapSucceed(ctx, self.playlist, idx1, idx2)
-        except (IndexError, TypeError):
-            await self.ui.SwapFailed(ctx)
-
-    async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
-        try:
-            self.playlist.move_to(origin, new)
-            await self.ui.MoveToSucceed(ctx, self.playlist, origin, new)
-        except (IndexError, TypeError):
-            await self.ui.MoveToFailed(ctx)
-'''
+            voice_client: disnake.VoiceClient = member.guild.voice_client
+            if len(voice_client.channel.members) == 1:
+                self._pause(member.guild)
+        except: 
+            pass

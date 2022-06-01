@@ -157,6 +157,9 @@ class Playlist:
     def move_to(self, guild_id: int, origin: int, new: int):
         self[guild_id].move_to(origin, new)
     
+    def pop(self, guild_id: int, idx: int):
+        self[guild_id].order.pop(idx)
+
     def rule(self, guild_id: int):
         self[guild_id].rule()
             
