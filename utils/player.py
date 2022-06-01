@@ -130,13 +130,16 @@ class Player(commands.Cog):
             del self._timers[guild.id]
 
 
-from .ui import UI
-
 class MusicBot(Player, commands.Cog):
     def __init__(self, bot: commands.Bot):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
-        self.ui = UI(bot_version)
+        self.bot: commands.Bot = bot
+
+    @commands.Cog.listener('on_ready')
+    async def resolve_ui(self):      
+        from .ui import UI
+        self.ui = UI(self, bot_version)
     
     @commands.command(name='help')
     async def help(self, ctx: commands.Context):
@@ -196,13 +199,10 @@ class MusicBot(Player, commands.Cog):
             await self.ui.LeaveFailed(ctx)
     
     @commands.command(name='pause')
-    async def pause(self, ctx: commands.Context, onlybotin: bool=False):
+    async def pause(self, ctx: commands.Context):
         try:
             self._pause(ctx.guild)
-            if onlybotin: 
-                await self.ui.PauseOnAllMemberLeave(ctx, self)
-            else: 
-                await self.ui.PauseSucceed(ctx, self)
+            await self.ui.PauseSucceed(ctx, self)
         except Exception as e:
             await self.ui.PauseFailed(ctx)
     
@@ -377,26 +377,6 @@ class MusicBot(Player, commands.Cog):
             await self.ui.LeaveOnTimeout(channel)
         self._cleanup(guild)
     
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print(f'''
-            =========================================
-            Codename TKablent | Version Alpha
-            Copyright 2022-present @ TK Entertainment
-            Shared under CC-NC-SS-4.0 license
-            =========================================
-
-            Discord Bot TOKEN | Vaild 有效
-
-            If there is any problem, open an Issue with log
-            else no any response or answer
-
-            If there isn't any exception under this message,
-            That means bot is online without any problem.
-            若此訊息下方沒有任何錯誤訊息
-            即代表此機器人已成功開機
-        ''')
-        self.ui.InitEmbedFooter(self.bot)
 
     # Error handler
     #@commands.Cog.listener()
@@ -414,11 +394,14 @@ class MusicBot(Player, commands.Cog):
             *若您覺得有Bug或錯誤，請參照上方資訊及代碼回報至 Github*
         ''') 
 
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+    @commands.Cog.listener('on_voice_state_update')
+    async def _pause_on_being_alone(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
         try:
             voice_client: disnake.VoiceClient = member.guild.voice_client
-            if len(voice_client.channel.members) == 1:
+            if voice_client is None:
+                return
+            if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
+                await self.ui.PauseOnAllMemberLeave(self._playlist[member.guild.id].text_channel, self)
                 self._pause(member.guild)
         except: 
             pass

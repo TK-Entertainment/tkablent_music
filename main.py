@@ -22,9 +22,28 @@ from utils import *
 
 bot.add_cog(MusicBot(bot))
 
+@bot.event
+async def on_ready():
+    print(f'''
+        =========================================
+        Codename TKablent | Version Alpha
+        Copyright 2022-present @ TK Entertainment
+        Shared under CC-NC-SS-4.0 license
+        =========================================
+
+        Discord Bot TOKEN | Vaild 有效
+
+        If there is any problem, open an Issue with log
+        else no any response or answer
+
+        If there isn't any exception under this message,
+        That means bot is online without any problem.
+        若此訊息下方沒有任何錯誤訊息
+        即代表此機器人已成功開機
+    ''')
+
 try:
     bot.run(TOKEN)
-
 except AttributeError:
     print(f'''
     =========================================
