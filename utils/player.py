@@ -263,6 +263,7 @@ class MusicBot(Player, commands.Cog):
         else: 
             await self.volume(ctx, 0.0)
 
+    @commands.command(name='restart', aliases=['replay'])
     async def restart(self, ctx: commands.Context):
         try:
             self._seek(0)
