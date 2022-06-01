@@ -122,9 +122,10 @@ class UI:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @disnake.ui.button(label='❎', style=disnake.ButtonStyle.danger)
-            async def done(self, button: disnake.ui.Button, interaction: disnake.Interaction):
+            async def done(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
                 self.toggle(button)
                 self.clear_items()
+                await interaction.response.edit_message(embed=embed, view=view)
                 original_message = await interaction.original_message()
                 await original_message.add_reaction('✅')
                 self.stop()
@@ -299,11 +300,11 @@ class UI:
     # Info #
     ########
     def _SongInfo(self, color: str=None, playlist: Playlist=None, index: int=0, mute: bool=False):
-        if color == "green": 
+        if color == "green": # Green means adding to queue
             colorcode = disnake.Colour.from_rgb(97, 219, 83)
-        elif color == "yellow": 
+        elif color == "yellow": # Yellow means skipping song
             colorcode = disnake.Colour.from_rgb(229, 199, 13)
-        elif color == "red": 
+        elif color == "red": # Red means deleted
             colorcode = disnake.Colour.from_rgb(255, 0, 0)
         else: 
             colorcode = disnake.Colour.from_rgb(255, 255, 255)
