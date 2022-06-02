@@ -14,14 +14,42 @@ from .ytdl import YTDL
 INF = int(1e18)
 bot_version = 'master Branch'
 
+class GuildInfo:
+    def __init__(self, guild_id):
+        self.guild_id: int = guild_id
+        self.text_channel: disnake.TextChannel = None
+        self._volume_level: int = None
+        self._task: asyncio.Task = None
+        self._timer: asyncio.Task = None
+    
+    @property
+    def volume_level(self):
+        if self._volume_level is None:
+            self.fetch()
+        return self._volume_level
+
+    @volume_level.setter
+    def volume_level(self, value):
+        self._volume_level = value
+        self.update()
+
+    def fetch(self):
+        '''fetch from database'''
+
+    def update(self):
+        '''update database'''
+
 class Player(commands.Cog):
     def __init__(self, bot: commands.Bot):
         super().__init__()
         self.bot = bot
         self._playlist: Playlist = Playlist()
-        self._volume_levels: Dict[int, int] = dict()
-        self._tasks: Dict[int, asyncio.Task] = dict()
-        self._timers: Dict[int, asyncio.Task] = dict()
+        self._guilds_info: Dict[int, GuildInfo] = dict()
+
+    def __getitem__(self, guild_id) -> GuildInfo:
+        if self._guilds_info.get(guild_id) is None:
+            self._guilds_info[guild_id] = GuildInfo(guild_id)
+        return self._guilds_info[guild_id] 
 
     async def _join(self, channel: disnake.VoiceChannel):
         voice_client = channel.guild.voice_client
@@ -68,35 +96,35 @@ class Player(commands.Cog):
             voice_client.stop()
             return 'Exceed'
         self._playlist[guild.id].current().seek(timestamp)
-        volume_level = self._volume_levels.get(guild.id, 100)
+        volume_level = self[guild.id].volume_level
         self._playlist[guild.id].current().set_source(volume_level)
         voice_client.source = self._playlist[guild.id].current().source
     
     def _volume(self, guild: disnake.Guild, volume: float):
         voice_client: disnake.VoiceClient = guild.voice_client
         if not voice_client is None:
-            self._volume_levels[guild.id] = volume
+            self[guild.id].volume_level = volume
             voice_client.source.volume = volume
 
     async def _play(self, guild: disnake.Guild, channel: disnake.TextChannel):
-        self._playlist[guild.id].text_channel = channel
+        self[guild.id].text_channel = channel
         await self._start_mainloop(guild)
 
     async def _start_mainloop(self, guild: disnake.Guild):
-        if self._timers.get(guild.id) is not None:
-            self._timers[guild.id].cancel()
-            del self._timers[guild.id]
-        if self._tasks.get(guild.id) is not None:
+        if self[guild.id]._timer is not None:
+            self[guild.id]._timer.cancel()
+            self[guild.id]._timer = None
+        if self[guild.id]._task is not None:
             return
         coro = self._mainloop(guild)
-        self._tasks[guild.id] = self.bot.loop.create_task(coro)
-        self._tasks[guild.id].add_done_callback(lambda task, guild=guild: self._start_timer(guild))
+        self[guild.id]._task = self.bot.loop.create_task(coro)
+        self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
     
     async def _mainloop(self, guild: disnake.Guild):
         # implement in musicbot class for ui support
         '''
         while len(self._playlist[guild.id].order):
-            await self._playlist[guild.id].text_channel.send('now playing')
+            await self[guild.id].text_channel.send('now playing')
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
@@ -109,25 +137,25 @@ class Player(commands.Cog):
         raise NotImplementedError
 
     def _start_timer(self, guild: disnake.Guild):
-        if self._tasks.get(guild.id) is not None:
-            self._tasks[guild.id].cancel()
-            del self._tasks[guild.id]
-        if self._timers.get(guild.id) is not None:
-            self._timers[guild.id].cancel()
+        if self[guild.id]._task is not None:
+            self[guild.id]._task.cancel()
+            self[guild.id]._task = None
+        if self[guild.id]._timer is not None:
+            self[guild.id]._timer.cancel()
         coro = self._timer(guild)
-        self._timers[guild.id] = self.bot.loop.create_task(coro)
+        self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: disnake.Guild):
         await asyncio.sleep(15.0)
         await self._leave(guild)
     
     def _cleanup(self, guild: disnake.Guild):
-        if self._tasks.get(guild.id) is not None:
-            del self._tasks[guild.id]
+        if self[guild.id]._task is not None:
+            self[guild.id]._task = None
         del self._playlist[guild.id]
-        if self._timers.get(guild.id) is not None:
-            self._timers[guild.id].cancel()
-            del self._timers[guild.id]
+        if self[guild.id]._timer is not None:
+            self[guild.id]._timer.cancel()
+            self[guild.id]._timer = None
 
 
 class MusicBot(Player, commands.Cog):
@@ -358,7 +386,7 @@ class MusicBot(Player, commands.Cog):
 
     async def _mainloop(self, guild: disnake.Guild):
         while len(self._playlist[guild.id].order):
-            await self._playlist[guild.id].text_channel.send('now playing')
+            await self[guild.id].text_channel.send('now playing')
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
@@ -373,8 +401,8 @@ class MusicBot(Player, commands.Cog):
         if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
             return
         guild = member.guild
-        channel = self._playlist[guild.id].text_channel
-        if self._timers.get(guild.id) is not None and self._timers[guild.id].done():
+        channel = self[guild.id].text_channel
+        if self[guild.id]._timer is not None and self[guild.id]._timer.done():
             await self.ui.LeaveOnTimeout(channel)
         self._cleanup(guild)
     
@@ -402,7 +430,7 @@ class MusicBot(Player, commands.Cog):
             if voice_client is None:
                 return
             if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
-                await self.ui.PauseOnAllMemberLeave(self._playlist[member.guild.id].text_channel, self)
+                await self.ui.PauseOnAllMemberLeave(self[member.guild.id].text_channel, self)
                 self._pause(member.guild)
         except: 
             pass
