@@ -1,16 +1,11 @@
 from typing import *
-from enum import Enum
 import disnake
 from disnake.ext import commands
 import datetime
+import copy
 
-searchmes: disnake.Message = None
-addmes: bool = False
-issearch: bool = False
-
-# Variables for two kinds of message
-# flag for local server, need to change for multiple server
-playinfo: Coroutine[Any, Any, disnake.Message] = None
+from pytube import exceptions as PytubeExceptions
+from yt_dlp import utils as YTDLPExceptions
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -36,20 +31,40 @@ def _sec_to_hms(seconds, format) -> str:
             return f"{sec} 秒"
 
 from .player import MusicBot, Player
-from .playlist import Playlist, LoopState
+from .playlist import Playlist, LoopState, PlaylistBase
+
+class GuildUIInfo:
+    def __init__(self, guild_id):
+        self.guild_id: int = guild_id
+        self.auto_stage_available: bool = True
+        self.skip: bool = False
+        self.mute: bool = False
+        self.search: bool = False
+        self.searchmsg: disnake.Message = None
+        self.playinfo: Coroutine[Any, Any, disnake.Message] = None
 
 class UI:
     def __init__(self, musicbot, bot_version):
         self.__bot_version__: str = bot_version
-        self.is_auto_stage_available: bool = True
+
         self.musicbot: MusicBot = musicbot
         self.bot: commands.Bot = musicbot.bot
+        self._guild_ui_info = dict()
+
         self.__embed_opt__: dict = {
             'footer': {
                 'text': f"{self.bot.user.name} | 版本: {self.__bot_version__}\nCopyright @ {year} TK Entertainment",
                 'icon_url': "https://i.imgur.com/wApgX8J.png"
             },
         }
+
+    def __getitem__(self, guild_id) -> GuildUIInfo:
+        if self._guild_ui_info.get(guild_id) is None:
+            self._guild_ui_info[guild_id] = GuildUIInfo(guild_id)
+        return self._guild_ui_info[guild_id]
+
+    def auto_stage_available(self, guild_id: int):
+        return self[guild_id].auto_stage_available
     ########
     # Help #
     ########
@@ -80,6 +95,7 @@ class UI:
         {self.bot.command_prefix}swap [順位數1] [順位數2] | 交換指定待播歌曲順序
         {self.bot.command_prefix}move [原順位數] [目標順位數] | 移動指定待播歌曲至指定順序
         ''', colour=0xF2F3EE)
+    
     async def Help(self, ctx: commands.Context) -> None:
 
         class Help(disnake.ui.View):
@@ -123,7 +139,6 @@ class UI:
 
             @disnake.ui.button(label='❎', style=disnake.ButtonStyle.danger)
             async def done(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
-                self.toggle(button)
                 self.clear_items()
                 await interaction.response.edit_message(embed=embed, view=view)
                 original_message = await interaction.original_message()
@@ -143,26 +158,21 @@ class UI:
     ########
     # Join #
     ########
-    async def RejoinNormal(self, ctx: commands.Context, mode: str='normal') -> None:
+    async def RejoinNormal(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
         **:inbox_tray: | 已更換語音頻道**
         已更換至 {ctx.author.voice.channel.name} 語音頻道
             ''')
-    async def JoinNormal(self, ctx: commands.Context, mode: str='normal') -> None:
-        if mode == 'rejoin': 
-            await ctx.send(f'''
-            **:inbox_tray: | 已更換語音頻道**
-            已更換至 {ctx.author.voice.channel.name} 語音頻道
-                ''')
-            return
+    
+    async def JoinNormal(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:inbox_tray: | 已加入語音頻道**
             已成功加入 {ctx.author.voice.channel.name} 語音頻道
                 ''')
-        return
-    async def JoinStage(self, ctx: commands.Context) -> None:
+    
+    async def JoinStage(self, ctx: commands.Context, guild_id: int) -> None:
         botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
-        if botitself not in ctx.author.voice.channel.moderators and self.is_auto_stage_available == True:
+        if botitself not in ctx.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
@@ -173,10 +183,10 @@ class UI:
             *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
             *此警告僅會出現一次*
                     ''')
-                self.is_auto_stage_available = False
+                self[guild_id].auto_stage_available = False
                 return
             else:
-                self.is_auto_stage_available = True
+                self[guild_id].auto_stage_available = True
                 await ctx.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
@@ -187,8 +197,9 @@ class UI:
             **:inbox_tray: | 已加入舞台頻道**
             已成功加入 {ctx.author.voice.channel.name} 舞台頻道
                 ''')
-            self.is_auto_stage_available = True
+            self[guild_id].auto_stage_available = True
             return
+    
     async def JoinAlready(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:hushed: | 我已經加入頻道囉**
@@ -198,6 +209,7 @@ class UI:
             然後使用 **{self.bot.command_prefix}join 加入新的頻道***
                 ''')
         return
+    
     async def JoinFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | JOINFAIL**
@@ -208,41 +220,44 @@ class UI:
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
         return
+    
     #########
     # Stage #
     #########
-    async def CreateStageInstance(self, ctx: commands.Context) -> None:
-        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or self.is_auto_stage_available == False:
+    async def CreateStageInstance(self, ctx: commands.Context, guild_id: int) -> None:
+        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or self[guild_id].auto_stage_available == False:
             return
         channel: disnake.StageChannel = ctx.author.voice.channel
         await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
-    async def EndStage(self, player: Player) -> None:
-        if not self.is_auto_stage_available: 
+    
+    async def EndStage(self, guild_id: int) -> None:
+        if not self[guild_id].auto_stage_available: 
             return
-        if not isinstance(player.voice_client.channel.instance, disnake.StageInstance):
+        if not isinstance(self.bot.get_guild(guild_id).voice_client.channel.instance, disnake.StageInstance):
             return
-        instance: disnake.StageInstance = player.voice_client.channel.instance
+        instance: disnake.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
         await instance.delete()
-    async def _UpdateStageTopic(self, player: Player, mode: str='update') -> None:
-        if self.is_auto_stage_available == False:
+    
+    async def _UpdateStageTopic(self, guild_id: int, mode: str='update') -> None:
+        playlist = self.musicbot._playlist[guild_id]
+        if self[guild_id].auto_stage_available == False \
+            or isinstance(self.bot.get_guild(guild_id).voice_client.channel, disnake.VoiceChannel):
             return
-        try:
-            instance: disnake.StageInstance = player.voice_client.channel.instance
-            if mode == "done":
-                await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
-            elif mode == "pause":
-                    await instance.edit(topic='⏸️{} {}{} / {} 點歌'.format(
-                        "|🔴" if player.playlist[0].is_stream else "",
-                        player.playlist[0].title[:30] if len(player.playlist[0].title) >= 30 else player.playlist[0].title,
-                        "..." if len(player.playlist[0].title) >= 30 else "",
-                        player.playlist[0].requester))
-            else:
-                await instance.edit(topic='▶️{} {}{} / {} 點歌'.format(
-                        "|🔴" if player.playlist[0].is_stream else "",
-                        player.playlist[0].title[:30] if len(player.playlist[0].title) >= 30 else player.playlist[0].title,
-                        "..." if len(player.playlist[0].title) >= 30 else "",
-                        player.playlist[0].requester))
-        except Exception as e: pass
+        instance: disnake.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
+        if mode == "done":
+            await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
+        elif mode == "pause":
+                await instance.edit(topic='⏸️{} {}{} / {} 點歌'.format(
+                    "|🔴" if playlist[0].info['stream'] else "",
+                    playlist[0].info['title'][:30] if len(playlist[0].info['title']) >= 30 else playlist[0].info['title'],
+                    "..." if len(playlist[0].info['title']) >= 30 else "",
+                    playlist[0].requester))
+        else:
+            await instance.edit(topic='▶️{} {}{} / {} 點歌'.format(
+                    "|🔴" if playlist[0].info['stream'] else "",
+                    playlist[0].info['title'][:30] if len(playlist[0].info['title']) >= 30 else playlist[0].info['title'],
+                    "..." if len(playlist[0].info['title']) >= 30 else "",
+                    playlist[0].requester))
 
     #########
     # Leave #
@@ -252,12 +267,14 @@ class UI:
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
+    
     async def LeaveOnTimeout(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:outbox_tray: | 等待超時**
             機器人已閒置超過 10 分鐘
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
+    
     async def LeaveFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | LEAVEFAIL**
@@ -267,102 +284,112 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}leave** 來讓我離開頻道*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ##########
     # Search #
     ##########
     async def StartSearch(self, ctx: commands.Context, url: str) -> disnake.Message:
-        global searchmes, addmes, issearch
         if ("http" not in url) and ("www" not in url):
-            searchmes =  await ctx.send(f'''
+            self[ctx.guild.id].searchmsg =  await ctx.send(f'''
             **:mag_right: | 開始搜尋 | {url}**
             請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
             ''')
-            issearch = True
-        else: issearch = False
+            self[ctx.guild.id].search = True
+        else: self[ctx.guild.id].search = False
 
-    async def SearchFailed(self, ctx: commands.Context, url: str, reason: str) -> None:
-        reasons = {
-            'VideoPrivate': ['VIDPRIVATE', '私人影片'],
-            'MembersOnly': ['FORMEMBERS', '會員限定影片'],
-            'Unknown': ['NOTAVAILIBLE', '無法存取的影片']
-        }
+    async def SearchFailed(self, ctx: commands.Context, url: str, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
+        if isinstance(exception, PytubeExceptions.VideoPrivate) \
+                or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+            reason = ['VIDPRIVATE', '私人影片']
+        elif isinstance(exception, PytubeExceptions.MembersOnly):
+            await self.ui.SearchFailed(ctx, url, 'MembersOnly')
+            reason = ['FORMEMBERS', '會員限定影片']
+        else:
+            reason = ['UNAVAILIBLE', '無法存取的影片']
         await ctx.send(f'''
-            **:no_entry: | 失敗 | {reasons[reason][0]}**
+            **:no_entry: | 失敗 | {reason[0]}**
             您所指定的音樂 {url}
-            為 **{reasons[reason][1]}**，機器人無法存取
+            為 **{reason[1]}**，機器人無法存取
             請更換其他音樂播放
             --------
             *請在確認排除以上可能問題後*
             *再次嘗試使用 **{self.bot.command_prefix}play** 來播放音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+
     ########
     # Info #
     ########
     def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0):
         playlist = self.musicbot._playlist[guild_id]
         song = playlist[index]
+
         if color_code == "green": # Green means adding to queue
             color = disnake.Colour.from_rgb(97, 219, 83)
-        elif color_code == "yellow": # Yellow means skipping song
-            color = disnake.Colour.from_rgb(229, 199, 13)
         elif color_code == "red": # Red means deleted
             color = disnake.Colour.from_rgb(255, 0, 0)
         else: 
             color = disnake.Colour.from_rgb(255, 255, 255)
+
         # Generate Loop Icon
         if color_code != "red" and playlist.loop_state != LoopState.NOTHING:
             loopstate: LoopState = playlist.loop_state
             loopicon = ''
-            looptimes = ''
             if loopstate == LoopState.SINGLE:
+                loopicon = f' | 🔂 🕗 {playlist.times} 次'
+            elif loopstate == LoopState.SINGLEINF:
                 loopicon = ' | 🔂'
-                if loopstate != LoopState.SINGLEINF:
-                    looptimes = f' 🕗 {playlist.times} 次'
             elif loopstate == LoopState.PLAYLIST:
                 loopicon = ' | 🔁'
         else:
             loopstate = None
             loopicon = ''
-            looptimes = ''
+
         # Generate Embed Body
         embed = disnake.Embed(title=song.info['title'], url=song.info['watch_url'], colour=color)
         embed.add_field(name="作者", value=f"[{song.info['author']}]({song.info['channel_url']})", inline=True)
         embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.tag} 點歌", icon_url=song.requester.display_avatar)
-        if song.is_stream: 
+        
+        if song.info['stream']: 
             embed._author['name'] += " | 🔴 直播"
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
             embed.add_field(name="歌曲時長", value=_sec_to_hms(song.info['length'], "zh"), inline=True)
-        if self.musicbot._volume_levels.get(guild_id) == 0: 
+        
+        if self.musicbot[guild_id]._volume_level == 0: 
             embed._author['name'] += " | 🔇 靜音"
+        
         if loopstate != LoopState.NOTHING: 
-            embed._author['name'] += f"{loopicon}{looptimes}"
-        if len(playlist) > 1:
+            embed._author['name'] += f"{loopicon}"
+        
+        
+        if len(playlist.order) > 1 and color_code != 'red':
             queuelist: str = ""
             queuelist += f"1." + playlist[1].info['title'] + "\n"
-            if len(playlist) > 2: 
-                queuelist += f"...還有 {len(playlist)-2} 首歌"
-            embed.add_field(name=f"待播清單 | {len(playlist)-1} 首歌待播中", value=queuelist, inline=False)
+            if len(playlist.order) > 2: 
+                queuelist += f"...還有 {len(playlist.order)-2} 首歌"
+        
+            embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
         embed.set_thumbnail(url=song.info['thumbnail_url'])
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
-    async def _UpdateSongInfo(self, playlist: Playlist, ismute: bool):
+
+    async def _UpdateSongInfo(self, guild_id: int):
         message = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
-        if not self.is_auto_stage_available:
+        if not self[guild_id].auto_stage_available:
             message += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        await playinfo.edit(content=message, embed=self._SongInfo(playlist=playlist, mute=ismute))
+        await self[guild_id].playinfo.edit(content=message, embed=self._SongInfo(guild_id))
+    
     ########
     # Play #
     ########
-    async def PlayingMsg(self, ctx: commands.Context, player: Player):
-        global playinfo
-        color = None
-        if player.isskip:
-            if len(player.playlist) > 0:
+    async def PlayingMsg(self, channel: disnake.TextChannel):
+        playlist = self.musicbot._playlist[channel.guild.id]
+        if self[channel.guild.id].skip:
+            if len(playlist.order) > 1:
                 msg = f'''
             **:fast_forward: | 跳過歌曲**
             目前歌曲已成功跳過，即將播放下一首歌曲，資訊如下所示
@@ -371,58 +398,61 @@ class UI:
             else:
                 msg = f'''
             **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，因候播清單已無歌曲，將完成播放
+            目前歌曲已成功跳過，候播清單已無歌曲
+            即將播放最後一首歌曲，資訊如下所示
             *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
                 '''
-            player.isskip = False
-            if player.playlist.loop_state != LoopState.SINGLEINF:
-                player.playlist.loop_state = LoopState.NOTHING
-                player.playlist.times = 0
-            color = "yellow"
+            self[channel.guild.id].skip = False
+            if playlist.loop_state != LoopState.SINGLEINF:
+                playlist.loop_state = LoopState.NOTHING
+                playlist.times = 0
         else:
             msg = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
-        if not self.is_auto_stage_available:
+        if not self[channel.guild.id].auto_stage_available:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        playinfo = await ctx.send(msg, embed=self._SongInfo(color_code=color, playlist=player.playlist, mute=player.ismute))
+        self[channel.guild.id].playinfo = await channel.send(msg, embed=self._SongInfo(guild_id=channel.guild.id))
         try: 
-            await self._UpdateStageTopic(player)
+            await self._UpdateStageTopic(channel.guild.id)
         except: 
             pass
-    async def DonePlaying(self, ctx: commands.Context, player: Player) -> None:
-        await ctx.send(f'''
+    
+    async def DonePlaying(self, channel: disnake.TextChannel) -> None:
+        await channel.send(f'''
             **:clock4: | 播放完畢，等待播放動作**
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
         try: 
-            await self._UpdateStageTopic(player, 'done')
+            await self._UpdateStageTopic(channel.guild.id, 'done')
         except: 
             pass
     #########
     # Pause #
     ######### 
-    async def PauseSucceed(self, ctx: commands.Context, player: Player) -> None:
+    async def PauseSucceed(self, ctx: commands.Context, guild_id: int) -> None:
         await ctx.send(f'''
             **:pause_button: | 暫停歌曲**
             歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
         try: 
-            await self._UpdateStageTopic(player, 'pause')
+            await self._UpdateStageTopic(guild_id, 'pause')
         except: 
             pass
-    async def PauseOnAllMemberLeave(self, channel: disnake.TextChannel, player: Player) -> None:
+    
+    async def PauseOnAllMemberLeave(self, channel: disnake.TextChannel, guild_id: int) -> None:
         await channel.send(f'''
             **:pause_button: | 暫停歌曲**
             所有人皆已退出語音頻道，歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
         try: 
-            await self._UpdateStageTopic(player, 'pause')
+            await self._UpdateStageTopic(guild_id, 'pause')
         except: 
             pass
+    
     async def PauseFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL01**
@@ -432,19 +462,21 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}pause** 來暫停音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ##########
     # Resume #
     ##########
-    async def ResumeSucceed(self, ctx: commands.Context, player: Player) -> None:
+    async def ResumeSucceed(self, ctx: commands.Context, guild_id: int) -> None:
         await ctx.send(f'''
             **:arrow_forward: | 續播歌曲**
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
         try: 
-            await self._UpdateStageTopic(player, 'resume')
+            await self._UpdateStageTopic(guild_id, 'resume')
         except: 
             pass
+    
     async def ResumeFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | PL02**
@@ -454,10 +486,13 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}resume** 來續播音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ########
     # Skip #
     ########
-    # SkipSucceed has been merged into PlayingMsg
+    def SkipProceed(self, guild_id: int):
+        self[guild_id].skip = True
+
     async def SkipFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | SK01**
@@ -467,6 +502,7 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}skip 來跳過音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ########
     # Stop #
     ########
@@ -476,6 +512,7 @@ class UI:
             歌曲已停止播放
             *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
             ''')
+    
     async def StopFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | ST01**
@@ -485,58 +522,59 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}stop 來停止播放音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ##########
     # Volume #
     ##########
-    async def VolumeAdjust(self, ctx: commands.Context, percent: Union[float, str], player: Player):
-        mute = player.ismute
+    async def VolumeAdjust(self, ctx: commands.Context, percent: Union[float, str]):
         # If percent = None, show current volume
         if percent == None: 
             await ctx.send(f'''
             **:loud_sound: | 音量調整**
-            目前音量為 {player.volume_level*100}%
+            目前音量為 {self.musicbot[ctx.guild.id].volume_level*100}%
         ''')
-            return mute
+
         # Volume unchanged
-        if (percent / 100) == player.volume_level:
+        if (percent / 100) == self.musicbot[ctx.guild.id].volume_level:
             await ctx.send(f'''
             **:loud_sound: | 音量調整**
             音量沒有變更，仍為 {percent}%
         ''')
+
         # Volume up
-        elif (percent / 100) > player.volume_level:
+        elif (percent / 100) > self.musicbot[ctx.guild.id].volume_level:
             await ctx.send(f'''
             **:loud_sound: | 調高音量**
             音量已設定為 {percent}%
         ''')
-            mute = False
+            self[ctx.guild.id].mute = False
         # Volume down
-        elif (percent / 100) < player.volume_level:
+        elif (percent / 100) < self.musicbot[ctx.guild.id].volume_level:
             await ctx.send(f'''
             **:sound: | 降低音量**
             音量已設定為 {percent}%
         ''')
-            mute = False
-        await self._UpdateSongInfo(player.playlist, mute)
-        return mute
-    async def MuteorUnMute(self, ctx: commands.Context, percent: Union[float, str], player: Player) -> bool:
-        mute = player.ismute
+            self[ctx.guild.id].mute = False
+        await self._UpdateSongInfo(ctx.guild.id)
+    
+    async def MuteorUnMute(self, ctx: commands.Context, percent: Union[float, str]) -> bool:
+        mute = self[ctx.guild.id].mute
         if mute and percent == 100:
             await ctx.send(f'''
             **:speaker: | 解除靜音**
             音量已設定為 100%，目前已解除靜音模式
         ''')
-            mute = False
+            self[ctx.guild.id].mute = False
         elif percent == 0: 
             await ctx.send(f'''
             **:mute: | 靜音**
             音量已設定為 0%，目前處於靜音模式
         ''')
-            mute = True
-        await self._UpdateSongInfo(player.playlist, mute)
+            self[ctx.guild.id].mute = True
+        await self._UpdateSongInfo(ctx.guild.id, mute)
 
-    async def VolumeAdjustFailed(self, channel: disnake.TextChannel) -> None:
-        await channel.send(f'''
+    async def VolumeAdjustFailed(self, ctx: commands.Context) -> None:
+        await ctx.send(f'''
             **:no_entry: | 失敗 | SA01**
             無法調整音量，請確認您輸入的音量百分比是否有效
             請以百分比格式(ex. 100%)執行指令
@@ -559,15 +597,18 @@ class UI:
             bar += '⎯'
         bar += "**"
         return bar
-    async def SeekSucceed(self, ctx: commands.Context, timestamp: int, player: Player) -> None:
-        seektime = _sec_to_hms(self, timestamp, "symbol"); duration = _sec_to_hms(self, player.playlist[0].length, "symbol")
-        bar = self.__ProgressBar(timestamp, player.playlist[0].length)
+    
+    async def SeekSucceed(self, ctx: commands.Context, timestamp: int) -> None:
+        playlist = self.musicbot._playlist[ctx.guild.id]
+        seektime = _sec_to_hms(self, timestamp, "symbol"); duration = _sec_to_hms(self, playlist[ctx.guild.id].info['length'], "symbol")
+        bar = self.__ProgressBar(timestamp, playlist[ctx.guild.id].info['length'])
         await ctx.send(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
             **{seektime}** {bar} **{duration}**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
         ''')
+    
     async def SeekFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | SE01**
@@ -579,6 +620,7 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}seek** 來跳轉音樂*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ##########
     # Replay #
     ##########
@@ -588,6 +630,7 @@ class UI:
             歌曲已重新開始播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
+    
     async def ReplayFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | RP01**
@@ -597,11 +640,13 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}replay** 來重播歌曲*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     ########
     # Loop #
     ########
-    async def LoopSucceed(self, ctx: commands.Context, playlist: Playlist, ismute: bool) -> None:
-        if playlist.loop_state == LoopState.SINGLE and playlist.flag == LoopState.SINGLEINF:
+    async def LoopSucceed(self, ctx: commands.Context) -> None:
+        playlist = self.musicbot._playlist[ctx.guild.id]
+        if playlist.loop_state == LoopState.SINGLEINF:
             await ctx.send(f'''
             **:repeat_one: | 單曲重複播放**
             已啟動單曲重複播放
@@ -621,7 +666,8 @@ class UI:
             **:arrow_forward: | 關閉重複播放**
             已關閉重複播放功能
             ''')
-        await self._UpdateSongInfo(playlist, ismute)
+        await self._UpdateSongInfo(ctx.guild.id)
+    
     async def SingleLoopFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | LP01**
@@ -631,107 +677,137 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}loop / {self.bot.command_prefix}loop [次數]** 來控制重複播放功能*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     #########
     # Queue #
     #########
     # Add to queue
-    async def Embed_AddedToQueue(self, ctx: commands.Context, playlist: Playlist) -> None:
+    async def Embed_AddedToQueue(self, ctx: commands.Context) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
-        if addmes == True:
-            index = len(playlist) - 1
+        playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
+        if len(playlist.order) > 1:
+            index = len(playlist.order) - 1
             mes = f'''
             **:white_check_mark: | 成功加入隊列**
-                以下歌曲已加入隊列中，為第 **{len(playlist)-1}** 首歌
+                以下歌曲已加入隊列中，為第 **{len(playlist.order)-1}** 首歌
             '''
-            if not issearch: await ctx.send(mes, embed=self._SongInfo(color_code="green", playlist=playlist, index=index))
-            else: await searchmes.edit(content=mes, embed=self._SongInfo(color_code="green", playlist=playlist, index=index))
+            if not self[ctx.guild.id].search: 
+                await ctx.send(mes, embed=self._SongInfo(color_code="green", index=index, guild_id=ctx.guild.id))
+            else: 
+                await self[ctx.guild.id].searchmsg.edit(content=mes, embed=self._SongInfo(color_code="green", index=index))
         else: 
-            if issearch: await searchmes.delete()
+            if self[ctx.guild.id].search: 
+                await self[ctx.guild.id].searchmsg.delete()
+    
     # Queue Embed Generator
-    def __QueueEmbed(self, playlist: Playlist, page: int=1, totallength: int=None) -> disnake.Embed:
-        tl = _sec_to_hms(self, totallength, "symbol")
-        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist)-1} 首，總時長 {tl}", colour=0xF2F3EE)
-        if len(playlist) > 4: embed.description += f"\n目前為第 {page+1} 頁"
+    def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> disnake.Embed:
+        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist.order)-1} 首", colour=0xF2F3EE)
+        
         for i in range(1, 4):
             index = page*3+i
-            if (index == len(playlist)): break
-            length = _sec_to_hms(self, playlist[index].length, "symbol")
+            if (index == len(playlist.order)): break
+            length = _sec_to_hms(playlist[index].info['length'], "symbol")
             embed.add_field(
-                name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream else "", playlist[index].requester),
-                value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream else "", length if not playlist[index].is_stream else ""),
+                name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].info['title'], "🔴 直播 | " if playlist[index].info['stream'] else "", playlist[index].requester),
+                value="作者: {}{}{}".format(playlist[index].info['author'], " / 歌曲時長: " if not playlist[index].info['stream'] else "", length if not playlist[index].info['stream'] else ""),
                 inline=False,
             )
-        return embed
-    # Queue Listing
-    async def ShowQueue(self, ctx: commands.Context, playlist: Playlist, totallength: int) -> None:
-        class Button(disnake.ui.Button):
-            def __init__(self, mode, playlist: Playlist, QueueEmbed, embed_opt):
-                self.mode: bool = mode
-                self.playlist: Playlist = playlist
-                self.queueembed = QueueEmbed
-                self.embed_opt = embed_opt
-                super().__init__(style=disnake.ButtonStyle.blurple)
-                if self.mode == 'backward': self.label = '⬅️'; self.disabled = True; self.style = disnake.ButtonStyle.gray
-                if self.mode == 'forward': self.label = '➡️'
-                if self.mode == 'done': self.label = '❎'; self.style = disnake.ButtonStyle.danger
 
-            async def callback(self, interaction: disnake.Interaction):
-                global isqueuedone
-                # view.children[0] = 上一頁; view.children[1] = 下一頁
-                view = self.view
-                if self.mode == 'backward':
-                    view.page -= 1; self.isdone = False
-                    if view.page == 0: view.children[0].disabled = True; view.children[0].style = disnake.ButtonStyle.gray
-                    if view.page != (len(self.playlist)-1)//3: view.children[1].disabled = False; view.children[1].style = disnake.ButtonStyle.blurple
-                if self.mode == 'forward':
-                    view.page += 1; self.isdone = False
-                    if view.page == (len(self.playlist)-1)//3: view.children[1].disabled = True; view.children[1].style = disnake.ButtonStyle.gray
-                    if view.page != 0: view.children[0].disabled = False; view.children[0].style = disnake.ButtonStyle.blurple
-                if self.mode == 'done': view.clear_items(); isqueuedone = True
-                embed = self.queueembed(self.playlist, view.page, totallength)
-                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
-                await interaction.response.edit_message(embed=embed, view=view)
-                if self.mode == 'done': 
-                    editedmes = await interaction.original_message()
-                    await editedmes.add_reaction('✅')
-        class QueuePage(disnake.ui.View):
-            def __init__(self, playlist: Playlist, QueueEmbed, embed_opt, *, timeout=60):
-                global isqueuedone
-                isqueuedone = False
-                self.page = 0
+        embed_opt = copy.deepcopy(self.__embed_opt__)
+
+        if len(playlist.order) > 4:
+            total_pages = ((len(playlist.order) - 1) // 3) + 1
+            embed_opt['footer']['text'] = f'第 {page+1} 頁 / 共 {total_pages} 頁\n' + self.__embed_opt__['footer']['text']
+        
+        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
+        return embed
+    
+    # Queue Listing
+    async def ShowQueue(self, ctx: commands.Context) -> None:
+        playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
+
+        class QueueListing(disnake.ui.View):
+
+            QueueEmbed = self._QueueEmbed
+            embed_opt = self.__embed_opt__
+            
+            def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
-                self.leftbutton = self.add_item(Button('backward', playlist, QueueEmbed, embed_opt))
-                self.rightbutton = self.add_item(Button('forward', playlist, QueueEmbed, embed_opt))
-                self.donebutton = self.add_item(Button('done', playlist, QueueEmbed, embed_opt))
-            def set_mes(self, mes):
-                self.mes: disnake.Message = mes
-            async def on_timeout(self):
-                if isqueuedone: return
+                self.last: disnake.ui.Button = self.children[0]
+                self.page = 0
+
+            @property
+            def left_button(self) -> disnake.ui.Button:
+                return self.children[0]
+
+            @property
+            def right_button(self) -> disnake.ui.Button:
+                return self.children[1]
+
+            def update_button(self):
+                if self.page == 0:
+                    self.left_button.disabled = True
+                    self.left_button.style = disnake.ButtonStyle.gray
+                else:
+                    self.left_button.disabled = False
+                    self.left_button.style = disnake.ButtonStyle.blurple
+                if self.page == (len(playlist.order) - 2) // 3:
+                    self.right_button.disabled = True
+                    self.right_button.style = disnake.ButtonStyle.gray
+                else:
+                    self.right_button.disabled = False
+                    self.right_button.style = disnake.ButtonStyle.blurple
+
+            @disnake.ui.button(label='⬅️', style=disnake.ButtonStyle.gray, disabled=True)
+            async def lastpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+                self.page -= 1
+                self.update_button()
+                embed = self.QueueEmbed(playlist, self.page)
+                await interaction.response.edit_message(embed=embed, view=view)
+
+            @disnake.ui.button(label='➡️', style=disnake.ButtonStyle.blurple)
+            async def nextpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):            
+                self.page += 1
+                self.update_button()
+                embed = self.QueueEmbed(playlist, self.page)
+                await interaction.response.edit_message(embed=embed, view=view)
+
+            @disnake.ui.button(label='❎', style=disnake.ButtonStyle.danger)
+            async def done(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
                 self.clear_items()
-                await self.mes.edit(view=view)
-                await self.mes.add_reaction('🛑')
-        if (len(playlist) < 2):
+                await interaction.response.edit_message(embed=embed, view=view)
+                original_message = await interaction.original_message()
+                await original_message.add_reaction('✅')
+                self.stop()
+        
+            async def on_timeout(self):
+                self.clear_items()
+                await msg.edit(view=view)
+                await msg.add_reaction('🛑')
+            
+        if (len(playlist.order) < 2):
             await ctx.send(f'''
             **:information_source: | 待播歌曲**
             目前沒有任何歌曲待播中
             *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*
             ''')
             return
-        embed = self.__QueueEmbed(playlist, 0, totallength)
-        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
-        if not (len(playlist)) <= 4:
-            view = QueuePage(playlist, self.__QueueEmbed, self.__embed_opt__)
-            mes = await ctx.send(embed=embed, view=view)
-            view.set_mes(mes)
         else:
-            await ctx.send(embed=embed)
+            embed = self._QueueEmbed(playlist, 0)
+            if not (len(playlist.order)) <= 4:
+                view = QueueListing()
+                msg = await ctx.send(embed=embed, view=view)
+            else:
+                await ctx.send(embed=embed)
+    
     # Remove an entity from queue
-    async def RemoveSucceed(self, ctx: commands.Context, playlist: Playlist, idx: int) -> None:
+    async def RemoveSucceed(self, ctx: commands.Context, idx: int) -> None:
         await ctx.send(f'''
             **:wastebasket: | 已刪除指定歌曲**
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
-            ''', embed=self._SongInfo('red', playlist))
+            ''', embed=self._SongInfo(ctx.guild.id, 'red', idx))
+    
     async def RemoveFailed(self, ctx: commands.Context):
         await ctx.send(f'''
             **:no_entry: | 失敗 | RM01**
@@ -741,12 +817,28 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}remove [順位數]** 來刪除待播歌曲*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     # Swap entities in queue
-    async def Embed_SwapSucceed(self, ctx: commands.Context, playlist: Playlist, idx1: int, idx2: int) -> None:
+    async def Embed_SwapSucceed(self, ctx: commands.Context, idx1: int, idx2: int) -> None:
+        playlist = self.musicbot._playlist[ctx.guild.id]
         embed = disnake.Embed(title=":arrows_counterclockwise: | 調換歌曲順序", description="已調換歌曲順序，以下為詳細資料", colour=0xF2F3EE)
-        embed.add_field(name=f"第 ~~{idx2}~~ -> **{idx1}** 順序", value=f'{playlist[idx1].title}\n{playlist[idx1].author}\n{playlist[idx1].requester} 點歌\n', inline=True)
-        embed.add_field(name=f"第 ~~{idx1}~~ -> **{idx2}** 順序", value=f'{playlist[idx2].title}\n{playlist[idx2].author}\n{playlist[idx2].requester} 點歌\n', inline=True)
+        
+        embed.add_field(name=f"第 ~~{idx2}~~ -> **{idx1}** 順序", value='{}\n{}\n{} 點歌\n'
+            .format(
+                playlist[idx1].info['title'],
+                playlist[idx1].info['author'],
+                playlist[idx1].requester
+            ), inline=True)
+        
+        embed.add_field(name=f"第 ~~{idx1}~~ -> **{idx2}** 順序", value='{}\n{}\n{} 點歌\n'
+            .format(
+                playlist[idx2].info['title'],
+                playlist[idx2].info['author'],
+                playlist[idx2].requester
+            ), inline=True)
+
         await ctx.send(embed=embed)
+
     async def SwapFailed(self, ctx: commands.Context) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | SW01**
@@ -756,11 +848,21 @@ class UI:
             *再次嘗試使用 **{self.bot.command_prefix}swap [順位數1] [順位數2]** 來交換待播歌曲*
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
             ''')
+    
     # Move entity to other place in queue
-    async def MoveToSucceed(self, ctx: commands.Context, playlist: Playlist, origin: int, new: int) -> None:
+    async def MoveToSucceed(self, ctx: commands.Context, origin: int, new: int) -> None:
+        playlist = self.musicbot._playlist[ctx.guild.id]
         embed = disnake.Embed(title=":arrows_counterclockwise: | 移動歌曲順序", description="已移動歌曲順序，以下為詳細資料", colour=0xF2F3EE)
-        embed.add_field(name=f"第 ~~{origin}~~ -> **{new}** 順序", value=f'{playlist[new].title}\n{playlist[new].author}\n{playlist[new].requester} 點歌\n', inline=True)
+        
+        embed.add_field(name=f"第 ~~{origin}~~ -> **{new}** 順序", value='{}\n{}\n{} 點歌\n'
+            .format(
+                playlist[new].info['title'],
+                playlist[new].info['author'],
+                playlist[new].requester
+            ), inline=True)
+        
         await ctx.send(embed=embed)
+
     async def MoveToFailed(self, ctx) -> None:
         await ctx.send(f'''
             **:no_entry: | 失敗 | MT01**

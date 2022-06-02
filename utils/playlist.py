@@ -31,7 +31,6 @@ class Song:
         self.left_off: float = 0
         self.info = ytdl.get_info(url)
         # flag for local server, need to change for multiple server
-        self.is_stream: bool = False
         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
         # self.add_info(url, requester)
 
@@ -86,7 +85,7 @@ class PlaylistBase:
         return self[0]
     
     def swap(self, idx1: int, idx2: int):
-        self[idx1], self[idx2] = self[idx2], self[idx1]
+        self.order[idx1], self.order[idx2] = self.order[idx2], self.order[idx1]
 
     def move_to(self, origin: int, new: int):
         self.order.insert(new, self.order.pop(origin))

@@ -6,8 +6,6 @@ from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransfor
 from disnake.ext import commands
 
 from .playlist import Song, Playlist, LoopState
-from pytube import exceptions as PytubeExceptions
-from yt_dlp import utils as YTDLPExceptions
 from .ytdl import YTDL
 
 
@@ -146,7 +144,7 @@ class Player(commands.Cog):
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: disnake.Guild):
-        await asyncio.sleep(15.0)
+        await asyncio.sleep(60.0)
         await self._leave(guild)
     
     def _cleanup(self, guild: disnake.Guild):
@@ -207,8 +205,8 @@ class MusicBot(Player, commands.Cog):
         try:
             await self._join(ctx.author.voice.channel)
             if isinstance(ctx.author.voice.channel, disnake.StageChannel):
-                await self.ui.JoinStage(ctx)
-                await self.ui.CreateStageInstance(ctx)
+                await self.ui.JoinStage(ctx, ctx.guild.id)
+                await self.ui.CreateStageInstance(ctx, ctx.guild.id)
             else:
                 await self.ui.JoinNormal(ctx)
         except Exception as e:
@@ -220,7 +218,7 @@ class MusicBot(Player, commands.Cog):
         try:
             if isinstance(voice_client.channel, disnake.StageChannel) and \
                     isinstance(voice_client.channel.instance, disnake.StageInstance):
-                await self.ui.EndStage(self)
+                await self.ui.EndStage(self, ctx.guild.id)
             await self._leave(ctx.guild)
             await self.ui.LeaveSucceed(ctx)
         except:
@@ -230,7 +228,7 @@ class MusicBot(Player, commands.Cog):
     async def pause(self, ctx: commands.Context):
         try:
             self._pause(ctx.guild)
-            await self.ui.PauseSucceed(ctx, self)
+            await self.ui.PauseSucceed(ctx, ctx.guild.id)
         except Exception as e:
             await self.ui.PauseFailed(ctx)
     
@@ -238,7 +236,7 @@ class MusicBot(Player, commands.Cog):
     async def resume(self, ctx: commands.Context):
         try:
             self._resume(ctx.guild)
-            await self.ui.ResumeSucceed(ctx, self)
+            await self.ui.ResumeSucceed(ctx, ctx.guild.id)
         except:
             await self.ui.ResumeFailed(ctx)
 
@@ -246,6 +244,7 @@ class MusicBot(Player, commands.Cog):
     async def skip(self, ctx: commands.Context):
         try:
             self._skip(ctx.guild)
+            self.ui.SkipProceed(ctx.guild.id)
         except:
             await self.ui.SkipFailed(ctx)
 
@@ -265,8 +264,9 @@ class MusicBot(Player, commands.Cog):
                 timestamp = 0
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val
+            self.ui.SeekSucceed(ctx, timestamp)
         except ValueError:  # For ignoring string with ":" like "o:ro"
-            # await self.ui.SeekFailed(ctx)
+            await self.ui.SeekFailed(ctx)
             return
         if self._seek(ctx.guild, timestamp) != 'Exceed':
             # await self.ui.SeekSucceed(ctx, timestamp, self)
@@ -277,10 +277,7 @@ class MusicBot(Player, commands.Cog):
         if not isinstance(percent, float) and percent is not None:
             await self.ui.VolumeAdjustFailed(ctx)
             return
-        if percent == 0 or self[ctx.guild.id]._volume_level == 0:
-            await self.ui.MuteorUnMute(ctx, percent, self)
-        else:
-            await self.ui.VolumeAdjust(ctx, percent, self)
+        await self.ui.VolumeAdjust(ctx, percent)
         if percent is not None:
             self._volume(ctx.guild, percent / 100)
 
@@ -290,6 +287,7 @@ class MusicBot(Player, commands.Cog):
             await self.volume(ctx, 100.0)
         else: 
             await self.volume(ctx, 0.0)
+        await self.ui.MuteorUnMute(ctx, self[ctx.guild.id]._volume_level)
 
     @commands.command(name='restart', aliases=['replay'])
     async def restart(self, ctx: commands.Context):
@@ -304,22 +302,22 @@ class MusicBot(Player, commands.Cog):
         if not isinstance(times, int):
             return await self.ui.SingleLoopFailed(ctx)
         self._playlist.single_loop(ctx.guild.id, times)
-        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
+        await self.ui.LoopSucceed(ctx)
 
     @commands.command(name='playlistloop', aliases=['queueloop', 'qloop', 'all_loop'])
     async def playlist_loop(self, ctx: commands.Context):
         self._playlist.playlist_loop(ctx.guild.id)
-        await self.ui.LoopSucceed(ctx, self.playlist, self.ismute)
+        await self.ui.LoopSucceed(ctx)
 
     @commands.command(name='show_queue', aliases=['queuelist', 'queue', 'show'])
     async def show_queue(self, ctx: commands.Context):
-        await self.ui.ShowQueue(ctx, self._playlist[ctx.guild.id], 0)
+        await self.ui.ShowQueue(ctx)
 
     @commands.command(name='remove', aliases=['queuedel'])
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
+            await self.ui.RemoveSucceed(ctx, idx)
             self._playlist.pop(ctx.guild.id, idx)
-            # await self.ui.RemoveSucceed(ctx, snapshot, idx)
         except (IndexError, TypeError):
             await self.ui.RemoveFailed(ctx)
     
@@ -327,15 +325,16 @@ class MusicBot(Player, commands.Cog):
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
         try:
             self._playlist.swap(ctx.guild.id, idx1, idx2)
-            await self.ui.Embed_SwapSucceed(ctx, self._playlist[ctx.guild.id], idx1, idx2)
-        except (IndexError, TypeError):
+            await self.ui.Embed_SwapSucceed(ctx, idx1, idx2)
+        except (IndexError, TypeError) as e:
+            print(e)
             await self.ui.SwapFailed(ctx)
 
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         try:
             self._playlist.move_to(ctx.guild.id, origin, new)
-            await self.ui.MoveToSucceed(ctx, self._playlist, origin, new)
+            await self.ui.MoveToSucceed(ctx, origin, new)
         except (IndexError, TypeError):
             await self.ui.MoveToFailed(ctx)
 
@@ -346,17 +345,16 @@ class MusicBot(Player, commands.Cog):
         async with ctx.typing():
             # Show searching UI (if user provide exact url, then it
             # won't send the UI)
-            # await self.ui.StartSearch(ctx, url, self.playlist)
+            await self.ui.StartSearch(ctx, url)
             # Call search function
             try: 
                 self._search(ctx.guild, url, requester=ctx.message.author)
             except Exception as e:
                 # If search failed, sent to handler
-                # await self._SearchFailedHandler(ctx, e, url)
+                await self.ui.SearchFailed(ctx, url, e)
                 return
             # If queue has more than 1 songs, then show the UI
-            # await self.ui.Embed_AddedToQueue(ctx, self.playlist)
-            # Experiment features (show total length in queuelist)
+            await self.ui.Embed_AddedToQueue(ctx)
     
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, *url):
@@ -374,7 +372,7 @@ class MusicBot(Player, commands.Cog):
 
         # Get bot user value
         bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
-        if self.ui.is_auto_stage_available and \
+        if self.ui.auto_stage_available(ctx.guild.id) and \
                 isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
                 bot_itself.voice.suppress:
             try: 
@@ -386,7 +384,7 @@ class MusicBot(Player, commands.Cog):
 
     async def _mainloop(self, guild: disnake.Guild):
         while len(self._playlist[guild.id].order):
-            await self[guild.id].text_channel.send('now playing')
+            await self.ui.PlayingMsg(self[guild.id].text_channel)
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
@@ -395,6 +393,7 @@ class MusicBot(Player, commands.Cog):
                     await asyncio.sleep(1.0)
             finally:
                 self._playlist.rule(guild.id)
+        await self.ui.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')
     async def end_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):

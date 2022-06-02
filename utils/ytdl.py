@@ -47,16 +47,10 @@ class YTDL:
             song_info_dict['watch_url'] = info.watch_url
             song_info_dict['thumbnail_url'] = info.thumbnail_url
             song_info_dict['length'] = info.length
-            # if info.length != 0:
-            #     infohd = info.streams.get_highest_resolution()
-            #     song_info_dict['url'] = infohd.url
-            #     song_info_dict['stream'] = False
-            # else:
-            #     if searchflag == True:
-            #         url = info.watch_url
-            #     streaminfo = ytdl.extract_info(url, download=False)
-            #     song_info_dict['url'] = streaminfo['url']
-            #     song_info_dict['stream'] = True
+            if info.length != 0:
+                song_info_dict['stream'] = False
+            else:
+                song_info_dict['stream'] = True
         except pytube.exceptions.VideoPrivate or pytube.exceptions.MembersOnly as e:
             raise e
         except:
@@ -74,11 +68,10 @@ class YTDL:
                 song_info_dict['watch_url'] = info["webpage_url"]
                 song_info_dict['thumbnail_url'] = info['thumbnail']
                 song_info_dict['length'] = info['duration']
-                # song_info_dict['url'] = info['url']
-                # if info['duration'] != 0:
-                #     song_info_dict['stream'] = False
-                # else:
-                #     song_info_dict['stream'] = True
+                if info['duration'] != 0:
+                    song_info_dict['stream'] = False
+                else:
+                    song_info_dict['stream'] = True
             except Exception as e: 
                 raise e
         return song_info_dict
