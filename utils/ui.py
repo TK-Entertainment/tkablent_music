@@ -16,7 +16,7 @@ playinfo: Coroutine[Any, Any, disnake.Message] = None
 cdt = datetime.datetime.now().date()
 year = cdt.strftime("%Y")
 
-def _sec_to_hms(self, seconds, format) -> str:
+def _sec_to_hms(seconds, format) -> str:
     sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//60//60%24); day = int(seconds//86400)
     if format == "symbol":
         if day != 0:
@@ -299,52 +299,62 @@ class UI:
     ########
     # Info #
     ########
-    def _SongInfo(self, color: str=None, playlist: Playlist=None, index: int=0, mute: bool=False):
-        if color == "green": # Green means adding to queue
-            colorcode = disnake.Colour.from_rgb(97, 219, 83)
-        elif color == "yellow": # Yellow means skipping song
-            colorcode = disnake.Colour.from_rgb(229, 199, 13)
-        elif color == "red": # Red means deleted
-            colorcode = disnake.Colour.from_rgb(255, 0, 0)
+    def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0):
+        playlist = self.musicbot._playlist[guild_id]
+        song = playlist[index]
+        if color_code == "green": # Green means adding to queue
+            color = disnake.Colour.from_rgb(97, 219, 83)
+        elif color_code == "yellow": # Yellow means skipping song
+            color = disnake.Colour.from_rgb(229, 199, 13)
+        elif color_code == "red": # Red means deleted
+            color = disnake.Colour.from_rgb(255, 0, 0)
         else: 
-            colorcode = disnake.Colour.from_rgb(255, 255, 255)
+            color = disnake.Colour.from_rgb(255, 255, 255)
         # Generate Loop Icon
-        if color != "red":
+        if color_code != "red" and playlist.loop_state != LoopState.NOTHING:
             loopstate: LoopState = playlist.loop_state
-            loopicon = ''; looptimes = ''
+            loopicon = ''
+            looptimes = ''
             if loopstate == LoopState.SINGLE:
                 loopicon = ' | 🔂'
                 if loopstate != LoopState.SINGLEINF:
                     looptimes = f' 🕗 {playlist.times} 次'
-            elif loopstate == LoopState.PLAYLIST: loopicon = ' | 🔁'
+            elif loopstate == LoopState.PLAYLIST:
+                loopicon = ' | 🔁'
         else:
-            loopstate = None; loopicon = ''; looptimes = ''
+            loopstate = None
+            loopicon = ''
+            looptimes = ''
         # Generate Embed Body
-        embed = disnake.Embed(title=playlist[index].title, url=playlist[index].watch_url, colour=colorcode)
-        embed.add_field(name="作者", value=f'[{playlist[index].author}]({playlist[index].channel_url})', inline=True)
-        embed.set_author(name=f"這首歌由 {playlist[index].requester.name}#{playlist[index].requester.tag} 點歌", icon_url=playlist[index].requester.display_avatar)
-        if playlist[index].is_stream: 
+        embed = disnake.Embed(title=song.info['title'], url=song.info['watch_url'], colour=color)
+        embed.add_field(name="作者", value=f"[{song.info['author']}]({song.info['channel_url']})", inline=True)
+        embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.tag} 點歌", icon_url=song.requester.display_avatar)
+        if song.is_stream: 
             embed._author['name'] += " | 🔴 直播"
-            if color == None: embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
+            if color_code == None: 
+               embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
-            embed.add_field(name="歌曲時長", value=_sec_to_hms(self, playlist[index].length, "zh"), inline=True)
-        if mute: embed._author['name'] += " | 🔇 靜音"
-        if loopstate != LoopState.NOTHING: embed._author['name'] += f"{loopicon}{looptimes}"
+            embed.add_field(name="歌曲時長", value=_sec_to_hms(song.info['length'], "zh"), inline=True)
+        if self.musicbot._volume_levels.get(guild_id) == 0: 
+            embed._author['name'] += " | 🔇 靜音"
+        if loopstate != LoopState.NOTHING: 
+            embed._author['name'] += f"{loopicon}{looptimes}"
         if len(playlist) > 1:
             queuelist: str = ""
-            queuelist += f"1." + playlist[1].title + "\n"
-            if len(playlist) > 2: queuelist += f"...還有 {len(playlist)-2} 首歌"
+            queuelist += f"1." + playlist[1].info['title'] + "\n"
+            if len(playlist) > 2: 
+                queuelist += f"...還有 {len(playlist)-2} 首歌"
             embed.add_field(name=f"待播清單 | {len(playlist)-1} 首歌待播中", value=queuelist, inline=False)
-        embed.set_thumbnail(url=playlist[index].thumbnail_url)
+        embed.set_thumbnail(url=song.info['thumbnail_url'])
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
     async def _UpdateSongInfo(self, playlist: Playlist, ismute: bool):
-        mes = f'''
+        message = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
         if not self.is_auto_stage_available:
-            mes += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        await playinfo.edit(content=mes, embed=self._SongInfo(playlist=playlist, mute=ismute))
+            message += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
+        await playinfo.edit(content=message, embed=self._SongInfo(playlist=playlist, mute=ismute))
     ########
     # Play #
     ########
@@ -375,7 +385,7 @@ class UI:
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
         if not self.is_auto_stage_available:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        playinfo = await ctx.send(msg, embed=self._SongInfo(color=color, playlist=player.playlist, mute=player.ismute))
+        playinfo = await ctx.send(msg, embed=self._SongInfo(color_code=color, playlist=player.playlist, mute=player.ismute))
         try: 
             await self._UpdateStageTopic(player)
         except: 
@@ -634,8 +644,8 @@ class UI:
             **:white_check_mark: | 成功加入隊列**
                 以下歌曲已加入隊列中，為第 **{len(playlist)-1}** 首歌
             '''
-            if not issearch: await ctx.send(mes, embed=self._SongInfo(color="green", playlist=playlist, index=index))
-            else: await searchmes.edit(content=mes, embed=self._SongInfo(color="green", playlist=playlist, index=index))
+            if not issearch: await ctx.send(mes, embed=self._SongInfo(color_code="green", playlist=playlist, index=index))
+            else: await searchmes.edit(content=mes, embed=self._SongInfo(color_code="green", playlist=playlist, index=index))
         else: 
             if issearch: await searchmes.delete()
     # Queue Embed Generator
