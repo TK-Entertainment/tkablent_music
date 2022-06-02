@@ -277,7 +277,7 @@ class MusicBot(Player, commands.Cog):
         if not isinstance(percent, float) and percent is not None:
             await self.ui.VolumeAdjustFailed(ctx)
             return
-        if percent == 0 or self._volume_levels.get(ctx.guild.id) == 0:
+        if percent == 0 or self[ctx.guild.id]._volume_level == 0:
             await self.ui.MuteorUnMute(ctx, percent, self)
         else:
             await self.ui.VolumeAdjust(ctx, percent, self)
@@ -286,7 +286,7 @@ class MusicBot(Player, commands.Cog):
 
     @commands.command(name="mute", aliases=['quiet', 'shutup'])
     async def mute(self, ctx: commands.Context):
-        if self._volume_levels.get(ctx.guild.id) == 0: 
+        if self[ctx.guild.id]._volume_level == 0: 
             await self.volume(ctx, 100.0)
         else: 
             await self.volume(ctx, 0.0)
