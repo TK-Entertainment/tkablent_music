@@ -63,12 +63,15 @@ class Player(commands.Cog):
     async def _search(self, guild: disnake.Guild, url, requester: disnake.Member):
         await self._playlist.add_songs(guild.id, url, requester)
         if self._playlist.is_playlist(url):
-            coro = self._playlist.process_playlist(guild.id, url, requester)
-            id = self._playlist.get_playlist_id(url)
-            task = self.bot.loop.create_task(coro)
-                
-            self._playlist[guild.id]._playlisttask[id] = task
-            task.add_done_callback(lambda task , guild_id=guild.id, playlist_id=id: self._end_playlist_process(guild_id, playlist_id))
+            self._start_playlist_process(guild, url, requester)
+
+    def _start_playlist_process(self, guild: disnake.Guild, url, requester: disnake.Member):
+        coro = self._playlist.process_playlist(guild.id, url, requester)
+        id = self._playlist.get_playlist_id(url)
+        task = self.bot.loop.create_task(coro)
+            
+        self._playlist[guild.id]._playlisttask[id] = task
+        task.add_done_callback(lambda task , guild_id=guild.id, playlist_id=id: self._end_playlist_process(guild_id, playlist_id))
 
     def _end_playlist_process(self, guild_id, id):
         if self._playlist[guild_id]._playlisttask.get(id) is None:
