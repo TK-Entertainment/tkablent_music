@@ -804,19 +804,23 @@ class UI:
             def last_page_button(self) -> disnake.ui.Button:
                 return self.children[3]
 
-            def update_button(self):
+            @property
+            def total_pages(self) -> int:
                 total_pages = (len(playlist.order)-1) // 3
                 if (len(playlist.order)-1) % 3 != 0:
                     total_pages += 1
                     if self.playlist_processing:
                         total_pages -= 1
+                return total_pages
+
+            def update_button(self):
                 if self.page == 0:
                     self.left_button.disabled = self.first_page_button.disabled = True
                     self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.gray
                 else:
                     self.left_button.disabled = self.first_page_button.disabled = False
                     self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.blurple
-                if self.page == total_pages:
+                if self.page == self.total_pages:
                     self.right_button.disabled = self.last_page_button.disabled = True
                     self.right_button.style = self.last_page_button.style = disnake.ButtonStyle.gray
                 else:
@@ -833,6 +837,8 @@ class UI:
             @disnake.ui.button(label='⬅️', style=disnake.ButtonStyle.gray, disabled=True)
             async def prevpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
                 self.page -= 1
+                if self.page < 0:
+                    self.page = 0
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
@@ -840,18 +846,15 @@ class UI:
             @disnake.ui.button(label='➡️', style=disnake.ButtonStyle.blurple)
             async def nextpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):            
                 self.page += 1
+                if self.page > self.total_pages:
+                    self.page = self.total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @disnake.ui.button(label='⏩', style=disnake.ButtonStyle.blurple)
             async def lastpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):            
-                total_pages = (len(playlist.order)-1) // 3
-                if (len(playlist.order)-1) % 3 != 0:
-                    total_pages += 1
-                    if self.playlist_processing:
-                        total_pages -= 1
-                self.page = total_pages
+                self.page = self.total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
