@@ -178,6 +178,9 @@ class MusicBot(Player, commands.Cog):
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
 
+    def in_playlist_process(self, ctx: commands.Context):
+        return len(self._playlist[ctx.guild.id]._playlisttask) > 0
+
     @commands.Cog.listener('on_ready')
     async def resolve_ui(self):      
         from .ui import UI
@@ -332,6 +335,9 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='remove', aliases=['queuedel'])
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
+            if self.in_playlist_process(ctx):
+                await self.ui.PlaylistProcessing(ctx)
+                return
             await self.ui.RemoveSucceed(ctx, idx)
             self._playlist.pop(ctx.guild.id, idx)
         except (IndexError, TypeError):
@@ -340,6 +346,9 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='swap')
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
         try:
+            if self.in_playlist_process(ctx):
+                await self.ui.PlaylistProcessing(ctx)
+                return
             self._playlist.swap(ctx.guild.id, idx1, idx2)
             await self.ui.Embed_SwapSucceed(ctx, idx1, idx2)
         except (IndexError, TypeError) as e:
@@ -349,6 +358,9 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         try:
+            if self.in_playlist_process(ctx):
+                await self.ui.PlaylistProcessing(ctx)
+                return
             self._playlist.move_to(ctx.guild.id, origin, new)
             await self.ui.MoveToSucceed(ctx, origin, new)
         except (IndexError, TypeError):
@@ -400,14 +412,19 @@ class MusicBot(Player, commands.Cog):
 
     async def _mainloop(self, guild: disnake.Guild):
         while len(self._playlist[guild.id].order):
-            await self.ui.PlayingMsg(self[guild.id].text_channel)
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
                 song.set_ffmpeg_options(0)
-                voice_client.play(disnake.FFmpegPCMAudio(song.url, **song.ffmpeg_options))
+
+                try:
+                    voice_client.play(disnake.FFmpegPCMAudio(song.url, **song.ffmpeg_options))
+                    await self.ui.PlayingMsg(self[guild.id].text_channel)
+                except Exception as e:
+                    await self.ui.PlayingError(self[guild.id].text_channel, e)
+
                 while voice_client.is_playing() or voice_client.is_paused():
-                    await asyncio.sleep(1.0)
+                    await asyncio.sleep(0.1)
             finally:
                 self._playlist.rule(guild.id)
         await self.ui.DonePlaying(self[guild.id].text_channel)

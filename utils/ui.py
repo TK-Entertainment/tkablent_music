@@ -65,6 +65,15 @@ class UI:
 
     def auto_stage_available(self, guild_id: int):
         return self[guild_id].auto_stage_available
+
+    async def PlaylistProcessing(self, ctx):
+        await ctx.send(f'''
+            **:hourglass: | 正在處理播放清單**
+            目前正在處理一個或多個播放清單，待播清單管理功能暫時不可用
+            請等待處理完畢後即可正常使用
+            *{self.bot.command_prefix}queue 可查詢目前處理狀態*
+        ''')
+
     ########
     # Help #
     ########
@@ -301,9 +310,12 @@ class UI:
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
                 or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
             reason = ['VIDPRIVATE', '私人影片']
-        elif isinstance(exception, PytubeExceptions.MembersOnly):
-            await self.ui.SearchFailed(ctx, url, 'MembersOnly')
-            reason = ['FORMEMBERS', '會員限定影片']
+        elif isinstance(exception, PytubeExceptions.MembersOnly) \
+            or (isinstance(exception, YTDLPExceptions.DownloadError) and "members-only" in exception.msg):
+            reason = ['PLAY_FORMEMBERS', '會員限定影片']
+        elif isinstance(exception, PytubeExceptions.LiveStreamError) \
+            or (isinstance(exception, YTDLPExceptions.DownloadError) and "This live event will begin in" in exception.msg):
+            reason = ['PLAY_NOTSTARTED', '尚未開始的直播']
         else:
             reason = ['UNAVAILIBLE', '無法存取的影片']
         await ctx.send(f'''
@@ -433,6 +445,32 @@ class UI:
         except: 
             pass
     
+    async def PlayingError(self, channel: disnake.TextChannel, exception):
+        if isinstance(exception, PytubeExceptions.VideoPrivate) \
+                or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
+            reason = ['PLAY_VIDPRIVATE', '私人影片']
+        elif isinstance(exception, PytubeExceptions.MembersOnly) \
+            or (isinstance(exception, YTDLPExceptions.DownloadError) and "members-only" in exception.msg):
+            reason = ['PLAY_FORMEMBERS', '會員限定影片']
+        elif isinstance(exception, PytubeExceptions.LiveStreamError) \
+            or (isinstance(exception, YTDLPExceptions.DownloadError) and "This live event will begin in" in exception.msg):
+            reason = ['PLAY_NOTSTARTED', '尚未開始的直播']
+        else:
+            reason = ['PLAY_UNAVAILIBLE', '無法存取的影片']
+
+
+        msg = f'''
+            **:warning: | 警告 | {reason[0]}**
+            您所指定的播放清單中之歌曲或單一歌曲(如下面所示)
+            為 **{reason[1]}**，機器人無法存取
+            將直接跳過此曲目
+            --------
+            *此錯誤不會影響到播放，僅為提醒訊息*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+            '''
+
+        self[channel.guild.id].playinfo = await channel.send(msg, embed=self._SongInfo(guild_id=channel.guild.id, color_code='red'))
+
     async def DonePlaying(self, channel: disnake.TextChannel) -> None:
         await channel.send(f'''
             **:clock4: | 播放完畢，等待播放動作**
@@ -743,7 +781,8 @@ class UI:
 
             QueueEmbed = self._QueueEmbed
             embed_opt = self.__embed_opt__
-            
+            playlist_processing = self.PlaylistProcessing
+
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
                 self.last: disnake.ui.Button = self.children[0]
@@ -769,6 +808,8 @@ class UI:
                 total_pages = (len(playlist.order)-1) // 3
                 if (len(playlist.order)-1) % 3 != 0:
                     total_pages += 1
+                    if self.playlist_processing:
+                        total_pages -= 1
                 if self.page == 0:
                     self.left_button.disabled = self.first_page_button.disabled = True
                     self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.gray
@@ -808,6 +849,8 @@ class UI:
                 total_pages = (len(playlist.order)-1) // 3
                 if (len(playlist.order)-1) % 3 != 0:
                     total_pages += 1
+                    if self.playlist_processing:
+                        total_pages -= 1
                 self.page = total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)

@@ -35,7 +35,7 @@ class Song:
         # self.add_info(url, requester)
 
     @property
-    def url(self):
+    def url(self) -> Union[str, Exception]:
         return ytdl.get_url(self.info['watch_url'])
 
     # @property

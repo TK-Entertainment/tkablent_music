@@ -25,10 +25,16 @@ class YTDL:
     def get_url(self, url) -> str:
         try:
             return pytube.YouTube(url).streams.get_highest_resolution().url
-        except pytube.exceptions.VideoPrivate or pytube.exceptions.MembersOnly as e:
+        except pytube.exceptions.VideoPrivate \
+                or pytube.exceptions.MembersOnly \
+                or pytube.exceptions.LiveStreamError \
+                or pytube.exceptions.VideoUnavailable as e:
             raise e
         except:
-            return ytdl.extract_info(url, download=False)['url']
+            try:
+                return ytdl.extract_info(url, download=False)['url']
+            except Exception as e:
+                raise e
 
     def get_playlist(self, url) -> pytube.Playlist:
         urls = pytube.Playlist(url).video_urls
