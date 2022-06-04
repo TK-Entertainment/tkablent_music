@@ -53,7 +53,7 @@ class Song:
         }
     
     def seek(self, stamp: float):
-        if self.is_stream:
+        if self.info['stream']:
             raise SeekError
         self.set_ffmpeg_options(stamp)
 
@@ -70,6 +70,7 @@ class PlaylistBase:
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
         self.text_channel: disnake.TextChannel = None # where to show information to user
+        self._playlisttask: dict[str, asyncio.Task] = {}
 
     def __getitem__(self, idx):
         if len(self.order) == 0:
@@ -78,6 +79,9 @@ class PlaylistBase:
 
     def clear(self):
         self.order.clear()
+        for key in self._playlisttask: 
+            self._playlisttask[key].cancel()
+        self._playlisttask.clear()
         self.loop_state = LoopState.NOTHING
         self.times = 0
 
@@ -133,13 +137,25 @@ class Playlist:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = PlaylistBase()
         return self._guilds_info[guild_id]
-    
-    def add_songs(self, guild_id, url, requester):
-        # if not self._database.check_session(guild_id):
-        #     self._database.create_session(guild_id)
+
+    def is_playlist(self, url):
+        return ytdl.is_playlist(url)
+
+    async def process_playlist(self, guild_id, url, requester):
+        for url in ytdl.get_playlist(url):
+            song = Song(url, requester)
+            self[guild_id].order.append(song)
+            await asyncio.sleep(0.1)
+        return
+
+    def get_playlist_id(self, url):
+        return ytdl.get_playlist_id(url)
+
+    async def add_songs(self, guild_id, url, requester):
         # info = ytdl.get_info(url)
+        if self.is_playlist(url):
+            url = ytdl.get_first_video(url)
         song = Song(url, requester)
-        # self._database.add_music_info(guild_id, info)
         self[guild_id].order.append(song)
         # self.requester = requester
         # self.set_ffmpeg_options(0)

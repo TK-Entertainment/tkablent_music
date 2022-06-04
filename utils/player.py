@@ -60,8 +60,21 @@ class Player(commands.Cog):
             self._stop(guild)
             await voice_client.disconnect()
             
-    def _search(self, guild: disnake.Guild, url, requester: disnake.Member):
-        self._playlist.add_songs(guild.id, url, requester)
+    async def _search(self, guild: disnake.Guild, url, requester: disnake.Member):
+        await self._playlist.add_songs(guild.id, url, requester)
+        if self._playlist.is_playlist(url):
+            coro = self._playlist.process_playlist(guild.id, url, requester)
+            id = self._playlist.get_playlist_id(url)
+            task = self.bot.loop.create_task(coro)
+                
+            self._playlist[guild.id]._playlisttask[id] = task
+            task.add_done_callback(lambda task , guild_id=guild.id, playlist_id=id: self._end_playlist_process(guild_id, playlist_id))
+
+    def _end_playlist_process(self, guild_id, id):
+        if self._playlist[guild_id]._playlisttask.get(id) is None:
+            return
+        self._playlist[guild_id]._playlisttask[id].cancel()
+        self._playlist[guild_id]._playlisttask.pop(id)
 
     def _pause(self, guild: disnake.Guild):
         voice_client: VoiceClient = guild.voice_client
@@ -348,13 +361,13 @@ class MusicBot(Player, commands.Cog):
             await self.ui.StartSearch(ctx, url)
             # Call search function
             try: 
-                self._search(ctx.guild, url, requester=ctx.message.author)
+                await self._search(ctx.guild, url, requester=ctx.message.author)
             except Exception as e:
                 # If search failed, sent to handler
                 await self.ui.SearchFailed(ctx, url, e)
                 return
             # If queue has more than 1 songs, then show the UI
-            await self.ui.Embed_AddedToQueue(ctx)
+            await self.ui.Embed_AddedToQueue(ctx, url)
     
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, *url):
@@ -388,7 +401,8 @@ class MusicBot(Player, commands.Cog):
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
-                voice_client.play(disnake.FFmpegPCMAudio(song.url))
+                song.set_ffmpeg_options(0)
+                voice_client.play(disnake.FFmpegPCMAudio(song.url, **song.ffmpeg_options))
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(1.0)
             finally:

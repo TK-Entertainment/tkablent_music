@@ -366,11 +366,21 @@ class UI:
         
         if len(playlist.order) > 1 and color_code != 'red':
             queuelist: str = ""
-            queuelist += f"1." + playlist[1].info['title'] + "\n"
-            if len(playlist.order) > 2: 
-                queuelist += f"...還有 {len(playlist.order)-2} 首歌"
-        
-            embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
+            if len(playlist._playlisttask) == 0:
+                queuelist += f"1." + playlist[1].info['title'] + "\n"
+                if len(playlist.order) > 2: 
+                    queuelist += f"...還有 {len(playlist.order)-2} 首歌"
+
+            else:
+                queuelist += f'''
+                待播清單暫時不可用，請使用 {self.bot.command_prefix}queue
+                以得知目前進度
+                '''
+
+            embed.add_field(name="{}"
+            .format(
+                "⌛ | 正在處理播放清單" if len(playlist._playlisttask) > 0 else f"待播清單 | {len(playlist.order)-1} 首歌待播中"
+            ), value=queuelist, inline=False)
         embed.set_thumbnail(url=song.info['thumbnail_url'])
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
@@ -407,9 +417,14 @@ class UI:
                 playlist.loop_state = LoopState.NOTHING
                 playlist.times = 0
         else:
+            if playlist.loop_state == LoopState.SINGLE \
+                    or playlist.loop_state == LoopState.SINGLEINF:
+                return
+
             msg = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
+            
         if not self[channel.guild.id].auto_stage_available:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         self[channel.guild.id].playinfo = await channel.send(msg, embed=self._SongInfo(guild_id=channel.guild.id))
@@ -645,27 +660,6 @@ class UI:
     # Loop #
     ########
     async def LoopSucceed(self, ctx: commands.Context) -> None:
-        playlist = self.musicbot._playlist[ctx.guild.id]
-        if playlist.loop_state == LoopState.SINGLEINF:
-            await ctx.send(f'''
-            **:repeat_one: | 單曲重複播放**
-            已啟動單曲重複播放
-            ''')
-        elif playlist.loop_state == LoopState.SINGLE:
-            await ctx.send(f'''
-            **:repeat_one: | 單曲重複播放**
-            已啟動單曲重播，將重複播放 {playlist.times} 次後關閉單曲重播
-            ''')
-        elif playlist.loop_state == LoopState.PLAYLIST:
-            await ctx.send(f'''
-            **:repeat: | 全佇列重複播放**
-            已啟動全佇列重複播放
-            ''')
-        else:
-            await ctx.send(f'''
-            **:arrow_forward: | 關閉重複播放**
-            已關閉重複播放功能
-            ''')
         await self._UpdateSongInfo(ctx.guild.id)
     
     async def SingleLoopFailed(self, ctx: commands.Context) -> None:
@@ -682,28 +676,44 @@ class UI:
     # Queue #
     #########
     # Add to queue
-    async def Embed_AddedToQueue(self, ctx: commands.Context) -> None:
+    async def Embed_AddedToQueue(self, ctx: commands.Context, url: str) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
-        if len(playlist.order) > 1:
+        if len(playlist.order) > 1 or ('youtube.com/playlist?list=' in url):
             index = len(playlist.order) - 1
-            mes = f'''
+
+            msg = '''
             **:white_check_mark: | 成功加入隊列**
-                以下歌曲已加入隊列中，為第 **{len(playlist.order)-1}** 首歌
-            '''
+                以下{}已加入隊列中，{}
+            '''.format(
+                "播放清單" if ('youtube.com/playlist?list=' in url) else "歌曲",
+                "以下為本清單第一首歌\n                *系統已開始處理播放清單\n                將暫時無法提供待播清單*" if ('youtube.com/playlist?list=' in url) else f"為第 **{len(playlist.order)-1}** 首歌"
+            )
+
             if not self[ctx.guild.id].search: 
-                await ctx.send(mes, embed=self._SongInfo(color_code="green", index=index, guild_id=ctx.guild.id))
+                await ctx.send(msg, embed=self._SongInfo(color_code="green", index=index, guild_id=ctx.guild.id))
             else: 
-                await self[ctx.guild.id].searchmsg.edit(content=mes, embed=self._SongInfo(color_code="green", index=index))
+                await self[ctx.guild.id].searchmsg.edit(content=msg, embed=self._SongInfo(color_code="green", index=index))
         else: 
             if self[ctx.guild.id].search: 
                 await self[ctx.guild.id].searchmsg.delete()
     
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> disnake.Embed:
-        embed = disnake.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表，共 {len(playlist.order)-1} 首", colour=0xF2F3EE)
+        embed = disnake.Embed(title=":information_source: | 候播清單", description="以下清單為歌曲候播列表{}"
+        .format(
+            "" if len(playlist._playlisttask) > 0 
+            else f"\n共 {len(playlist.order)-1} 首"
+        ), colour=0xF2F3EE)
         
+        if len(playlist._playlisttask) > 0:
+            embed.add_field(
+                name="⌛ | 目前有一個或多個播放清單正在處理",
+                value="無法提供總歌曲數目及確切頁數",
+                inline=False,
+            )
+
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist.order)): break
@@ -717,7 +727,9 @@ class UI:
         embed_opt = copy.deepcopy(self.__embed_opt__)
 
         if len(playlist.order) > 4:
-            total_pages = ((len(playlist.order) - 1) // 3) + 1
+            total_pages = (len(playlist.order)-1) // 3
+            if (len(playlist.order)-1) % 3 != 0:
+                total_pages += 1
             embed_opt['footer']['text'] = f'第 {page+1} 頁 / 共 {total_pages} 頁\n' + self.__embed_opt__['footer']['text']
         
         embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
@@ -738,29 +750,47 @@ class UI:
                 self.page = 0
 
             @property
-            def left_button(self) -> disnake.ui.Button:
+            def first_page_button(self) -> disnake.ui.Button:
                 return self.children[0]
 
             @property
-            def right_button(self) -> disnake.ui.Button:
+            def left_button(self) -> disnake.ui.Button:
                 return self.children[1]
 
+            @property
+            def right_button(self) -> disnake.ui.Button:
+                return self.children[2]
+
+            @property
+            def last_page_button(self) -> disnake.ui.Button:
+                return self.children[3]
+
             def update_button(self):
+                total_pages = (len(playlist.order)-1) // 3
+                if (len(playlist.order)-1) % 3 != 0:
+                    total_pages += 1
                 if self.page == 0:
-                    self.left_button.disabled = True
-                    self.left_button.style = disnake.ButtonStyle.gray
+                    self.left_button.disabled = self.first_page_button.disabled = True
+                    self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.gray
                 else:
-                    self.left_button.disabled = False
-                    self.left_button.style = disnake.ButtonStyle.blurple
-                if self.page == (len(playlist.order) - 2) // 3:
-                    self.right_button.disabled = True
-                    self.right_button.style = disnake.ButtonStyle.gray
+                    self.left_button.disabled = self.first_page_button.disabled = False
+                    self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.blurple
+                if self.page == total_pages:
+                    self.right_button.disabled = self.last_page_button.disabled = True
+                    self.right_button.style = self.last_page_button.style = disnake.ButtonStyle.gray
                 else:
-                    self.right_button.disabled = False
-                    self.right_button.style = disnake.ButtonStyle.blurple
+                    self.right_button.disabled = self.last_page_button.disabled = False
+                    self.right_button.style = self.last_page_button.style = disnake.ButtonStyle.blurple
+
+            @disnake.ui.button(label='⏪', style=disnake.ButtonStyle.gray, disabled=True)
+            async def firstpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+                self.page = 0
+                self.update_button()
+                embed = self.QueueEmbed(playlist, self.page)
+                await interaction.response.edit_message(embed=embed, view=view)
 
             @disnake.ui.button(label='⬅️', style=disnake.ButtonStyle.gray, disabled=True)
-            async def lastpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            async def prevpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
                 self.page -= 1
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
@@ -773,14 +803,25 @@ class UI:
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
+            @disnake.ui.button(label='⏩', style=disnake.ButtonStyle.blurple)
+            async def lastpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):            
+                total_pages = (len(playlist.order)-1) // 3
+                if (len(playlist.order)-1) % 3 != 0:
+                    total_pages += 1
+                self.page = total_pages
+                self.update_button()
+                embed = self.QueueEmbed(playlist, self.page)
+                await interaction.response.edit_message(embed=embed, view=view)
+
             @disnake.ui.button(label='❎', style=disnake.ButtonStyle.danger)
             async def done(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+                embed = self.QueueEmbed(playlist, self.page)
                 self.clear_items()
                 await interaction.response.edit_message(embed=embed, view=view)
                 original_message = await interaction.original_message()
                 await original_message.add_reaction('✅')
                 self.stop()
-        
+
             async def on_timeout(self):
                 self.clear_items()
                 await msg.edit(view=view)

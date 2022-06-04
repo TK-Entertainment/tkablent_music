@@ -30,15 +30,29 @@ class YTDL:
         except:
             return ytdl.extract_info(url, download=False)['url']
 
+    def get_playlist(self, url) -> pytube.Playlist:
+        urls = pytube.Playlist(url).video_urls
+        for i in range(len(urls)-1):
+            url = urls[i+1]
+            print(url)
+            yield url
+
+    def get_playlist_id(self, url):
+        return pytube.Playlist(url).playlist_id
+
+    def get_first_video(self, url) -> str:
+        playlist = pytube.Playlist(url)
+        print(playlist.video_urls[0])
+        return playlist.video_urls[0]
+
     def get_info(self, url) -> dict:
         try:
             song_info_dict = {}
             if ("http" not in url) and ("www" not in url):
-                searchflag = True
                 info = pytube.Search(url).results[0]
             else:
-                searchflag = False
                 info = pytube.YouTube(url)
+                
                     # the value below is for high audio quality
             song_info_dict['video_id'] = info.video_id
             song_info_dict['title'] = info.title
