@@ -38,8 +38,8 @@ class YTDL:
 
     def get_playlist(self, url) -> pytube.Playlist:
         urls = pytube.Playlist(url).video_urls
-        for i in range(len(urls)-1):
-            url = urls[i+1]
+        for i in range(1, len(urls)):
+            url = urls[i]
             print(url)
             yield url
 
