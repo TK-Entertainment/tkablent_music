@@ -177,33 +177,33 @@ class UI:
 
             def __init__(self):
                 cdt = datetime.datetime.now()
-                self.modaltime = cdt.strftime("%Y/%m/%d %H:%M:%S")
+                modaltime = cdt.strftime("%Y/%m/%d %H:%M:%S")
 
-                self.bot_name = disnake.ui.TextInput(
+                bot_name = disnake.ui.TextInput(
                     custom_id="bot_name",
                     label="機器人名稱 (已自動填入，不需更改)",
                     value=f"{self.bot.user.name}#{self.bot.user.discriminator}"
                 )
 
-                self.guild = disnake.ui.TextInput(
+                guild = disnake.ui.TextInput(
                     custom_id="guild",
                     label="伺服器名稱 (已自動填入，不需更改)",
                     value=f"{self.guildinfo.name} ({self.guildinfo.id})"
                 )
 
-                self.error_code_text = disnake.ui.TextInput(
+                error_code_text = disnake.ui.TextInput(
                     custom_id="error_code",
                     label="錯誤代碼 (已自動填入，不需更改)",
                     value=self.error_code
                 )
 
-                self.modaltime_text = disnake.ui.TextInput(
+                modaltime_text = disnake.ui.TextInput(
                     custom_id="submit_time",
                     label="錯誤回報時間 (已自動填入，不需更改)",
-                    value=self.modaltime
+                    value=modaltime
                 )
 
-                self.description = disnake.ui.TextInput(
+                description = disnake.ui.TextInput(
                     custom_id="error_description",
                     label="請簡述錯誤是如何產生的",
                     placeholder="簡述如何重新產生該錯誤，或該錯誤是怎麼產生的。\n如果隨意填寫或更改上方資料，將可能遭到忽略",
@@ -212,11 +212,11 @@ class UI:
                 super().__init__(
                     title = "🐛 | 回報蟲蟲",
                     components=[
-                        self.bot_name,
-                        self.guild,
-                        self.error_code_text,
-                        self.modaltime_text,
-                        self.description
+                        bot_name,
+                        guild,
+                        error_code_text,
+                        modaltime_text,
+                        description
                     ],
                     timeout=360
                 )
