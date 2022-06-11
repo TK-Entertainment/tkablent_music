@@ -32,6 +32,7 @@ def _sec_to_hms(seconds, format) -> str:
 
 from .player import MusicBot, Player
 from .playlist import Playlist, LoopState, PlaylistBase
+from .github import GithubIssue
 
 class GuildUIInfo:
     def __init__(self, guild_id):
@@ -49,7 +50,32 @@ class UI:
 
         self.musicbot: MusicBot = musicbot
         self.bot: commands.Bot = musicbot.bot
+        self.github: GithubIssue = GithubIssue()
         self._guild_ui_info = dict()
+
+        self.music_errorcode_to_msg = {
+            "VIDPRIVATE": "私人影片",
+            "FORMEMBERS": "會員限定影片",
+            "NOTSTARTED": "尚未開始的直播",
+            "UNAVAILIBLE": "無法存取的影片",
+            "PLAYER_FAULT": "機器人遇到了一些問題，故無法正常播放\n            將跳過此歌曲"
+        }
+
+        self.errorcode_to_msg = {
+            "JOINFAIL": ["請確認您是否已加入一個語音頻道", "join", "來把我加入頻道"],
+            "LEAVEFAIL": ["請確認您是否已加入一個語音/舞台頻道，或機器人並不在頻道中", "leave", "來讓我離開頻道"],
+            "PAUSEFAIL": ["無法暫停音樂，請確認目前有歌曲正在播放，或是當前歌曲並非處於暫停狀態，亦或是候播清單是否為空", "pause", "來暫停音樂"],
+            "RESUMEFAIL": ["無法續播音樂，請確認目前有處於暫停狀態的歌曲，或是候播清單是否為空", "resume", "來續播音樂"],
+            "SKIPFAIL": ["無法跳過歌曲，請確認目前候播清單是否為空", "skip", "來跳過音樂"],
+            "STOPFAIL": ["無法停止播放歌曲，請確認目前是否有歌曲播放，或候播清單是否為空", "stop", "來停止播放音樂"],
+            "VOLUMEADJUSTFAIL": ["無法調整音量，請確認您輸入的音量百分比是否有效\n            請以百分比格式(ex. 100%)執行指令", "volume", "來調整音量"],
+            "SEEKFAIL": ["無法跳轉歌曲，請確認您輸入的跳轉時間有效\n            或目前是否有歌曲播放，亦或候播清單是否為空\n            請以秒數格式(ex. 70)或時間戳格式(ex. 01:10)執行指令", "seek", "來跳轉音樂"],
+            "REPLAYFAIL": ["無法重播歌曲，請確認目前是否有歌曲播放", "replay", "來重播歌曲"],
+            "LOOPFAIL_SIG": ["無法啟動重複播放功能，請確認您輸入的重複次數有效", f"loop / {self.bot.command_prefix}loop [次數]", "來控制重複播放功能"],
+            "REMOVEFAIL": ["無法刪除指定歌曲，請確認您輸入的順位數有效", "remove [順位數]", "來刪除待播歌曲"],
+            "SWAPFAIL": ["無法交換指定歌曲，請確認您輸入的順位數有效", "swap [順位數1] [順位數2]", "來交換待播歌曲"],
+            "MOVEFAIL": ["無法移動指定歌曲，請確認您輸入的目標順位數有效", "move [原順位數] [目標順位數]", "來移動待播歌曲"],
+        }
 
         self.__embed_opt__: dict = {
             'footer': {
@@ -66,6 +92,10 @@ class UI:
     def auto_stage_available(self, guild_id: int):
         return self[guild_id].auto_stage_available
 
+
+    ############################
+    # General Warning Messages #
+    ############################
     async def PlaylistProcessing(self, ctx):
         await ctx.send(f'''
             **:hourglass: | 正在處理播放清單**
@@ -73,6 +103,168 @@ class UI:
             請等待處理完畢後即可正常使用
             *{self.bot.command_prefix}queue 可查詢目前處理狀態*
         ''')
+
+    async def _MusicExceptionHandler(self, message, errorcode: str, url=None, exception=None):
+        if 'PLAY' not in errorcode:
+            part_content = f'''
+            **:no_entry: | 失敗 | {errorcode}**
+            您所指定的音樂 {url}
+            為 **{self.music_errorcode_to_msg[errorcode]}**，機器人無法存取
+            請更換其他音樂播放
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.bot.command_prefix}play** 來把我加入頻道*'''
+        else:
+            if errorcode == "PLAYER_FAULT":
+                part_content = f'''
+            **:warning: | 警告 | {errorcode}**
+            {self.music_errorcode_to_msg[errorcode]}
+            --------
+            技術資訊:
+            {exception}
+            --------
+            *此錯誤不會影響到播放，僅為提醒訊息*'''
+            else:
+                part_content = f'''
+            **:warning: | 警告 | {errorcode}**
+            您所指定的播放清單中之歌曲或單一歌曲(如下面所示)
+            為 **{self.music_errorcode_to_msg[errorcode[5:]]}**，機器人無法存取
+            將直接跳過此曲目
+            --------
+            *此錯誤不會影響到播放，僅為提醒訊息*'''
+            url = self.musicbot._playlist[message.guild.id].current().info['watch_url']
+
+        timeout_content = f'''
+            {part_content}
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
+        '''
+
+        content = f'''
+            {part_content}
+            *若您覺得有Bug或錯誤，請按下方來回報錯誤*
+            *此回報介面將在 5 分鐘後關閉*
+        '''
+
+        await self._BugReportingMsg(message, content, timeout_content, errorcode, exception, url)
+
+    async def _CommonExceptionHandler(self, message: Union[commands.Context, disnake.TextChannel] , errorcode: str):
+        timeout_content = f'''
+            **:no_entry: | 失敗 | {errorcode}**
+            {self.errorcode_to_msg[errorcode][0]}
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
+            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*'''
+
+        content = f'''
+            **:no_entry: | 失敗 | {errorcode}**
+            {self.errorcode_to_msg[errorcode][0]}
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
+            *若您覺得有Bug或錯誤，請按下方來回報錯誤*
+            *此回報介面將在 5 分鐘後關閉*'''
+
+        await self._BugReportingMsg(message, content, timeout_content, errorcode)
+        
+    async def _BugReportingMsg(self, message, content, timeout_content, errorcode, exception=None, video_url=None):
+        class BugReportingModal(disnake.ui.Modal):
+
+            github = self.github
+            guildinfo: disnake.Guild = message.guild
+            bot = self.bot
+            error_code = errorcode
+
+            def __init__(self):
+                cdt = datetime.datetime.now()
+                self.modaltime = cdt.strftime("%Y/%m/%d %H:%M:%S")
+
+                self.bot_name = disnake.ui.TextInput(
+                    custom_id="bot_name",
+                    label="機器人名稱 (已自動填入，不需更改)",
+                    value=f"{self.bot.user.name}#{self.bot.user.discriminator}"
+                )
+
+                self.guild = disnake.ui.TextInput(
+                    custom_id="guild",
+                    label="伺服器名稱 (已自動填入，不需更改)",
+                    value=f"{self.guildinfo.name} ({self.guildinfo.id})"
+                )
+
+                self.error_code_text = disnake.ui.TextInput(
+                    custom_id="error_code",
+                    label="錯誤代碼 (已自動填入，不需更改)",
+                    value=self.error_code
+                )
+
+                self.modaltime_text = disnake.ui.TextInput(
+                    custom_id="submit_time",
+                    label="錯誤回報時間 (已自動填入，不需更改)",
+                    value=self.modaltime
+                )
+
+                self.description = disnake.ui.TextInput(
+                    custom_id="error_description",
+                    label="請簡述錯誤是如何產生的",
+                    placeholder="簡述如何重新產生該錯誤，或該錯誤是怎麼產生的。\n如果隨意填寫或更改上方資料，將可能遭到忽略",
+                    style=disnake.TextInputStyle.paragraph
+                )
+                super().__init__(
+                    title = "🐛 | 回報蟲蟲",
+                    components=[
+                        self.bot_name,
+                        self.guild,
+                        self.error_code_text,
+                        self.modaltime_text,
+                        self.description
+                    ],
+                    timeout=360
+                )
+
+            async def callback(self, interaction: disnake.ModalInteraction):
+                self.github.submit_bug(
+                    interaction.text_values.get("bot_name"),
+                    interaction.text_values.get("guild"),
+                    interaction.text_values.get("error_code"),
+                    interaction.text_values.get("submit_time"),
+                    interaction.text_values.get("error_description"),
+                    exception,
+                    video_url
+                )
+                view.BugReportingButton.style = disnake.ButtonStyle.gray
+                view.BugReportingButton.label = "👏 感謝你的回報"
+                view.BugReportingButton.disabled = True
+                await interaction.response.edit_message(view=view)
+                view.stop()
+
+            async def on_timeout(self):
+                pass
+
+        class BugReportingView(disnake.ui.View):
+            def __init__(self, *, timeout=300):
+                super().__init__(timeout=timeout)
+
+            @property
+            def BugReportingButton(self) -> disnake.ui.Button:
+                return self.children[0]
+
+            @disnake.ui.button(label='🐛 回報錯誤', style=disnake.ButtonStyle.blurple)
+            async def reportbug(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+                modal = BugReportingModal()
+                await interaction.response.send_modal(modal=modal)
+
+            async def on_timeout(self):
+                self.BugReportingButton.style = disnake.ButtonStyle.gray
+                self.BugReportingButton.label = "🛑 已超時，請自行至 Github 回報"
+                self.BugReportingButton.disabled = True
+                await msg.edit(content=timeout_content, view=self)
+
+        view = BugReportingView()
+        if "PLAY" in errorcode:
+            embed = self._SongInfo(guild_id=message.guild.id, color_code='red')
+            msg = await message.send(content, embed=embed, view=view)
+        else:
+            msg = await message.send(content, view=view)
 
     ########
     # Help #
@@ -220,14 +412,7 @@ class UI:
         return
     
     async def JoinFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | JOINFAIL**
-            請確認您是否已加入一個語音頻道
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}join** 來把我加入頻道*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "JOINFAIL")
         return
     
     #########
@@ -285,14 +470,7 @@ class UI:
             ''')
     
     async def LeaveFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | LEAVEFAIL**
-            請確認您是否已加入一個語音/舞台頻道，或機器人並不在頻道中
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}leave** 來讓我離開頻道*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "LEAVEFAIL")
     
     ##########
     # Search #
@@ -309,25 +487,18 @@ class UI:
     async def SearchFailed(self, ctx: commands.Context, url: str, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
                 or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
-            reason = ['VIDPRIVATE', '私人影片']
+            reason = 'VIDPRIVATE'
         elif isinstance(exception, PytubeExceptions.MembersOnly) \
             or (isinstance(exception, YTDLPExceptions.DownloadError) and "members-only" in exception.msg):
-            reason = ['PLAY_FORMEMBERS', '會員限定影片']
+            reason = 'FORMEMBERS'
         elif isinstance(exception, PytubeExceptions.LiveStreamError) \
             or (isinstance(exception, YTDLPExceptions.DownloadError) and "This live event will begin in" in exception.msg):
-            reason = ['PLAY_NOTSTARTED', '尚未開始的直播']
+            reason = 'NOTSTARTED'
         else:
-            reason = ['UNAVAILIBLE', '無法存取的影片']
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | {reason[0]}**
-            您所指定的音樂 {url}
-            為 **{reason[1]}**，機器人無法存取
-            請更換其他音樂播放
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}play** 來播放音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+            reason = 'UNAVAILIBLE'
+
+        await self._MusicExceptionHandler(ctx, reason, url)
+        
 
     ########
     # Info #
@@ -444,32 +615,23 @@ class UI:
             await self._UpdateStageTopic(channel.guild.id)
         except: 
             pass
-    
+
     async def PlayingError(self, channel: disnake.TextChannel, exception):
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
                 or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
-            reason = ['PLAY_VIDPRIVATE', '私人影片']
+            reason = 'PLAY_VIDPRIVATE'
         elif isinstance(exception, PytubeExceptions.MembersOnly) \
             or (isinstance(exception, YTDLPExceptions.DownloadError) and "members-only" in exception.msg):
-            reason = ['PLAY_FORMEMBERS', '會員限定影片']
+            reason = 'PLAY_FORMEMBERS'
         elif isinstance(exception, PytubeExceptions.LiveStreamError) \
             or (isinstance(exception, YTDLPExceptions.DownloadError) and "This live event will begin in" in exception.msg):
-            reason = ['PLAY_NOTSTARTED', '尚未開始的直播']
+            reason = 'PLAY_NOTSTARTED'
+        elif isinstance(exception, PytubeExceptions or YTDLPExceptions.DownloadError):
+            reason = 'PLAY_UNAVAILIBLE'
         else:
-            reason = ['PLAY_UNAVAILIBLE', '無法存取的影片']
+            reason = "PLAYER_FAULT"
 
-
-        msg = f'''
-            **:warning: | 警告 | {reason[0]}**
-            您所指定的播放清單中之歌曲或單一歌曲(如下面所示)
-            為 **{reason[1]}**，機器人無法存取
-            將直接跳過此曲目
-            --------
-            *此錯誤不會影響到播放，僅為提醒訊息*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            '''
-
-        self[channel.guild.id].playinfo = await channel.send(msg, embed=self._SongInfo(guild_id=channel.guild.id, color_code='red'))
+        await self._MusicExceptionHandler(channel, reason, None, exception)
 
     async def DonePlaying(self, channel: disnake.TextChannel) -> None:
         await channel.send(f'''
@@ -507,14 +669,7 @@ class UI:
             pass
     
     async def PauseFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | PL01**
-            請確認目前有歌曲正在播放，或是當前歌曲並非處於暫停狀態，亦或是候播清單是否為空
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}pause** 來暫停音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "PAUSEFAIL")
     
     ##########
     # Resume #
@@ -531,14 +686,7 @@ class UI:
             pass
     
     async def ResumeFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | PL02**
-            請確認目前有處於暫停狀態的歌曲，或是候播清單是否為空
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}resume** 來續播音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "RESUMEFAIL")
     
     ########
     # Skip #
@@ -547,14 +695,7 @@ class UI:
         self[guild_id].skip = True
 
     async def SkipFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | SK01**
-            無法跳過歌曲，請確認目前候播清單是否為空
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}skip 來跳過音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "SKIPFAIL")
     
     ########
     # Stop #
@@ -567,14 +708,7 @@ class UI:
             ''')
     
     async def StopFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | ST01**
-            無法停止播放歌曲，請確認目前是否有歌曲播放，或候播清單是否為空
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}stop 來停止播放音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "STOPFAIL")
     
     ##########
     # Volume #
@@ -627,15 +761,8 @@ class UI:
         await self._UpdateSongInfo(ctx.guild.id, mute)
 
     async def VolumeAdjustFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | SA01**
-            無法調整音量，請確認您輸入的音量百分比是否有效
-            請以百分比格式(ex. 100%)執行指令
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}volume** 來調整音量*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "VOLUMEADJUSTFAIL")
+        
     ########
     # Seek #
     ########
@@ -663,16 +790,7 @@ class UI:
         ''')
     
     async def SeekFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | SE01**
-            無法跳轉歌曲，請確認您輸入的跳轉時間有效
-            或目前是否有歌曲播放，亦或候播清單是否為空
-            請以秒數格式(ex. 70)或時間戳格式(ex. 01:10)執行指令
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}seek** 來跳轉音樂*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "SEEKFAIL")
     
     ##########
     # Replay #
@@ -685,14 +803,7 @@ class UI:
             ''')
     
     async def ReplayFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | RP01**
-            無法重播歌曲，請確認目前是否有歌曲播放
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}replay** 來重播歌曲*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "REPLAYFAIL")
     
     ########
     # Loop #
@@ -701,14 +812,7 @@ class UI:
         await self._UpdateSongInfo(ctx.guild.id)
     
     async def SingleLoopFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | LP01**
-            無法啟動重複播放功能，請確認您輸入的重複次數有效
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}loop / {self.bot.command_prefix}loop [次數]** 來控制重複播放功能*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "LOOPFAIL_SIG")
     
     #########
     # Queue #
@@ -896,14 +1000,7 @@ class UI:
             ''', embed=self._SongInfo(ctx.guild.id, 'red', idx))
     
     async def RemoveFailed(self, ctx: commands.Context):
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | RM01**
-            無法刪除指定歌曲，請確認您輸入的順位數有效
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}remove [順位數]** 來刪除待播歌曲*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "REMOVEFAIL")
     
     # Swap entities in queue
     async def Embed_SwapSucceed(self, ctx: commands.Context, idx1: int, idx2: int) -> None:
@@ -927,14 +1024,7 @@ class UI:
         await ctx.send(embed=embed)
 
     async def SwapFailed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | SW01**
-            無法交換指定歌曲，請確認您輸入的順位數有效
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}swap [順位數1] [順位數2]** 來交換待播歌曲*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "SWAPFAIL")
     
     # Move entity to other place in queue
     async def MoveToSucceed(self, ctx: commands.Context, origin: int, new: int) -> None:
@@ -951,11 +1041,4 @@ class UI:
         await ctx.send(embed=embed)
 
     async def MoveToFailed(self, ctx) -> None:
-        await ctx.send(f'''
-            **:no_entry: | 失敗 | MT01**
-            無法移動指定歌曲，請確認您輸入的目標順位數有效
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}move [原順位數] [目標順位數]** 來移動待播歌曲*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-            ''')
+        await self._CommonExceptionHandler(ctx, "MOVEFAIL")
