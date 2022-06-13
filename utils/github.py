@@ -6,8 +6,8 @@ class GithubIssue:
     def __init__(self):
         token = os.getenv('GITHUB_TOKEN')
         self.headers = {"Accept": "application/vnd.github.v3+json", "Authorization" : f"token {token}"}
-        self.issue_url = "https://api.github.com/repos/TK-Entertainment/tkablent/issues"
-        #self.issue_url = "https://api.github.com/repos/TK-Entertainment/testing_repo/issues"
+        #self.issue_url = "https://api.github.com/repos/TK-Entertainment/tkablent/issues"
+        self.issue_url = "https://api.github.com/repos/TK-Entertainment/testing_repo/issues"
         
         self.errorcode_to_msg = {
             "VIDPRIVATE": "搜尋時，機器人偵測到該影片為私人影片",
@@ -75,4 +75,7 @@ class GithubIssue:
             data=json.dumps(data),
             headers=self.headers
             )
+        
+        
+
         return
