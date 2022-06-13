@@ -245,6 +245,8 @@ class UI:
                 view.BugReportingButton.label = "👏 感謝你的回報"
                 view.BugReportingButton.disabled = True
                 await interaction.response.edit_message(content=done_content, view=view)
+                if not interaction.response.is_done():
+                    await interaction.response.pong()
                 view.stop()
 
             async def on_timeout(self):
