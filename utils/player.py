@@ -229,7 +229,7 @@ class MusicBot(Player, commands.Cog):
             else:
                 await self.ui.JoinNormal(ctx)
         except Exception as e:
-            await self.ui.JoinFailed(ctx)
+            await self.ui.JoinFailed(ctx, e)
     
     @commands.command(name='leave', aliases=['quit'])
     async def leave(self, ctx: commands.Context):
@@ -240,8 +240,8 @@ class MusicBot(Player, commands.Cog):
                 await self.ui.EndStage(self, ctx.guild.id)
             await self._leave(ctx.guild)
             await self.ui.LeaveSucceed(ctx)
-        except:
-            await self.ui.LeaveFailed(ctx)
+        except Exception as e:
+            await self.ui.LeaveFailed(ctx, e)
     
     @commands.command(name='pause')
     async def pause(self, ctx: commands.Context):
@@ -249,31 +249,31 @@ class MusicBot(Player, commands.Cog):
             self._pause(ctx.guild)
             await self.ui.PauseSucceed(ctx, ctx.guild.id)
         except Exception as e:
-            await self.ui.PauseFailed(ctx)
+            await self.ui.PauseFailed(ctx, e)
     
     @commands.command(name='resume')
     async def resume(self, ctx: commands.Context):
         try:
             self._resume(ctx.guild)
             await self.ui.ResumeSucceed(ctx, ctx.guild.id)
-        except:
-            await self.ui.ResumeFailed(ctx)
+        except Exception as e:
+            await self.ui.ResumeFailed(ctx, e)
 
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
         try:
             self._skip(ctx.guild)
             self.ui.SkipProceed(ctx.guild.id)
-        except:
-            await self.ui.SkipFailed(ctx)
+        except Exception as e:
+            await self.ui.SkipFailed(ctx, e)
 
     @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
         try:
             self._stop(ctx.guild)
             await self.ui.StopSucceed(ctx)
-        except:
-            await self.ui.StopFailed(ctx)
+        except Exception as e:
+            await self.ui.StopFailed(ctx, e)
     
     @commands.command(name='seek')
     async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
@@ -284,8 +284,8 @@ class MusicBot(Player, commands.Cog):
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val
             self.ui.SeekSucceed(ctx, timestamp)
-        except ValueError:  # For ignoring string with ":" like "o:ro"
-            await self.ui.SeekFailed(ctx)
+        except ValueError as e:  # For ignoring string with ":" like "o:ro"
+            await self.ui.SeekFailed(ctx, e)
             return
         if self._seek(ctx.guild, timestamp) != 'Exceed':
             # await self.ui.SeekSucceed(ctx, timestamp, self)
@@ -313,8 +313,8 @@ class MusicBot(Player, commands.Cog):
         try:
             self._seek(0)
             await self.ui.ReplaySucceed(ctx)
-        except:
-            await self.ui.ReplayFailed(ctx)
+        except Exception as e:
+            await self.ui.ReplayFailed(ctx, e)
 
     @commands.command(name='loop', aliases=['songloop'])
     async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
@@ -340,8 +340,8 @@ class MusicBot(Player, commands.Cog):
                 return
             await self.ui.RemoveSucceed(ctx, idx)
             self._playlist.pop(ctx.guild.id, idx)
-        except (IndexError, TypeError):
-            await self.ui.RemoveFailed(ctx)
+        except (IndexError, TypeError) as e:
+            await self.ui.RemoveFailed(ctx, e)
     
     @commands.command(name='swap')
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
@@ -352,8 +352,7 @@ class MusicBot(Player, commands.Cog):
             self._playlist.swap(ctx.guild.id, idx1, idx2)
             await self.ui.Embed_SwapSucceed(ctx, idx1, idx2)
         except (IndexError, TypeError) as e:
-            print(e)
-            await self.ui.SwapFailed(ctx)
+            await self.ui.SwapFailed(ctx, e)
 
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
@@ -363,8 +362,8 @@ class MusicBot(Player, commands.Cog):
                 return
             self._playlist.move_to(ctx.guild.id, origin, new)
             await self.ui.MoveToSucceed(ctx, origin, new)
-        except (IndexError, TypeError):
-            await self.ui.MoveToFailed(ctx)
+        except (IndexError, TypeError) as e:
+            await self.ui.MoveToFailed(ctx, e)
 
     async def search(self, ctx: commands.Context, *url):
         # Get user defined url/keyword

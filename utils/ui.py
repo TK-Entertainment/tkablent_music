@@ -134,6 +134,8 @@ class UI:
             *此錯誤不會影響到播放，僅為提醒訊息*'''
             url = self.musicbot._playlist[message.guild.id].current().info['watch_url']
 
+        done_content = part_content
+
         timeout_content = f'''
             {part_content}
             *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
@@ -142,12 +144,20 @@ class UI:
         content = f'''
             {part_content}
             *若您覺得有Bug或錯誤，請按下方來回報錯誤*
-            *此回報介面將在 5 分鐘後關閉*
+            *此回報介面將在 1 分鐘後關閉*
         '''
 
-        await self._BugReportingMsg(message, content, timeout_content, errorcode, exception, url)
+        await self._BugReportingMsg(message, content, timeout_content, done_content, errorcode, exception, url)
 
-    async def _CommonExceptionHandler(self, message: Union[commands.Context, disnake.TextChannel] , errorcode: str):
+    async def _CommonExceptionHandler(self, message: Union[commands.Context, disnake.TextChannel] , errorcode: str, exception=None):
+        done_content = f'''
+            **:no_entry: | 失敗 | {errorcode}**
+            {self.errorcode_to_msg[errorcode][0]}
+            --------
+            *請在確認排除以上可能問題後*
+            *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
+        '''
+        
         timeout_content = f'''
             **:no_entry: | 失敗 | {errorcode}**
             {self.errorcode_to_msg[errorcode][0]}
@@ -163,11 +173,11 @@ class UI:
             *請在確認排除以上可能問題後*
             *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
             *若您覺得有Bug或錯誤，請按下方來回報錯誤*
-            *此回報介面將在 5 分鐘後關閉*'''
+            *此回報介面將在 1 分鐘後關閉*'''
 
-        await self._BugReportingMsg(message, content, timeout_content, errorcode)
+        await self._BugReportingMsg(message, content, timeout_content, done_content, errorcode, exception)
         
-    async def _BugReportingMsg(self, message, content, timeout_content, errorcode, exception=None, video_url=None):
+    async def _BugReportingMsg(self, message, content, timeout_content, done_content, errorcode, exception=None, video_url=None):
         class BugReportingModal(disnake.ui.Modal):
 
             github = self.github
@@ -218,7 +228,7 @@ class UI:
                         modaltime_text,
                         description
                     ],
-                    timeout=360
+                    timeout=120
                 )
 
             async def callback(self, interaction: disnake.ModalInteraction):
@@ -234,14 +244,14 @@ class UI:
                 view.BugReportingButton.style = disnake.ButtonStyle.gray
                 view.BugReportingButton.label = "👏 感謝你的回報"
                 view.BugReportingButton.disabled = True
-                await interaction.response.edit_message(view=view)
+                await interaction.response.edit_message(content=done_content, view=view)
                 view.stop()
 
             async def on_timeout(self):
                 pass
 
         class BugReportingView(disnake.ui.View):
-            def __init__(self, *, timeout=300):
+            def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
 
             @property
@@ -411,8 +421,8 @@ class UI:
                 ''')
         return
     
-    async def JoinFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "JOINFAIL")
+    async def JoinFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "JOINFAIL", exception)
         return
     
     #########
@@ -469,8 +479,8 @@ class UI:
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
     
-    async def LeaveFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "LEAVEFAIL")
+    async def LeaveFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "LEAVEFAIL", exception)
     
     ##########
     # Search #
@@ -497,7 +507,7 @@ class UI:
         else:
             reason = 'UNAVAILIBLE'
 
-        await self._MusicExceptionHandler(ctx, reason, url)
+        await self._MusicExceptionHandler(ctx, reason, url, exception)
         
 
     ########
@@ -668,8 +678,8 @@ class UI:
         except: 
             pass
     
-    async def PauseFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "PAUSEFAIL")
+    async def PauseFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "PAUSEFAIL", exception)
     
     ##########
     # Resume #
@@ -685,8 +695,8 @@ class UI:
         except: 
             pass
     
-    async def ResumeFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "RESUMEFAIL")
+    async def ResumeFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "RESUMEFAIL", exception)
     
     ########
     # Skip #
@@ -694,8 +704,8 @@ class UI:
     def SkipProceed(self, guild_id: int):
         self[guild_id].skip = True
 
-    async def SkipFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "SKIPFAIL")
+    async def SkipFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "SKIPFAIL", exception)
     
     ########
     # Stop #
@@ -707,8 +717,8 @@ class UI:
             *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
             ''')
     
-    async def StopFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "STOPFAIL")
+    async def StopFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "STOPFAIL", exception)
     
     ##########
     # Volume #
@@ -789,8 +799,8 @@ class UI:
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
         ''')
     
-    async def SeekFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "SEEKFAIL")
+    async def SeekFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "SEEKFAIL", exception)
     
     ##########
     # Replay #
@@ -802,8 +812,8 @@ class UI:
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
     
-    async def ReplayFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "REPLAYFAIL")
+    async def ReplayFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "REPLAYFAIL", exception)
     
     ########
     # Loop #
@@ -999,8 +1009,8 @@ class UI:
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
             ''', embed=self._SongInfo(ctx.guild.id, 'red', idx))
     
-    async def RemoveFailed(self, ctx: commands.Context):
-        await self._CommonExceptionHandler(ctx, "REMOVEFAIL")
+    async def RemoveFailed(self, ctx: commands.Context, exception):
+        await self._CommonExceptionHandler(ctx, "REMOVEFAIL", exception)
     
     # Swap entities in queue
     async def Embed_SwapSucceed(self, ctx: commands.Context, idx1: int, idx2: int) -> None:
@@ -1023,8 +1033,8 @@ class UI:
 
         await ctx.send(embed=embed)
 
-    async def SwapFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "SWAPFAIL")
+    async def SwapFailed(self, ctx: commands.Context, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "SWAPFAIL", exception)
     
     # Move entity to other place in queue
     async def MoveToSucceed(self, ctx: commands.Context, origin: int, new: int) -> None:
@@ -1040,5 +1050,5 @@ class UI:
         
         await ctx.send(embed=embed)
 
-    async def MoveToFailed(self, ctx) -> None:
-        await self._CommonExceptionHandler(ctx, "MOVEFAIL")
+    async def MoveToFailed(self, ctx, exception) -> None:
+        await self._CommonExceptionHandler(ctx, "MOVEFAIL", exception)
