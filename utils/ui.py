@@ -184,6 +184,7 @@ class UI:
             guildinfo: disnake.Guild = message.guild
             bot = self.bot
             error_code = errorcode
+            embed_opt = self.__embed_opt__
 
             def __init__(self):
                 cdt = datetime.datetime.now()
@@ -231,8 +232,19 @@ class UI:
                     timeout=120
                 )
 
+            def result_embed(self, results: dict):
+                embed = disnake.Embed(title="🐛 | 錯誤回報簡表 (點我到 Github Issue)", url=self.github.issue_user_url, description="")
+                embed.add_field(name="錯誤代碼", value="{}".format(results["errorcode"]))
+                embed.add_field(name="錯誤回報時間", value="{}".format(results["timestamp"]))
+                embed.add_field(name="造成錯誤之影片連結", value="{}".format(results["video_url"]))
+                embed.add_field(name="使用者回報之簡述", value="{}".format(results["description"]))
+                embed.add_field(name="參考錯誤代碼", value="{}".format(results["exception"]))
+                embed.add_field(name="👏 感謝你的回報", value="⠀")
+                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+                return embed
+
             async def callback(self, interaction: disnake.ModalInteraction):
-                self.github.submit_bug(
+                submission = self.github.submit_bug(
                     interaction.text_values.get("bot_name"),
                     interaction.text_values.get("guild"),
                     interaction.text_values.get("error_code"),
@@ -247,6 +259,7 @@ class UI:
                 await interaction.response.edit_message(content=done_content, view=view)
                 if not interaction.response.is_done():
                     await interaction.response.pong()
+                await interaction.send(embed=self.result_embed(submission))
                 view.stop()
 
             async def on_timeout(self):

@@ -2,12 +2,19 @@ import requests, json, os, dotenv
 
 dotenv.load_dotenv()
 
+# For testing purposes only
+test = True
+
 class GithubIssue:
     def __init__(self):
         token = os.getenv('GITHUB_TOKEN')
         self.headers = {"Accept": "application/vnd.github.v3+json", "Authorization" : f"token {token}"}
-        #self.issue_url = "https://api.github.com/repos/TK-Entertainment/tkablent/issues"
-        self.issue_url = "https://api.github.com/repos/TK-Entertainment/testing_repo/issues"
+        if test:
+            self.issue_url = "https://api.github.com/repos/TK-Entertainment/testing_repo/issues"
+            self.issue_user_url = "https://github.com/TK-Entertainment/testing_repo/issues"
+        else:
+            self.issue_url = "https://api.github.com/repos/TK-Entertainment/tkablent/issues"
+            self.issue_user_url = "https://github.com/TK-Entertainment/tkablent/issues"
         
         self.errorcode_to_msg = {
             "VIDPRIVATE": "搜尋時，機器人偵測到該影片為私人影片",
@@ -35,7 +42,7 @@ class GithubIssue:
         }
 
 
-    def submit_bug(self, bot_name, guild, errorcode, timestamp, description, exception, video_url=None):
+    def submit_bug(self, bot_name, guild, errorcode, timestamp, description, exception, video_url=None) -> dict:
         if video_url is None:
             video_url = "無影片連結可用，或此類錯誤與歌曲播放無關"
 
@@ -76,6 +83,10 @@ class GithubIssue:
             headers=self.headers
             )
         
-        
-
-        return
+        return {
+            "errorcode": f"{errorcode} ({self.errorcode_to_msg[errorcode]})",
+            "timestamp": f"{timestamp} (Taipei Standard Time)",
+            "video_url": video_url,
+            "description": description,
+            "exception": exception,
+        }
