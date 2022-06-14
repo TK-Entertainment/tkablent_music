@@ -3,7 +3,7 @@ import requests, json, os, dotenv
 dotenv.load_dotenv()
 
 # For testing purposes only
-test = True
+test = False
 
 class GithubIssue:
     def __init__(self):
