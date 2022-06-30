@@ -1,6 +1,6 @@
 from typing import *
-import disnake
-from disnake.ext import commands
+import discord
+from discord.ext import commands
 import datetime
 import copy
 
@@ -41,8 +41,8 @@ class GuildUIInfo:
         self.skip: bool = False
         self.mute: bool = False
         self.search: bool = False
-        self.searchmsg: disnake.Message = None
-        self.playinfo: Coroutine[Any, Any, disnake.Message] = None
+        self.searchmsg: discord.Message = None
+        self.playinfo: Coroutine[Any, Any, discord.Message] = None
 
 class UI:
     def __init__(self, musicbot, bot_version):
@@ -149,7 +149,7 @@ class UI:
 
         await self._BugReportingMsg(message, content, timeout_content, done_content, errorcode, exception, url)
 
-    async def _CommonExceptionHandler(self, message: Union[commands.Context, disnake.TextChannel] , errorcode: str, exception=None):
+    async def _CommonExceptionHandler(self, message: Union[commands.Context, discord.TextChannel] , errorcode: str, exception=None):
         done_content = f'''
             **:no_entry: | 失敗 | {errorcode}**
             {self.errorcode_to_msg[errorcode][0]}
@@ -178,10 +178,10 @@ class UI:
         await self._BugReportingMsg(message, content, timeout_content, done_content, errorcode, exception)
         
     async def _BugReportingMsg(self, message, content, timeout_content, done_content, errorcode, exception=None, video_url=None):
-        class BugReportingModal(disnake.ui.Modal):
+        class BugReportingModal(discord.ui.Modal):
 
             github = self.github
-            guildinfo: disnake.Guild = message.guild
+            guildinfo: discord.Guild = message.guild
             bot = self.bot
             error_code = errorcode
             embed_opt = self.__embed_opt__
@@ -190,96 +190,99 @@ class UI:
                 cdt = datetime.datetime.now()
                 modaltime = cdt.strftime("%Y/%m/%d %H:%M:%S")
 
-                bot_name = disnake.ui.TextInput(
+                self.bot_name = discord.ui.TextInput(
                     custom_id="bot_name",
                     label="機器人名稱 (已自動填入，不需更改)",
-                    value=f"{self.bot.user.name}#{self.bot.user.discriminator}"
+                    default=f"{self.bot.user.name}#{self.bot.user.discriminator}"
                 )
 
-                guild = disnake.ui.TextInput(
+                self.guild = discord.ui.TextInput(
                     custom_id="guild",
                     label="伺服器名稱 (已自動填入，不需更改)",
-                    value=f"{self.guildinfo.name} ({self.guildinfo.id})"
+                    default=f"{self.guildinfo.name} ({self.guildinfo.id})"
                 )
 
-                error_code_text = disnake.ui.TextInput(
+                self.error_code_text = discord.ui.TextInput(
                     custom_id="error_code",
                     label="錯誤代碼 (已自動填入，不需更改)",
-                    value=self.error_code
+                    default=self.error_code
                 )
 
-                modaltime_text = disnake.ui.TextInput(
+                self.modaltime_text = discord.ui.TextInput(
                     custom_id="submit_time",
                     label="錯誤回報時間 (已自動填入，不需更改)",
-                    value=modaltime
+                    default=modaltime
                 )
 
-                description = disnake.ui.TextInput(
+                self.description = discord.ui.TextInput(
                     custom_id="error_description",
                     label="請簡述錯誤是如何產生的",
                     placeholder="簡述如何重新產生該錯誤，或該錯誤是怎麼產生的。\n如果隨意填寫或更改上方資料，將可能遭到忽略",
-                    style=disnake.TextInputStyle.paragraph
+                    style=discord.TextStyle.paragraph
                 )
                 super().__init__(
                     title = "🐛 | 回報蟲蟲",
-                    components=[
-                        bot_name,
-                        guild,
-                        error_code_text,
-                        modaltime_text,
-                        description
-                    ],
                     timeout=120
                 )
 
+                for item in [
+                        self.bot_name,
+                        self.guild,
+                        self.error_code_text,
+                        self.modaltime_text,
+                        self.description
+                    ]:
+                    self.add_item(item)
+
+
             def result_embed(self, results: dict):
-                embed = disnake.Embed(title="🐛 | 錯誤回報簡表 (點我到 Github Issue)", url=self.github.issue_user_url, description="")
+                embed = discord.Embed(title="🐛 | 錯誤回報簡表 (點我到 Github Issue)", url=self.github.issue_user_url, description="")
                 embed.add_field(name="錯誤代碼", value="{}".format(results["errorcode"]))
                 embed.add_field(name="錯誤回報時間", value="{}".format(results["timestamp"]))
                 embed.add_field(name="造成錯誤之影片連結", value="{}".format(results["video_url"]))
                 embed.add_field(name="使用者回報之簡述", value="{}".format(results["description"]))
                 embed.add_field(name="參考錯誤代碼", value="{}".format(results["exception"]))
                 embed.add_field(name="👏 感謝你的回報", value="⠀")
-                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+                embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 return embed
 
-            async def callback(self, interaction: disnake.ModalInteraction):
+            async def on_submit(self, interaction: discord.Interaction):
                 submission = self.github.submit_bug(
-                    interaction.text_values.get("bot_name"),
-                    interaction.text_values.get("guild"),
-                    interaction.text_values.get("error_code"),
-                    interaction.text_values.get("submit_time"),
-                    interaction.text_values.get("error_description"),
+                    self.bot_name.value,
+                    self.guild.value,
+                    self.error_code_text.value,
+                    self.modaltime_text.value,
+                    self.description.value,
                     exception,
                     video_url
                 )
-                view.BugReportingButton.style = disnake.ButtonStyle.gray
+                view.BugReportingButton.style = discord.ButtonStyle.gray
                 view.BugReportingButton.label = "👏 感謝你的回報"
                 view.BugReportingButton.disabled = True
                 await interaction.response.edit_message(content=done_content, view=view)
                 if not interaction.response.is_done():
                     await interaction.response.pong()
-                await interaction.send(embed=self.result_embed(submission))
+                await interaction.message.reply(embed=self.result_embed(submission))
                 view.stop()
 
             async def on_timeout(self):
                 pass
 
-        class BugReportingView(disnake.ui.View):
+        class BugReportingView(discord.ui.View):
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
 
             @property
-            def BugReportingButton(self) -> disnake.ui.Button:
+            def BugReportingButton(self) -> discord.ui.Button:
                 return self.children[0]
 
-            @disnake.ui.button(label='🐛 回報錯誤', style=disnake.ButtonStyle.blurple)
-            async def reportbug(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='🐛 回報錯誤', style=discord.ButtonStyle.blurple)
+            async def reportbug(self, interaction: discord.Interaction, button: discord.ui.Button):
                 modal = BugReportingModal()
-                await interaction.response.send_modal(modal=modal)
+                await interaction.response.send_modal(modal)
 
             async def on_timeout(self):
-                self.BugReportingButton.style = disnake.ButtonStyle.gray
+                self.BugReportingButton.style = discord.ButtonStyle.gray
                 self.BugReportingButton.label = "🛑 已超時，請自行至 Github 回報"
                 self.BugReportingButton.disabled = True
                 await msg.edit(content=timeout_content, view=self)
@@ -294,14 +297,14 @@ class UI:
     ########
     # Help #
     ########
-    def _HelpEmbedBasic(self) -> disnake.Embed:
-        return disnake.Embed(title=":regional_indicator_q: | 指令說明 | 基本指令", description=f'''
+    def _HelpEmbedBasic(self) -> discord.Embed:
+        return discord.Embed(title=":regional_indicator_q: | 指令說明 | 基本指令", description=f'''
         {self.bot.command_prefix}help | 顯示此提示框，列出指令說明
         {self.bot.command_prefix}join | 將機器人加入到您目前所在的語音頻道
         {self.bot.command_prefix}leave | 使機器人離開其所在的語音頻道
         ''', colour=0xF2F3EE)
-    def _HelpEmbedPlayback(self) -> disnake.Embed:
-        return disnake.Embed(title=":regional_indicator_q: | 指令說明 | 播放相關指令", description=f'''
+    def _HelpEmbedPlayback(self) -> discord.Embed:
+        return discord.Embed(title=":regional_indicator_q: | 指令說明 | 播放相關指令", description=f'''
         {self.bot.command_prefix}play [URL/名稱] | 開始播放指定歌曲(輸入名稱會啟動搜尋)
         {self.bot.command_prefix}pause | 暫停歌曲播放
         {self.bot.command_prefix}resume | 續播歌曲
@@ -314,8 +317,8 @@ class UI:
         {self.bot.command_prefix}loop | 切換單曲循環開關
         {self.bot.command_prefix}wholeloop | 切換全隊列循環開關
         ''', colour=0xF2F3EE)
-    def _HelpEmbedQueue(self) -> disnake.Embed:
-        return disnake.Embed(title=":regional_indicator_q: | 指令說明 | 隊列相關指令", description=f'''
+    def _HelpEmbedQueue(self) -> discord.Embed:
+        return discord.Embed(title=":regional_indicator_q: | 指令說明 | 隊列相關指令", description=f'''
         {self.bot.command_prefix}queue | 顯示待播歌曲列表
         {self.bot.command_prefix}remove [順位數] | 移除指定待播歌曲
         {self.bot.command_prefix}swap [順位數1] [順位數2] | 交換指定待播歌曲順序
@@ -324,7 +327,7 @@ class UI:
     
     async def Help(self, ctx: commands.Context) -> None:
 
-        class Help(disnake.ui.View):
+        class Help(discord.ui.View):
 
             HelpEmbedBasic = self._HelpEmbedBasic
             HelpEmbedPlayback = self._HelpEmbedPlayback
@@ -333,38 +336,38 @@ class UI:
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
-                self.last: disnake.ui.Button = self.children[0]
+                self.last: discord.ui.Button = self.children[0]
 
-            def toggle(self, button: disnake.ui.Button):
+            def toggle(self, button: discord.ui.Button):
                 self.last.disabled = False
-                self.last.style = disnake.ButtonStyle.blurple
+                self.last.style = discord.ButtonStyle.blurple
                 button.disabled = True
-                button.style = disnake.ButtonStyle.gray
+                button.style = discord.ButtonStyle.gray
                 self.last = button
 
-            @disnake.ui.button(label='基本指令', style=disnake.ButtonStyle.gray, disabled=True)
-            async def basic(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='基本指令', style=discord.ButtonStyle.gray, disabled=True)
+            async def basic(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.toggle(button)
                 embed = self.HelpEmbedBasic()
-                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+                embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
             
-            @disnake.ui.button(label='播放相關', style=disnake.ButtonStyle.blurple)
-            async def playback(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='播放相關', style=discord.ButtonStyle.blurple)
+            async def playback(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.toggle(button)
                 embed = self.HelpEmbedPlayback()
-                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+                embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @disnake.ui.button(label='隊列相關', style=disnake.ButtonStyle.blurple)
-            async def queue(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='隊列相關', style=discord.ButtonStyle.blurple)
+            async def queue(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.toggle(button)
                 embed = self.HelpEmbedQueue()
-                embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+                embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @disnake.ui.button(label='❎', style=disnake.ButtonStyle.danger)
-            async def done(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.clear_items()
                 await interaction.response.edit_message(embed=embed, view=view)
                 original_message = await interaction.original_message()
@@ -377,7 +380,7 @@ class UI:
                 await msg.add_reaction('🛑')
 
         embed = self._HelpEmbedBasic()
-        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
+        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         view = Help()
         msg = await ctx.send(embed=embed, view=view)
         
@@ -397,7 +400,7 @@ class UI:
                 ''')
     
     async def JoinStage(self, ctx: commands.Context, guild_id: int) -> None:
-        botitself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        botitself: discord.Member = await ctx.guild.fetch_member(self.bot.user.id)
         if botitself not in ctx.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 await ctx.send(f'''
@@ -444,25 +447,25 @@ class UI:
     # Stage #
     #########
     async def CreateStageInstance(self, ctx: commands.Context, guild_id: int) -> None:
-        if isinstance(ctx.author.voice.channel.instance, disnake.StageInstance) or self[guild_id].auto_stage_available == False:
+        if isinstance(ctx.author.voice.channel.instance, discord.StageInstance) or self[guild_id].auto_stage_available == False:
             return
-        channel: disnake.StageChannel = ctx.author.voice.channel
+        channel: discord.StageChannel = ctx.author.voice.channel
         await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
     
     async def EndStage(self, guild_id: int) -> None:
         if not self[guild_id].auto_stage_available: 
             return
-        if not isinstance(self.bot.get_guild(guild_id).voice_client.channel.instance, disnake.StageInstance):
+        if not isinstance(self.bot.get_guild(guild_id).voice_client.channel.instance, discord.StageInstance):
             return
-        instance: disnake.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
+        instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
         await instance.delete()
     
     async def _UpdateStageTopic(self, guild_id: int, mode: str='update') -> None:
         playlist = self.musicbot._playlist[guild_id]
         if self[guild_id].auto_stage_available == False \
-            or isinstance(self.bot.get_guild(guild_id).voice_client.channel, disnake.VoiceChannel):
+            or isinstance(self.bot.get_guild(guild_id).voice_client.channel, discord.VoiceChannel):
             return
-        instance: disnake.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
+        instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
         if mode == "done":
             await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
         elif mode == "pause":
@@ -500,7 +503,7 @@ class UI:
     ##########
     # Search #
     ##########
-    async def StartSearch(self, ctx: commands.Context, url: str) -> disnake.Message:
+    async def StartSearch(self, ctx: commands.Context, url: str) -> discord.Message:
         if ("http" not in url) and ("www" not in url):
             self[ctx.guild.id].searchmsg =  await ctx.send(f'''
             **:mag_right: | 開始搜尋 | {url}**
@@ -533,11 +536,11 @@ class UI:
         song = playlist[index]
 
         if color_code == "green": # Green means adding to queue
-            color = disnake.Colour.from_rgb(97, 219, 83)
+            color = discord.Colour.from_rgb(97, 219, 83)
         elif color_code == "red": # Red means deleted
-            color = disnake.Colour.from_rgb(255, 0, 0)
+            color = discord.Colour.from_rgb(255, 0, 0)
         else: 
-            color = disnake.Colour.from_rgb(255, 255, 255)
+            color = discord.Colour.from_rgb(255, 255, 255)
 
         # Generate Loop Icon
         if color_code != "red" and playlist.loop_state != LoopState.NOTHING:
@@ -554,9 +557,9 @@ class UI:
             loopicon = ''
 
         # Generate Embed Body
-        embed = disnake.Embed(title=song.info['title'], url=song.info['watch_url'], colour=color)
+        embed = discord.Embed(title=song.info['title'], url=song.info['watch_url'], colour=color)
         embed.add_field(name="作者", value=f"[{song.info['author']}]({song.info['channel_url']})", inline=True)
-        embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.tag} 點歌", icon_url=song.requester.display_avatar)
+        embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點歌", icon_url=song.requester.display_avatar)
         
         if song.info['stream']: 
             embed._author['name'] += " | 🔴 直播"
@@ -590,7 +593,7 @@ class UI:
                 "⌛ | 正在處理播放清單" if len(playlist._playlisttask) > 0 else f"待播清單 | {len(playlist.order)-1} 首歌待播中"
             ), value=queuelist, inline=False)
         embed.set_thumbnail(url=song.info['thumbnail_url'])
-        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
+        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
 
     async def _UpdateSongInfo(self, guild_id: int):
@@ -604,7 +607,7 @@ class UI:
     ########
     # Play #
     ########
-    async def PlayingMsg(self, channel: disnake.TextChannel):
+    async def PlayingMsg(self, channel: discord.TextChannel):
         playlist = self.musicbot._playlist[channel.guild.id]
         if self[channel.guild.id].skip:
             if len(playlist.order) > 1:
@@ -641,7 +644,7 @@ class UI:
         except: 
             pass
 
-    async def PlayingError(self, channel: disnake.TextChannel, exception):
+    async def PlayingError(self, channel: discord.TextChannel, exception):
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
                 or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
             reason = 'PLAY_VIDPRIVATE'
@@ -658,7 +661,7 @@ class UI:
 
         await self._MusicExceptionHandler(channel, reason, None, exception)
 
-    async def DonePlaying(self, channel: disnake.TextChannel) -> None:
+    async def DonePlaying(self, channel: discord.TextChannel) -> None:
         await channel.send(f'''
             **:clock4: | 播放完畢，等待播放動作**
             候播清單已全數播放完畢，等待使用者送出播放指令
@@ -682,7 +685,7 @@ class UI:
         except: 
             pass
     
-    async def PauseOnAllMemberLeave(self, channel: disnake.TextChannel, guild_id: int) -> None:
+    async def PauseOnAllMemberLeave(self, channel: discord.TextChannel, guild_id: int) -> None:
         await channel.send(f'''
             **:pause_button: | 暫停歌曲**
             所有人皆已退出語音頻道，歌曲已暫停播放
@@ -867,8 +870,8 @@ class UI:
                 await self[ctx.guild.id].searchmsg.delete()
     
     # Queue Embed Generator
-    def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> disnake.Embed:
-        embed = disnake.Embed(title=":information_source: | 候播清單", description="以下清單為歌曲候播列表{}"
+    def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> discord.Embed:
+        embed = discord.Embed(title=":information_source: | 候播清單", description="以下清單為歌曲候播列表{}"
         .format(
             "" if len(playlist._playlisttask) > 0 
             else f"\n共 {len(playlist.order)-1} 首"
@@ -899,14 +902,14 @@ class UI:
                 total_pages += 1
             embed_opt['footer']['text'] = f'第 {page+1} 頁 / 共 {total_pages} 頁\n' + self.__embed_opt__['footer']['text']
         
-        embed = disnake.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
+        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed
     
     # Queue Listing
     async def ShowQueue(self, ctx: commands.Context) -> None:
         playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
 
-        class QueueListing(disnake.ui.View):
+        class QueueListing(discord.ui.View):
 
             QueueEmbed = self._QueueEmbed
             embed_opt = self.__embed_opt__
@@ -914,23 +917,23 @@ class UI:
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
-                self.last: disnake.ui.Button = self.children[0]
+                self.last: discord.ui.Button = self.children[0]
                 self.page = 0
 
             @property
-            def first_page_button(self) -> disnake.ui.Button:
+            def first_page_button(self) -> discord.ui.Button:
                 return self.children[0]
 
             @property
-            def left_button(self) -> disnake.ui.Button:
+            def left_button(self) -> discord.ui.Button:
                 return self.children[1]
 
             @property
-            def right_button(self) -> disnake.ui.Button:
+            def right_button(self) -> discord.ui.Button:
                 return self.children[2]
 
             @property
-            def last_page_button(self) -> disnake.ui.Button:
+            def last_page_button(self) -> discord.ui.Button:
                 return self.children[3]
 
             @property
@@ -945,26 +948,26 @@ class UI:
             def update_button(self):
                 if self.page == 0:
                     self.left_button.disabled = self.first_page_button.disabled = True
-                    self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.gray
+                    self.left_button.style = self.first_page_button.style = discord.ButtonStyle.gray
                 else:
                     self.left_button.disabled = self.first_page_button.disabled = False
-                    self.left_button.style = self.first_page_button.style = disnake.ButtonStyle.blurple
+                    self.left_button.style = self.first_page_button.style = discord.ButtonStyle.blurple
                 if self.page == self.total_pages:
                     self.right_button.disabled = self.last_page_button.disabled = True
-                    self.right_button.style = self.last_page_button.style = disnake.ButtonStyle.gray
+                    self.right_button.style = self.last_page_button.style = discord.ButtonStyle.gray
                 else:
                     self.right_button.disabled = self.last_page_button.disabled = False
-                    self.right_button.style = self.last_page_button.style = disnake.ButtonStyle.blurple
+                    self.right_button.style = self.last_page_button.style = discord.ButtonStyle.blurple
 
-            @disnake.ui.button(label='⏪', style=disnake.ButtonStyle.gray, disabled=True)
-            async def firstpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='⏪', style=discord.ButtonStyle.gray, disabled=True)
+            async def firstpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
                 self.page = 0
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @disnake.ui.button(label='⬅️', style=disnake.ButtonStyle.gray, disabled=True)
-            async def prevpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='⬅️', style=discord.ButtonStyle.gray, disabled=True)
+            async def prevpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
                 self.page -= 1
                 if self.page < 0:
                     self.page = 0
@@ -972,8 +975,8 @@ class UI:
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @disnake.ui.button(label='➡️', style=disnake.ButtonStyle.blurple)
-            async def nextpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):            
+            @discord.ui.button(label='➡️', style=discord.ButtonStyle.blurple)
+            async def nextpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):            
                 self.page += 1
                 if self.page > self.total_pages:
                     self.page = self.total_pages
@@ -981,15 +984,15 @@ class UI:
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @disnake.ui.button(label='⏩', style=disnake.ButtonStyle.blurple)
-            async def lastpage(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):            
+            @discord.ui.button(label='⏩', style=discord.ButtonStyle.blurple)
+            async def lastpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):            
                 self.page = self.total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @disnake.ui.button(label='❎', style=disnake.ButtonStyle.danger)
-            async def done(self, button: disnake.ui.Button, interaction: disnake.MessageInteraction):
+            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            async def done(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
                 embed = self.QueueEmbed(playlist, self.page)
                 self.clear_items()
                 await interaction.response.edit_message(embed=embed, view=view)
@@ -1030,7 +1033,7 @@ class UI:
     # Swap entities in queue
     async def Embed_SwapSucceed(self, ctx: commands.Context, idx1: int, idx2: int) -> None:
         playlist = self.musicbot._playlist[ctx.guild.id]
-        embed = disnake.Embed(title=":arrows_counterclockwise: | 調換歌曲順序", description="已調換歌曲順序，以下為詳細資料", colour=0xF2F3EE)
+        embed = discord.Embed(title=":arrows_counterclockwise: | 調換歌曲順序", description="已調換歌曲順序，以下為詳細資料", colour=0xF2F3EE)
         
         embed.add_field(name=f"第 ~~{idx2}~~ -> **{idx1}** 順序", value='{}\n{}\n{} 點歌\n'
             .format(
@@ -1054,7 +1057,7 @@ class UI:
     # Move entity to other place in queue
     async def MoveToSucceed(self, ctx: commands.Context, origin: int, new: int) -> None:
         playlist = self.musicbot._playlist[ctx.guild.id]
-        embed = disnake.Embed(title=":arrows_counterclockwise: | 移動歌曲順序", description="已移動歌曲順序，以下為詳細資料", colour=0xF2F3EE)
+        embed = discord.Embed(title=":arrows_counterclockwise: | 移動歌曲順序", description="已移動歌曲順序，以下為詳細資料", colour=0xF2F3EE)
         
         embed.add_field(name=f"第 ~~{origin}~~ -> **{new}** 順序", value='{}\n{}\n{} 點歌\n'
             .format(

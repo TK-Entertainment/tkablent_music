@@ -3,8 +3,8 @@ bot_version = 'LOCAL DEVELOPMENT'
 from typing import *
 import os, dotenv, sys
 
-import disnake
-from disnake.ext import commands
+import discord
+from discord.ext import commands
 
 print(f'''
 Current Version
@@ -14,16 +14,16 @@ Current Version
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
 
-presence = disnake.Game(name='播放音樂 | $play')
-intents = disnake.Intents.all()
-bot = commands.Bot(command_prefix='$', intents=intents, help_command=None, activity=presence, status=disnake.Status.online)
+presence = discord.Game(name='播放音樂 | $play')
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix='%', intents=intents, help_command=None, activity=presence, status=discord.Status.online)
 
 from utils import *
 
-bot.add_cog(MusicBot(bot))
-
 @bot.event
 async def on_ready():
+    await bot.add_cog(MusicBot(bot))
+    await bot.cogs.get('MusicBot').resolve_ui()
     print(f'''
         =========================================
         Codename TKablent | Version Alpha

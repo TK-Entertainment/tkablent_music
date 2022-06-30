@@ -1,9 +1,9 @@
 from typing import *
 import threading, asyncio, gc, weakref
 
-import disnake
-from disnake import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
-from disnake.ext import commands
+import discord
+from discord import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
+from discord.ext import commands
 
 from .playlist import Song, Playlist, LoopState
 from .ytdl import YTDL
@@ -15,7 +15,7 @@ bot_version = 'master Branch'
 class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
-        self.text_channel: disnake.TextChannel = None
+        self.text_channel: discord.TextChannel = None
         self._volume_level: int = None
         self._task: asyncio.Task = None
         self._timer: asyncio.Task = None
@@ -49,23 +49,23 @@ class Player(commands.Cog):
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    async def _join(self, channel: disnake.VoiceChannel):
+    async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
         if voice_client is None:
             await channel.connect()
 
-    async def _leave(self, guild: disnake.Guild):
+    async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
         if voice_client is not None:
             self._stop(guild)
             await voice_client.disconnect()
             
-    async def _search(self, guild: disnake.Guild, url, requester: disnake.Member):
+    async def _search(self, guild: discord.Guild, url, requester: discord.Member):
         await self._playlist.add_songs(guild.id, url, requester)
         if self._playlist.is_playlist(url):
             self._start_playlist_process(guild, url, requester)
 
-    def _start_playlist_process(self, guild: disnake.Guild, url, requester: disnake.Member):
+    def _start_playlist_process(self, guild: discord.Guild, url, requester: discord.Member):
         coro = self._playlist.process_playlist(guild.id, url, requester)
         id = self._playlist.get_playlist_id(url)
         task = self.bot.loop.create_task(coro)
@@ -79,33 +79,33 @@ class Player(commands.Cog):
         self._playlist[guild_id]._playlisttask[id].cancel()
         self._playlist[guild_id]._playlisttask.pop(id)
 
-    def _pause(self, guild: disnake.Guild):
+    def _pause(self, guild: discord.Guild):
         voice_client: VoiceClient = guild.voice_client
         if not voice_client.is_paused() and voice_client.is_playing():
             voice_client.pause()
 
-    def _resume(self, guild: disnake.Guild):
+    def _resume(self, guild: discord.Guild):
         voice_client: VoiceClient = guild.voice_client
         if voice_client.is_paused():
             self._playlist[guild.id].current().left_off += voice_client._player.loops / 50
             voice_client.resume()
 
-    def _skip(self, guild: disnake.Guild):
+    def _skip(self, guild: discord.Guild):
         voice_client: VoiceClient = guild.voice_client
         if voice_client.is_playing() or voice_client.is_paused():
             voice_client.stop()
         self._playlist[guild].times = 0
     
-    def _stop(self, guild: disnake.Guild):
+    def _stop(self, guild: discord.Guild):
         self._playlist[guild.id].clear()
         self._skip(guild)
     
-    def current_timestamp(self, guild: disnake.Guild) -> float:
-        voice_client: disnake.VoiceClient = guild.voice_client
+    def current_timestamp(self, guild: discord.Guild) -> float:
+        voice_client: discord.VoiceClient = guild.voice_client
         return self._playlist[guild.id].current().left_off + voice_client._player.loops / 50
     
-    def _seek(self, guild: disnake.Guild, timestamp: float):
-        voice_client: disnake.VoiceClient = guild.voice_client
+    def _seek(self, guild: discord.Guild, timestamp: float):
+        voice_client: discord.VoiceClient = guild.voice_client
         if timestamp >= self._playlist[guild.id].current().info['length']:
             voice_client.stop()
             return 'Exceed'
@@ -114,17 +114,17 @@ class Player(commands.Cog):
         self._playlist[guild.id].current().set_source(volume_level)
         voice_client.source = self._playlist[guild.id].current().source
     
-    def _volume(self, guild: disnake.Guild, volume: float):
-        voice_client: disnake.VoiceClient = guild.voice_client
+    def _volume(self, guild: discord.Guild, volume: float):
+        voice_client: discord.VoiceClient = guild.voice_client
         if not voice_client is None:
             self[guild.id].volume_level = volume
             voice_client.source.volume = volume
 
-    async def _play(self, guild: disnake.Guild, channel: disnake.TextChannel):
+    async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
         await self._start_mainloop(guild)
 
-    async def _start_mainloop(self, guild: disnake.Guild):
+    async def _start_mainloop(self, guild: discord.Guild):
         if self[guild.id]._timer is not None:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
@@ -134,7 +134,7 @@ class Player(commands.Cog):
         self[guild.id]._task = self.bot.loop.create_task(coro)
         self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
     
-    async def _mainloop(self, guild: disnake.Guild):
+    async def _mainloop(self, guild: discord.Guild):
         # implement in musicbot class for ui support
         '''
         while len(self._playlist[guild.id].order):
@@ -142,7 +142,7 @@ class Player(commands.Cog):
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
-                voice_client.play(disnake.FFmpegPCMAudio(song.url))
+                voice_client.play(discord.FFmpegPCMAudio(song.url))
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(1.0)
             finally:
@@ -150,7 +150,7 @@ class Player(commands.Cog):
         '''
         raise NotImplementedError
 
-    def _start_timer(self, guild: disnake.Guild):
+    def _start_timer(self, guild: discord.Guild):
         if self[guild.id]._task is not None:
             self[guild.id]._task.cancel()
             self[guild.id]._task = None
@@ -159,11 +159,11 @@ class Player(commands.Cog):
         coro = self._timer(guild)
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
-    async def _timer(self, guild: disnake.Guild):
+    async def _timer(self, guild: discord.Guild):
         await asyncio.sleep(60.0)
         await self._leave(guild)
     
-    def _cleanup(self, guild: disnake.Guild):
+    def _cleanup(self, guild: discord.Guild):
         if self[guild.id]._task is not None:
             self[guild.id]._task = None
         del self._playlist[guild.id]
@@ -181,8 +181,7 @@ class MusicBot(Player, commands.Cog):
     def in_playlist_process(self, ctx: commands.Context):
         return len(self._playlist[ctx.guild.id]._playlisttask) > 0
 
-    @commands.Cog.listener('on_ready')
-    async def resolve_ui(self):      
+    async def resolve_ui(self):   
         from .ui import UI
         self.ui = UI(self, bot_version)
     
@@ -191,7 +190,7 @@ class MusicBot(Player, commands.Cog):
         await self.ui.Help(ctx)
     
     async def rejoin(self, ctx: commands.Context):
-        voice_client: disnake.VoiceClient = ctx.guild.voice_client
+        voice_client: discord.VoiceClient = ctx.guild.voice_client
         # Get the bot former playing state
         former = voice_client.channel
         former_state = voice_client.is_paused()
@@ -205,16 +204,16 @@ class MusicBot(Player, commands.Cog):
             self._resume()
         # Send a rejoin message
         await self.ui.RejoinNormal(ctx)
-        # If the former channel is a disnake.StageInstance which is the stage
+        # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
-        if isinstance(former, disnake.StageChannel) and \
-                isinstance(former.instance, disnake.StageInstance):
+        if isinstance(former, discord.StageChannel) and \
+                isinstance(former.instance, discord.StageInstance):
             await former.delete()
     
     @commands.command(name='join')
     async def join(self, ctx: commands.Context):
-        voice_client: disnake.VoiceClient = ctx.guild.voice_client
-        if isinstance(voice_client, disnake.VoiceClient):
+        voice_client: discord.VoiceClient = ctx.guild.voice_client
+        if isinstance(voice_client, discord.VoiceClient):
             if voice_client.channel != ctx.author.voice.channel:
                 await self.rejoin(ctx)
             else:
@@ -223,7 +222,7 @@ class MusicBot(Player, commands.Cog):
             return
         try:
             await self._join(ctx.author.voice.channel)
-            if isinstance(ctx.author.voice.channel, disnake.StageChannel):
+            if isinstance(ctx.author.voice.channel, discord.StageChannel):
                 await self.ui.JoinStage(ctx, ctx.guild.id)
                 await self.ui.CreateStageInstance(ctx, ctx.guild.id)
             else:
@@ -233,10 +232,10 @@ class MusicBot(Player, commands.Cog):
     
     @commands.command(name='leave', aliases=['quit'])
     async def leave(self, ctx: commands.Context):
-        voice_client: disnake.VoiceClient = ctx.guild.voice_client
+        voice_client: discord.VoiceClient = ctx.guild.voice_client
         try:
-            if isinstance(voice_client.channel, disnake.StageChannel) and \
-                    isinstance(voice_client.channel.instance, disnake.StageInstance):
+            if isinstance(voice_client.channel, discord.StageChannel) and \
+                    isinstance(voice_client.channel.instance, discord.StageInstance):
                 await self.ui.EndStage(self, ctx.guild.id)
             await self._leave(ctx.guild)
             await self.ui.LeaveSucceed(ctx)
@@ -387,20 +386,20 @@ class MusicBot(Player, commands.Cog):
     async def play(self, ctx: commands.Context, *url):
         # Try to make bot join author's channel
         voice_client: VoiceClient = ctx.guild.voice_client
-        if not isinstance(voice_client, disnake.VoiceClient) or \
+        if not isinstance(voice_client, discord.VoiceClient) or \
                 voice_client.channel != ctx.author.voice.channel:
             await self.join(ctx)
             voice_client = ctx.guild.voice_client
-            if not isinstance(voice_client, disnake.VoiceClient):
+            if not isinstance(voice_client, discord.VoiceClient):
                 return
 
         # Start search process
         await self.search(ctx, *url)
 
         # Get bot user value
-        bot_itself: disnake.Member = await ctx.guild.fetch_member(self.bot.user.id)
+        bot_itself: discord.Member = await ctx.guild.fetch_member(self.bot.user.id)
         if self.ui.auto_stage_available(ctx.guild.id) and \
-                isinstance(ctx.author.voice.channel, disnake.StageChannel) and \
+                isinstance(ctx.author.voice.channel, discord.StageChannel) and \
                 bot_itself.voice.suppress:
             try: 
                 await bot_itself.edit(suppress=False)
@@ -409,7 +408,7 @@ class MusicBot(Player, commands.Cog):
 
         await self._play(ctx.guild, ctx.channel)
 
-    async def _mainloop(self, guild: disnake.Guild):
+    async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
             voice_client: VoiceClient = guild.voice_client
             song = self._playlist[guild.id].current()
@@ -417,7 +416,8 @@ class MusicBot(Player, commands.Cog):
                 song.set_ffmpeg_options(0)
 
                 try:
-                    voice_client.play(disnake.FFmpegPCMAudio(song.url, **song.ffmpeg_options))
+                    voice_client.play(discord.FFmpegPCMAudio(song.url, **song.ffmpeg_options))
+                    print('owo')
                     await self.ui.PlayingMsg(self[guild.id].text_channel)
                 except Exception as e:
                     await self.ui.PlayingError(self[guild.id].text_channel, e)
@@ -429,7 +429,7 @@ class MusicBot(Player, commands.Cog):
         await self.ui.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')
-    async def end_session(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+    async def end_session(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
             return
         guild = member.guild
@@ -456,9 +456,9 @@ class MusicBot(Player, commands.Cog):
         ''') 
 
     @commands.Cog.listener('on_voice_state_update')
-    async def _pause_on_being_alone(self, member: disnake.Member, before: disnake.VoiceState, after: disnake.VoiceState):
+    async def _pause_on_being_alone(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         try:
-            voice_client: disnake.VoiceClient = member.guild.voice_client
+            voice_client: discord.VoiceClient = member.guild.voice_client
             if voice_client is None:
                 if not voice_client.is_playing() or not voice_client.is_paused():
                     self._stop(member.guild)

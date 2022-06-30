@@ -3,7 +3,7 @@ import requests, json, os, dotenv
 dotenv.load_dotenv()
 
 # For testing purposes only
-test = False
+test = True
 
 class GithubIssue:
     def __init__(self):
@@ -77,12 +77,14 @@ class GithubIssue:
             "labels": ['bug', 'bug_from_bot']
             }
 
-        requests.post(
+        owo = requests.post(
             self.issue_url, 
             data=json.dumps(data),
             headers=self.headers
             )
         
+        print(owo.content)
+
         return {
             "errorcode": f"{errorcode} ({self.errorcode_to_msg[errorcode]})",
             "timestamp": f"{timestamp} (Taipei Standard Time)",

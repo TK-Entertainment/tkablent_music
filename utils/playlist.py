@@ -3,8 +3,8 @@ from enum import Enum, auto
 
 import asyncio
 
-import disnake
-from disnake import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
+import discord
+from discord import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
 
 from .ytdl import YTDL
 
@@ -26,8 +26,8 @@ class Song:
     #         pass
     #     song.info = ytdl.get_info(url)
     
-    def __init__(self, url, requester: disnake.Member):
-        self.requester: disnake.Member = requester
+    def __init__(self, url, requester: discord.Member):
+        self.requester: discord.Member = requester
         self.left_off: float = 0
         self.info = ytdl.get_info(url)
         # flag for local server, need to change for multiple server
@@ -69,7 +69,7 @@ class PlaylistBase:
         self.order: List[Song] = [] # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
-        self.text_channel: disnake.TextChannel = None # where to show information to user
+        self.text_channel: discord.TextChannel = None # where to show information to user
         self._playlisttask: dict[str, asyncio.Task] = {}
 
     def __getitem__(self, idx):
