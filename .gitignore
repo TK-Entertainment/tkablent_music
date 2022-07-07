@@ -178,3 +178,5 @@ cython_debug/
 #.idea/
 pyproject.toml
 poetry.lock
+application.yml
+Lavalink.jar
