@@ -6,6 +6,7 @@ import copy
 
 from pytube import exceptions as PytubeExceptions
 from yt_dlp import utils as YTDLPExceptions
+import wavelink
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -503,14 +504,18 @@ class UI:
     ##########
     # Search #
     ##########
-    async def StartSearch(self, ctx: commands.Context, url: str) -> discord.Message:
-        if ("http" not in url) and ("www" not in url):
-            self[ctx.guild.id].searchmsg =  await ctx.send(f'''
-            **:mag_right: | 開始搜尋 | {url}**
-            請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
-            ''')
-            self[ctx.guild.id].search = True
-        else: self[ctx.guild.id].search = False
+    # This block had been deprecated after replacing pytube with wavelink
+
+    # async def StartSearch(self, ctx: commands.Context, url: str) -> discord.Message:
+    #     if ("http" not in url) and ("www" not in url):
+    #         self[ctx.guild.id].searchmsg =  await ctx.send(f'''
+    #         **:mag_right: | 開始搜尋 | {url}**
+    #         請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
+    #         ''')
+    #         self[ctx.guild.id].search = True
+    #     else: self[ctx.guild.id].search = False
+
+    #
 
     async def SearchFailed(self, ctx: commands.Context, url: str, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
@@ -557,16 +562,16 @@ class UI:
             loopicon = ''
 
         # Generate Embed Body
-        embed = discord.Embed(title=song.info['title'], url=song.info['watch_url'], colour=color)
-        embed.add_field(name="作者", value=f"[{song.info['author']}]({song.info['channel_url']})", inline=True)
+        embed = discord.Embed(title=song.title, url=song.uri, colour=color)
+        embed.add_field(name="作者", value=f"{song.author}", inline=True)
         embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點歌", icon_url=song.requester.display_avatar)
         
-        if song.info['stream']: 
+        if song.is_stream(): 
             embed._author['name'] += " | 🔴 直播"
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
-            embed.add_field(name="歌曲時長", value=_sec_to_hms(song.info['length'], "zh"), inline=True)
+            embed.add_field(name="歌曲時長", value=_sec_to_hms(song.length, "zh"), inline=True)
         
         if self.musicbot[guild_id]._volume_level == 0: 
             embed._author['name'] += " | 🔇 靜音"
@@ -577,22 +582,11 @@ class UI:
         
         if len(playlist.order) > 1 and color_code != 'red':
             queuelist: str = ""
-            if len(playlist._playlisttask) == 0:
-                queuelist += f"1." + playlist[1].info['title'] + "\n"
-                if len(playlist.order) > 2: 
-                    queuelist += f"...還有 {len(playlist.order)-2} 首歌"
+            queuelist += f"1." + playlist[1].title + "\n"
+            if len(playlist.order) > 2: 
+                queuelist += f"...還有 {len(playlist.order)-2} 首歌"
 
-            else:
-                queuelist += f'''
-                待播清單暫時不可用，請使用 {self.bot.command_prefix}queue
-                以得知目前進度
-                '''
-
-            embed.add_field(name="{}"
-            .format(
-                "⌛ | 正在處理播放清單" if len(playlist._playlisttask) > 0 else f"待播清單 | {len(playlist.order)-1} 首歌待播中"
-            ), value=queuelist, inline=False)
-        embed.set_thumbnail(url=song.info['thumbnail_url'])
+            embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         return embed
 
@@ -846,19 +840,19 @@ class UI:
     # Queue #
     #########
     # Add to queue
-    async def Embed_AddedToQueue(self, ctx: commands.Context, url: str) -> None:
+    async def Embed_AddedToQueue(self, ctx: commands.Context, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist]) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
-        if len(playlist.order) > 1 or ('youtube.com/playlist?list=' in url):
+        if len(playlist.order) > 1 or (isinstance(trackinfo, wavelink.YouTubePlaylist)):
             index = len(playlist.order) - 1
 
             msg = '''
             **:white_check_mark: | 成功加入隊列**
-                以下{}已加入隊列中，{}
+                {}已加入隊列中，{}
             '''.format(
-                "播放清單" if ('youtube.com/playlist?list=' in url) else "歌曲",
-                "以下為本清單第一首歌\n                *系統已開始處理播放清單\n                將暫時無法提供待播清單*" if ('youtube.com/playlist?list=' in url) else f"為第 **{len(playlist.order)-1}** 首歌"
+                "指定之播放清單" if (isinstance(trackinfo, wavelink.YouTubePlaylist)) else "以下歌曲",
+                "以下為本清單第一首歌" if (isinstance(trackinfo, wavelink.YouTubePlaylist)) else f"為第 **{len(playlist.order)-1}** 首歌"
             )
 
             if not self[ctx.guild.id].search: 
@@ -871,26 +865,15 @@ class UI:
     
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> discord.Embed:
-        embed = discord.Embed(title=":information_source: | 候播清單", description="以下清單為歌曲候播列表{}"
-        .format(
-            "" if len(playlist._playlisttask) > 0 
-            else f"\n共 {len(playlist.order)-1} 首"
-        ), colour=0xF2F3EE)
+        embed = discord.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表\n共 {len(playlist.order)-1} 首", colour=0xF2F3EE)
         
-        if len(playlist._playlisttask) > 0:
-            embed.add_field(
-                name="⌛ | 目前有一個或多個播放清單正在處理",
-                value="無法提供總歌曲數目及確切頁數",
-                inline=False,
-            )
-
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist.order)): break
-            length = _sec_to_hms(playlist[index].info['length'], "symbol")
+            length = _sec_to_hms(playlist[index].length, "symbol")
             embed.add_field(
-                name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].info['title'], "🔴 直播 | " if playlist[index].info['stream'] else "", playlist[index].requester),
-                value="作者: {}{}{}".format(playlist[index].info['author'], " / 歌曲時長: " if not playlist[index].info['stream'] else "", length if not playlist[index].info['stream'] else ""),
+                name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream() else "", playlist[index].requester),
+                value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream() else "", length if not playlist[index].is_stream() else ""),
                 inline=False,
             )
 
@@ -913,7 +896,6 @@ class UI:
 
             QueueEmbed = self._QueueEmbed
             embed_opt = self.__embed_opt__
-            playlist_processing = self.PlaylistProcessing
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
@@ -939,10 +921,6 @@ class UI:
             @property
             def total_pages(self) -> int:
                 total_pages = (len(playlist.order)-1) // 3
-                if (len(playlist.order)-1) % 3 != 0:
-                    total_pages += 1
-                    if self.playlist_processing:
-                        total_pages -= 1
                 return total_pages
 
             def update_button(self):
@@ -960,14 +938,14 @@ class UI:
                     self.right_button.style = self.last_page_button.style = discord.ButtonStyle.blurple
 
             @discord.ui.button(label='⏪', style=discord.ButtonStyle.gray, disabled=True)
-            async def firstpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
+            async def firstpage(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.page = 0
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(label='⬅️', style=discord.ButtonStyle.gray, disabled=True)
-            async def prevpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
+            async def prevpage(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.page -= 1
                 if self.page < 0:
                     self.page = 0
@@ -976,7 +954,7 @@ class UI:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(label='➡️', style=discord.ButtonStyle.blurple)
-            async def nextpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):            
+            async def nextpage(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 self.page += 1
                 if self.page > self.total_pages:
                     self.page = self.total_pages
@@ -985,14 +963,14 @@ class UI:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(label='⏩', style=discord.ButtonStyle.blurple)
-            async def lastpage(self, button: discord.ui.Button, interaction: discord.MessageInteraction):            
+            async def lastpage(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 self.page = self.total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page)
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
-            async def done(self, button: discord.ui.Button, interaction: discord.MessageInteraction):
+            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 embed = self.QueueEmbed(playlist, self.page)
                 self.clear_items()
                 await interaction.response.edit_message(embed=embed, view=view)

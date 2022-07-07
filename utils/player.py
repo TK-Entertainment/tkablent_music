@@ -1,12 +1,12 @@
 from typing import *
-import threading, asyncio, gc, weakref
+import asyncio, os
 
 import discord
-from discord import VoiceClient, VoiceChannel, FFmpegPCMAudio, PCMVolumeTransformer
+from discord import VoiceClient
 from discord.ext import commands
 
-from .playlist import Song, Playlist, LoopState
-from .ytdl import YTDL
+import wavelink
+from .playlist import Playlist
 
 
 INF = int(1e18)
@@ -43,16 +43,26 @@ class Player(commands.Cog):
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
+        self.playnode: wavelink.Node = None
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
+    async def _start_daemon(self, bot, host, port, password):
+        return await wavelink.NodePool.create_node(
+            bot=bot,
+            host=host,
+            port=port,
+            password=password,
+            identifier="PlaybackServer"
+        )
+
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
         if voice_client is None:
-            await channel.connect()
+            await channel.connect(cls=wavelink.Player)
 
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
@@ -60,24 +70,8 @@ class Player(commands.Cog):
             self._stop(guild)
             await voice_client.disconnect()
             
-    async def _search(self, guild: discord.Guild, url, requester: discord.Member):
-        await self._playlist.add_songs(guild.id, url, requester)
-        if self._playlist.is_playlist(url):
-            self._start_playlist_process(guild, url, requester)
-
-    def _start_playlist_process(self, guild: discord.Guild, url, requester: discord.Member):
-        coro = self._playlist.process_playlist(guild.id, url, requester)
-        id = self._playlist.get_playlist_id(url)
-        task = self.bot.loop.create_task(coro)
-            
-        self._playlist[guild.id]._playlisttask[id] = task
-        task.add_done_callback(lambda task , guild_id=guild.id, playlist_id=id: self._end_playlist_process(guild_id, playlist_id))
-
-    def _end_playlist_process(self, guild_id, id):
-        if self._playlist[guild_id]._playlisttask.get(id) is None:
-            return
-        self._playlist[guild_id]._playlisttask[id].cancel()
-        self._playlist[guild_id]._playlisttask.pop(id)
+    async def _search(self, guild: discord.Guild, trackinfo, requester: discord.Member):
+        await self._playlist.add_songs(guild.id, trackinfo, requester)
 
     def _pause(self, guild: discord.Guild):
         voice_client: VoiceClient = guild.voice_client
@@ -101,11 +95,11 @@ class Player(commands.Cog):
         self._skip(guild)
     
     def current_timestamp(self, guild: discord.Guild) -> float:
-        voice_client: discord.VoiceClient = guild.voice_client
+        voice_client: wavelink.Player = guild.voice_client
         return self._playlist[guild.id].current().left_off + voice_client._player.loops / 50
     
     def _seek(self, guild: discord.Guild, timestamp: float):
-        voice_client: discord.VoiceClient = guild.voice_client
+        voice_client: wavelink.Player = guild.voice_client
         if timestamp >= self._playlist[guild.id].current().info['length']:
             voice_client.stop()
             return 'Exceed'
@@ -115,10 +109,10 @@ class Player(commands.Cog):
         voice_client.source = self._playlist[guild.id].current().source
     
     def _volume(self, guild: discord.Guild, volume: float):
-        voice_client: discord.VoiceClient = guild.voice_client
+        voice_client: wavelink.Player = guild.voice_client
         if not voice_client is None:
             self[guild.id].volume_level = volume
-            voice_client.source.volume = volume
+            voice_client.volume = volume
 
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
@@ -190,7 +184,7 @@ class MusicBot(Player, commands.Cog):
         await self.ui.Help(ctx)
     
     async def rejoin(self, ctx: commands.Context):
-        voice_client: discord.VoiceClient = ctx.guild.voice_client
+        voice_client: wavelink.Player = ctx.guild.voice_client
         # Get the bot former playing state
         former = voice_client.channel
         former_state = voice_client.is_paused()
@@ -212,8 +206,8 @@ class MusicBot(Player, commands.Cog):
     
     @commands.command(name='join')
     async def join(self, ctx: commands.Context):
-        voice_client: discord.VoiceClient = ctx.guild.voice_client
-        if isinstance(voice_client, discord.VoiceClient):
+        voice_client: wavelink.Player = ctx.guild.voice_client
+        if isinstance(voice_client, wavelink.Player):
             if voice_client.channel != ctx.author.voice.channel:
                 await self.rejoin(ctx)
             else:
@@ -232,7 +226,7 @@ class MusicBot(Player, commands.Cog):
     
     @commands.command(name='leave', aliases=['quit'])
     async def leave(self, ctx: commands.Context):
-        voice_client: discord.VoiceClient = ctx.guild.voice_client
+        voice_client: wavelink.Player = ctx.guild.voice_client
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and \
                     isinstance(voice_client.channel.instance, discord.StageInstance):
@@ -364,37 +358,48 @@ class MusicBot(Player, commands.Cog):
         except (IndexError, TypeError) as e:
             await self.ui.MoveToFailed(ctx, e)
 
-    async def search(self, ctx: commands.Context, *url):
-        # Get user defined url/keyword
-        url = ' '.join(url)
+    async def process(self, ctx: commands.Context,
+                            trackinfo: Union[
+                                wavelink.SoundCloudTrack,
+                                wavelink.YouTubeTrack,
+                                wavelink.YouTubePlaylist
+                            ]):
+        # Get user defined url/keyword (deprecated)
+        # url = ' '.join(url)
 
         async with ctx.typing():
             # Show searching UI (if user provide exact url, then it
-            # won't send the UI)
-            await self.ui.StartSearch(ctx, url)
+            # won't send the UI) (deprecated)
+            # await self.ui.StartSearch(ctx, trackinfo)
+            
             # Call search function
             try: 
-                await self._search(ctx.guild, url, requester=ctx.message.author)
+                await self._search(ctx.guild, trackinfo, requester=ctx.message.author)
             except Exception as e:
                 # If search failed, sent to handler
-                await self.ui.SearchFailed(ctx, url, e)
+                await self.ui.SearchFailed(ctx, e)
                 return
             # If queue has more than 1 songs, then show the UI
-            await self.ui.Embed_AddedToQueue(ctx, url)
+            await self.ui.Embed_AddedToQueue(ctx, trackinfo)
     
     @commands.command(name='play', aliases=['p', 'P'])
-    async def play(self, ctx: commands.Context, *url):
+    async def play(self, ctx: commands.Context, *, 
+                            trackinfo: Union[
+                                wavelink.YouTubeTrack,
+                                wavelink.SoundCloudTrack,
+                                wavelink.YouTubePlaylist
+                            ]):
         # Try to make bot join author's channel
         voice_client: VoiceClient = ctx.guild.voice_client
-        if not isinstance(voice_client, discord.VoiceClient) or \
+        if not isinstance(voice_client, wavelink.Player) or \
                 voice_client.channel != ctx.author.voice.channel:
             await self.join(ctx)
             voice_client = ctx.guild.voice_client
-            if not isinstance(voice_client, discord.VoiceClient):
+            if not isinstance(voice_client, wavelink.Player):
                 return
 
         # Start search process
-        await self.search(ctx, *url)
+        await self.process(ctx, trackinfo)
 
         # Get bot user value
         bot_itself: discord.Member = await ctx.guild.fetch_member(self.bot.user.id)
@@ -410,14 +415,11 @@ class MusicBot(Player, commands.Cog):
 
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
-            voice_client: VoiceClient = guild.voice_client
+            voice_client: wavelink.Player = guild.voice_client
             song = self._playlist[guild.id].current()
             try:
-                song.set_ffmpeg_options(0)
-
                 try:
-                    voice_client.play(discord.FFmpegPCMAudio(song.url, **song.ffmpeg_options))
-                    print('owo')
+                    await voice_client.play(song)
                     await self.ui.PlayingMsg(self[guild.id].text_channel)
                 except Exception as e:
                     await self.ui.PlayingError(self[guild.id].text_channel, e)
@@ -458,7 +460,7 @@ class MusicBot(Player, commands.Cog):
     @commands.Cog.listener('on_voice_state_update')
     async def _pause_on_being_alone(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         try:
-            voice_client: discord.VoiceClient = member.guild.voice_client
+            voice_client: wavelink.Player = member.guild.voice_client
             if voice_client is None:
                 if not voice_client.is_playing() or not voice_client.is_paused():
                     self._stop(member.guild)

@@ -2,6 +2,7 @@
 
 # .env file contains TOKEN(sensitive)
 .env
+application.yml
 *.dll
 
 # just for testing
@@ -13,6 +14,9 @@ issue_example.md
 # local virtual environment
 tkablent/
 runtime/
+
+# local runtime
+Lavalink.jar
 
 # Below is Python .gitignore list from 
 # https://github.com/github/gitignore/blob/main/Python.gitignore

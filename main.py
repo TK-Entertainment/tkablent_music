@@ -5,6 +5,8 @@ import os, dotenv, sys
 
 import discord
 from discord.ext import commands
+import wavelink
+import atexit
 
 print(f'''
 Current Version
@@ -13,6 +15,9 @@ Current Version
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
+HOST = os.getenv('WAVELINK_HOST')
+PORT = os.getenv('WAVELINK_PORT')
+PASSWORD = os.getenv('WAVELINK_PWD')
 
 presence = discord.Game(name='播放音樂 | $play')
 intents = discord.Intents.all()
@@ -20,10 +25,19 @@ bot = commands.Bot(command_prefix='%', intents=intents, help_command=None, activ
 
 from utils import *
 
+def on_exit():
+    node: wavelink.Node = bot.cogs.get('MusicBot').playnode
+    for player in node.players:
+        player.disconnect()
+    node.disconnect()
+
 @bot.event
 async def on_ready():
     await bot.add_cog(MusicBot(bot))
     await bot.cogs.get('MusicBot').resolve_ui()
+    node = await bot.cogs.get('MusicBot')._start_daemon(bot, HOST, PORT, PASSWORD)
+    bot.cogs.get('MusicBot').playnode = node
+    atexit.register(on_exit)
     print(f'''
         =========================================
         Codename TKablent | Version Alpha
@@ -40,6 +54,14 @@ async def on_ready():
         That means bot is online without any problem.
         若此訊息下方沒有任何錯誤訊息
         即代表此機器人已成功開機
+    ''')
+
+@bot.event
+async def on_wavelink_node_ready(node: wavelink.Node):
+    print(f'''
+        Wavelink 音樂處理伺服器已準備完畢
+
+        伺服器名稱: {node.identifier}
     ''')
 
 try:
