@@ -2,15 +2,13 @@ from typing import *
 import asyncio, os
 
 import discord
-from discord import VoiceClient
 from discord.ext import commands
 
 import wavelink
 from .playlist import Playlist
 
-
 INF = int(1e18)
-bot_version = 'master Branch'
+bot_version = 'lavalink-test Branch'
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -33,6 +31,7 @@ class GuildInfo:
 
     def fetch(self):
         '''fetch from database'''
+        self._volume_level = 100
 
     def update(self):
         '''update database'''
@@ -67,52 +66,43 @@ class Player(commands.Cog):
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
         if voice_client is not None:
-            self._stop(guild)
+            await self._stop(guild)
             await voice_client.disconnect()
             
     async def _search(self, guild: discord.Guild, trackinfo, requester: discord.Member):
         await self._playlist.add_songs(guild.id, trackinfo, requester)
 
-    def _pause(self, guild: discord.Guild):
-        voice_client: VoiceClient = guild.voice_client
+    async def _pause(self, guild: discord.Guild):
+        voice_client: wavelink.Player = guild.voice_client
         if not voice_client.is_paused() and voice_client.is_playing():
-            voice_client.pause()
+            await voice_client.pause()
 
-    def _resume(self, guild: discord.Guild):
-        voice_client: VoiceClient = guild.voice_client
+    async def _resume(self, guild: discord.Guild):
+        voice_client: wavelink.Player = guild.voice_client
         if voice_client.is_paused():
-            self._playlist[guild.id].current().left_off += voice_client._player.loops / 50
-            voice_client.resume()
+            await voice_client.resume()
 
-    def _skip(self, guild: discord.Guild):
-        voice_client: VoiceClient = guild.voice_client
+    async def _skip(self, guild: discord.Guild):
+        voice_client: wavelink.Player = guild.voice_client
         if voice_client.is_playing() or voice_client.is_paused():
-            voice_client.stop()
+            await voice_client.stop()
         self._playlist[guild].times = 0
     
-    def _stop(self, guild: discord.Guild):
+    async def _stop(self, guild: discord.Guild):
         self._playlist[guild.id].clear()
-        self._skip(guild)
+        await self._skip(guild)
     
-    def current_timestamp(self, guild: discord.Guild) -> float:
+    async def _seek(self, guild: discord.Guild, timestamp: float):
         voice_client: wavelink.Player = guild.voice_client
-        return self._playlist[guild.id].current().left_off + voice_client._player.loops / 50
+        if timestamp >= self._playlist[guild.id].current().length:
+            await voice_client.stop()
+        await voice_client.seek(timestamp * 1000)
     
-    def _seek(self, guild: discord.Guild, timestamp: float):
-        voice_client: wavelink.Player = guild.voice_client
-        if timestamp >= self._playlist[guild.id].current().info['length']:
-            voice_client.stop()
-            return 'Exceed'
-        self._playlist[guild.id].current().seek(timestamp)
-        volume_level = self[guild.id].volume_level
-        self._playlist[guild.id].current().set_source(volume_level)
-        voice_client.source = self._playlist[guild.id].current().source
-    
-    def _volume(self, guild: discord.Guild, volume: float):
+    async def _volume(self, guild: discord.Guild, volume: float):
         voice_client: wavelink.Player = guild.voice_client
         if not voice_client is None:
             self[guild.id].volume_level = volume
-            voice_client.volume = volume
+            await voice_client.set_volume(volume, True)
 
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
@@ -172,9 +162,6 @@ class MusicBot(Player, commands.Cog):
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
 
-    def in_playlist_process(self, ctx: commands.Context):
-        return len(self._playlist[ctx.guild.id]._playlisttask) > 0
-
     async def resolve_ui(self):   
         from .ui import UI
         self.ui = UI(self, bot_version)
@@ -186,16 +173,16 @@ class MusicBot(Player, commands.Cog):
     async def rejoin(self, ctx: commands.Context):
         voice_client: wavelink.Player = ctx.guild.voice_client
         # Get the bot former playing state
-        former = voice_client.channel
-        former_state = voice_client.is_paused()
+        former: discord.VoiceChannel = voice_client.channel
+        former_state: bool = voice_client.is_paused()
         # To determine is the music paused before rejoining or not
         if not former_state: 
-            self._pause()
+            await self._pause()
         # Moving itself to author's channel
         await voice_client.move_to(ctx.author.voice.channel)
         # If paused before rejoining, resume the music
         if not former_state: 
-            self._resume()
+            await self._resume()
         # Send a rejoin message
         await self.ui.RejoinNormal(ctx)
         # If the former channel is a discord.StageInstance which is the stage
@@ -239,7 +226,7 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='pause')
     async def pause(self, ctx: commands.Context):
         try:
-            self._pause(ctx.guild)
+            await self._pause(ctx.guild)
             await self.ui.PauseSucceed(ctx, ctx.guild.id)
         except Exception as e:
             await self.ui.PauseFailed(ctx, e)
@@ -247,7 +234,7 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='resume')
     async def resume(self, ctx: commands.Context):
         try:
-            self._resume(ctx.guild)
+            await self._resume(ctx.guild)
             await self.ui.ResumeSucceed(ctx, ctx.guild.id)
         except Exception as e:
             await self.ui.ResumeFailed(ctx, e)
@@ -255,7 +242,7 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='skip')
     async def skip(self, ctx: commands.Context):
         try:
-            self._skip(ctx.guild)
+            await self._skip(ctx.guild)
             self.ui.SkipProceed(ctx.guild.id)
         except Exception as e:
             await self.ui.SkipFailed(ctx, e)
@@ -263,7 +250,7 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='stop')
     async def stop(self, ctx: commands.Context):
         try:
-            self._stop(ctx.guild)
+            await self._stop(ctx.guild)
             await self.ui.StopSucceed(ctx)
         except Exception as e:
             await self.ui.StopFailed(ctx, e)
@@ -276,12 +263,10 @@ class MusicBot(Player, commands.Cog):
                 timestamp = 0
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val
-            self.ui.SeekSucceed(ctx, timestamp)
+            await self._seek(ctx.guild, timestamp)
+            await self.ui.SeekSucceed(ctx, timestamp)
         except ValueError as e:  # For ignoring string with ":" like "o:ro"
             await self.ui.SeekFailed(ctx, e)
-            return
-        if self._seek(ctx.guild, timestamp) != 'Exceed':
-            # await self.ui.SeekSucceed(ctx, timestamp, self)
             return
 
     @commands.command(name='volume')
@@ -289,9 +274,10 @@ class MusicBot(Player, commands.Cog):
         if not isinstance(percent, float) and percent is not None:
             await self.ui.VolumeAdjustFailed(ctx)
             return
+        percent = max(0, min(200, percent))
         await self.ui.VolumeAdjust(ctx, percent)
         if percent is not None:
-            self._volume(ctx.guild, percent / 100)
+            await self._volume(ctx.guild, percent / 100)
 
     @commands.command(name="mute", aliases=['quiet', 'shutup'])
     async def mute(self, ctx: commands.Context):
@@ -304,7 +290,7 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='restart', aliases=['replay'])
     async def restart(self, ctx: commands.Context):
         try:
-            self._seek(0)
+            await self._seek(0)
             await self.ui.ReplaySucceed(ctx)
         except Exception as e:
             await self.ui.ReplayFailed(ctx, e)
@@ -328,9 +314,6 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='remove', aliases=['queuedel'])
     async def remove(self, ctx: commands.Context, idx: Union[int, str]):
         try:
-            if self.in_playlist_process(ctx):
-                await self.ui.PlaylistProcessing(ctx)
-                return
             await self.ui.RemoveSucceed(ctx, idx)
             self._playlist.pop(ctx.guild.id, idx)
         except (IndexError, TypeError) as e:
@@ -339,9 +322,6 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='swap')
     async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
         try:
-            if self.in_playlist_process(ctx):
-                await self.ui.PlaylistProcessing(ctx)
-                return
             self._playlist.swap(ctx.guild.id, idx1, idx2)
             await self.ui.Embed_SwapSucceed(ctx, idx1, idx2)
         except (IndexError, TypeError) as e:
@@ -350,9 +330,6 @@ class MusicBot(Player, commands.Cog):
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
         try:
-            if self.in_playlist_process(ctx):
-                await self.ui.PlaylistProcessing(ctx)
-                return
             self._playlist.move_to(ctx.guild.id, origin, new)
             await self.ui.MoveToSucceed(ctx, origin, new)
         except (IndexError, TypeError) as e:
@@ -360,18 +337,13 @@ class MusicBot(Player, commands.Cog):
 
     async def process(self, ctx: commands.Context,
                             trackinfo: Union[
-                                wavelink.SoundCloudTrack,
                                 wavelink.YouTubeTrack,
+                                wavelink.YouTubeMusicTrack,
+                                wavelink.SoundCloudTrack,
                                 wavelink.YouTubePlaylist
                             ]):
-        # Get user defined url/keyword (deprecated)
-        # url = ' '.join(url)
 
         async with ctx.typing():
-            # Show searching UI (if user provide exact url, then it
-            # won't send the UI) (deprecated)
-            # await self.ui.StartSearch(ctx, trackinfo)
-            
             # Call search function
             try: 
                 await self._search(ctx.guild, trackinfo, requester=ctx.message.author)
@@ -380,17 +352,16 @@ class MusicBot(Player, commands.Cog):
                 await self.ui.SearchFailed(ctx, e)
                 return
             # If queue has more than 1 songs, then show the UI
-            await self.ui.Embed_AddedToQueue(ctx, trackinfo)
+            await self.ui.Embed_AddedToQueue(ctx, trackinfo, requester=ctx.message.author)
     
     @commands.command(name='play', aliases=['p', 'P'])
     async def play(self, ctx: commands.Context, *, 
                             trackinfo: Union[
-                                wavelink.YouTubeTrack,
-                                wavelink.SoundCloudTrack,
+                                wavelink.LocalTrack,
                                 wavelink.YouTubePlaylist
                             ]):
         # Try to make bot join author's channel
-        voice_client: VoiceClient = ctx.guild.voice_client
+        voice_client: wavelink.Player = ctx.guild.voice_client
         if not isinstance(voice_client, wavelink.Player) or \
                 voice_client.channel != ctx.author.voice.channel:
             await self.join(ctx)
@@ -470,3 +441,4 @@ class MusicBot(Player, commands.Cog):
                 self._pause(member.guild)
         except: 
             pass
+

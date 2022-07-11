@@ -15,48 +15,6 @@ class SeekError(Exception): ...
 class OutOfBound(Exception): ...
 
 ytdl = YTDL()
-# db = _database()
-
-# class Song:
-#     info: dict
-#     source: PCMVolumeTransformer[FFmpegPCMAudio]
-
-#     # def __new__(cls, url, *args, **kwargs):
-#     #     song = object.__new__(cls)
-#     #     if ytdl.is_playlist(url):
-#     #         pass
-#     #     song.info = ytdl.get_info(url)
-    
-#     def __init__(self, url, requester: discord.Member):
-#         self.requester: discord.Member = requester
-#         self.left_off: float = 0
-#         self.info = ytdl.get_info(url)
-#         # flag for local server, need to change for multiple server
-#         self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
-#         # self.add_info(url, requester)
-
-#     @property
-#     def url(self) -> Union[str, Exception]:
-#         return ytdl.get_url(self.info['watch_url'])
-
-#     # @property
-#     # def source(self, volume_level):
-#     #     return PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volume_level)
-
-#     def set_source(self, volumelevel):
-#         self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
-        
-#     def set_ffmpeg_options(self, timestamp):
-#         self.left_off = timestamp
-#         self.ffmpeg_options = {
-#             'options': f'-vn -ss {timestamp}',
-#             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10',
-#         }
-    
-#     def seek(self, stamp: float):
-#         if self.info['stream']:
-#             raise SeekError
-#         self.set_ffmpeg_options(stamp)
 
 class LoopState(Enum):
     NOTHING = auto()
@@ -80,9 +38,6 @@ class PlaylistBase:
 
     def clear(self):
         self.order.clear()
-        # for key in self._playlisttask: 
-        #     self._playlisttask[key].cancel()
-        # self._playlisttask.clear()
         self.loop_state = LoopState.NOTHING
         self.times = 0
 

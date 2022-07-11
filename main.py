@@ -21,7 +21,7 @@ PASSWORD = os.getenv('WAVELINK_PWD')
 
 presence = discord.Game(name='播放音樂 | $play')
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix='%', intents=intents, help_command=None, activity=presence, status=discord.Status.online)
+bot = commands.Bot(command_prefix='%', intents=intents, help_command=None, activity=presence, status=discord.Status.dnd)
 
 from utils import *
 
@@ -31,11 +31,16 @@ def on_exit():
         player.disconnect()
     node.disconnect()
 
+@bot.tree.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
+async def reportbug(interaction: discord.Interaction):
+    await bot.cogs.get('MusicBot').ui.Interaction_BugReportingModal(interaction, interaction.guild)
+
 @bot.event
 async def on_ready():
+    await bot.tree.sync()
     await bot.add_cog(MusicBot(bot))
     await bot.cogs.get('MusicBot').resolve_ui()
-    node = await bot.cogs.get('MusicBot')._start_daemon(bot, HOST, PORT, PASSWORD)
+    node: wavelink.Node = await bot.cogs.get('MusicBot')._start_daemon(bot, HOST, PORT, PASSWORD)
     bot.cogs.get('MusicBot').playnode = node
     atexit.register(on_exit)
     print(f'''

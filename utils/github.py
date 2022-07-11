@@ -39,6 +39,7 @@ class GithubIssue:
             "REMOVEFAIL": "機器人嘗試從待播清單中移除音樂時失敗",
             "SWAPFAIL": "機器人嘗試從待播清單中更換兩個音樂順序時失敗",
             "MOVEFAIL": "機器人嘗試從待播清單中移動音樂時失敗",
+            "TESTING": "機器人表單測試"
         }
 
 
@@ -53,11 +54,16 @@ class GithubIssue:
         else:
             version = "Stable / 正式版本"
 
+        if errorcode not in self.errorcode_to_msg.keys():
+            errortext = "其他錯誤代碼/未知錯誤"
+        else:
+            errortext = self.errorcode_to_msg[errorcode]
+
         data = {
             "title": f"機器人錯誤回報表單 from {guild}",
             "body": f'''
 **錯誤代碼**  
-{errorcode} ({self.errorcode_to_msg[errorcode]})  
+{errorcode} ({errortext})  
   
 **錯誤回報時間**  
 {timestamp} (Taipei Standard Time)  

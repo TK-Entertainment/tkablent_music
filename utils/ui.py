@@ -42,7 +42,7 @@ class GuildUIInfo:
         self.skip: bool = False
         self.mute: bool = False
         self.search: bool = False
-        self.searchmsg: discord.Message = None
+        self.lasterrorinfo: dict = {}
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
 
 class UI:
@@ -97,19 +97,11 @@ class UI:
     ############################
     # General Warning Messages #
     ############################
-    async def PlaylistProcessing(self, ctx):
-        await ctx.send(f'''
-            **:hourglass: | 正在處理播放清單**
-            目前正在處理一個或多個播放清單，待播清單管理功能暫時不可用
-            請等待處理完畢後即可正常使用
-            *{self.bot.command_prefix}queue 可查詢目前處理狀態*
-        ''')
-
-    async def _MusicExceptionHandler(self, message, errorcode: str, url=None, exception=None):
+    async def _MusicExceptionHandler(self, message, errorcode: str, trackinfo: wavelink.YouTubeTrack=None, exception=None):
         if 'PLAY' not in errorcode:
             part_content = f'''
             **:no_entry: | 失敗 | {errorcode}**
-            您所指定的音樂 {url}
+            您所指定的音樂 {trackinfo.uri}
             為 **{self.music_errorcode_to_msg[errorcode]}**，機器人無法存取
             請更換其他音樂播放
             --------
@@ -137,18 +129,12 @@ class UI:
 
         done_content = part_content
 
-        timeout_content = f'''
-            {part_content}
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*
-        '''
-
         content = f'''
             {part_content}
-            *若您覺得有Bug或錯誤，請按下方來回報錯誤*
-            *此回報介面將在 1 分鐘後關閉*
+            *若您覺得有Bug或錯誤，請輸入 /reportbug 來回報錯誤*
         '''
 
-        await self._BugReportingMsg(message, content, timeout_content, done_content, errorcode, exception, url)
+        await self._BugReportingMsg(message, content, done_content, errorcode, exception, url)
 
     async def _CommonExceptionHandler(self, message: Union[commands.Context, discord.TextChannel] , errorcode: str, exception=None):
         done_content = f'''
@@ -158,14 +144,6 @@ class UI:
             *請在確認排除以上可能問題後*
             *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
         '''
-        
-        timeout_content = f'''
-            **:no_entry: | 失敗 | {errorcode}**
-            {self.errorcode_to_msg[errorcode][0]}
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
-            *若您覺得有Bug或錯誤，請參照上方代碼回報至 Github*'''
 
         content = f'''
             **:no_entry: | 失敗 | {errorcode}**
@@ -173,24 +151,51 @@ class UI:
             --------
             *請在確認排除以上可能問題後*
             *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
-            *若您覺得有Bug或錯誤，請按下方來回報錯誤*
-            *此回報介面將在 1 分鐘後關閉*'''
+            *若您覺得有Bug或錯誤，請輸入 /reportbug 來回報錯誤*
+            '''
 
-        await self._BugReportingMsg(message, content, timeout_content, done_content, errorcode, exception)
+        await self._BugReportingMsg(message, content, done_content, errorcode, exception)
         
-    async def _BugReportingMsg(self, message, content, timeout_content, done_content, errorcode, exception=None, video_url=None):
-        class BugReportingModal(discord.ui.Modal):
+    async def _BugReportingMsg(self, message, content, done_content, errorcode, exception=None, video_url=None):
+        cdt = datetime.datetime.now()
+        errortime = cdt.strftime("%Y/%m/%d %H:%M:%S")
 
+        if "PLAY" in errorcode:
+            embed = self._SongInfo(guild_id=message.guild.id, color_code='red')
+            msg = await message.send(content, embed=embed)
+        else:
+            msg = await message.send(content)
+
+        self[message.guild.id].lasterrorinfo = {
+            "errortime": errortime,
+            "msg": msg,
+            "done_content": done_content,
+            "errorcode": errorcode,
+            "exception": exception,
+            "video_url": video_url
+        }
+
+    async def Interaction_BugReportingModal(self, interaction: discord.Interaction, guild: discord.Guild):
+
+        class BugReportingModal(discord.ui.Modal):
+            lasterror = self[guild.id].lasterrorinfo
             github = self.github
-            guildinfo: discord.Guild = message.guild
+            guildinfo = guild
             bot = self.bot
-            error_code = errorcode
+
+            if "errorcode" not in lasterror.keys():
+                error_code = ""
+            else:
+                error_code = lasterror["errorcode"]
+
+            if "errortime" not in lasterror.keys():
+                error_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+            else:
+                error_time = lasterror["errortime"]
+
             embed_opt = self.__embed_opt__
 
             def __init__(self):
-                cdt = datetime.datetime.now()
-                modaltime = cdt.strftime("%Y/%m/%d %H:%M:%S")
-
                 self.bot_name = discord.ui.TextInput(
                     custom_id="bot_name",
                     label="機器人名稱 (已自動填入，不需更改)",
@@ -205,14 +210,14 @@ class UI:
 
                 self.error_code_text = discord.ui.TextInput(
                     custom_id="error_code",
-                    label="錯誤代碼 (已自動填入，不需更改)",
+                    label="錯誤代碼 (由上一次錯誤填入，可修改)",
                     default=self.error_code
                 )
 
                 self.modaltime_text = discord.ui.TextInput(
                     custom_id="submit_time",
-                    label="錯誤回報時間 (已自動填入，不需更改)",
-                    default=modaltime
+                    label="錯誤發生時間 (已自動填入，不需更改)",
+                    default=self.error_time
                 )
 
                 self.description = discord.ui.TextInput(
@@ -248,6 +253,13 @@ class UI:
                 return embed
 
             async def on_submit(self, interaction: discord.Interaction):
+                if self.error_code_text.value != self.error_code:
+                    exception = "無可參考之錯誤回報，或錯誤代碼被更改"
+                    video_url = None
+                else:
+                    self.lasterror[""]
+                    exception = self.lasterror["exception"]
+                    video_url = self.lasterror["video_url"]
                 submission = self.github.submit_bug(
                     self.bot_name.value,
                     self.guild.value,
@@ -255,45 +267,15 @@ class UI:
                     self.modaltime_text.value,
                     self.description.value,
                     exception,
-                    video_url
+                    video_url,
                 )
-                view.BugReportingButton.style = discord.ButtonStyle.gray
-                view.BugReportingButton.label = "👏 感謝你的回報"
-                view.BugReportingButton.disabled = True
-                await interaction.response.edit_message(content=done_content, view=view)
-                if not interaction.response.is_done():
-                    await interaction.response.pong()
-                await interaction.message.reply(embed=self.result_embed(submission))
-                view.stop()
+                await interaction.response.send_message(embed=self.result_embed(submission))
 
             async def on_timeout(self):
                 pass
 
-        class BugReportingView(discord.ui.View):
-            def __init__(self, *, timeout=60):
-                super().__init__(timeout=timeout)
-
-            @property
-            def BugReportingButton(self) -> discord.ui.Button:
-                return self.children[0]
-
-            @discord.ui.button(label='🐛 回報錯誤', style=discord.ButtonStyle.blurple)
-            async def reportbug(self, interaction: discord.Interaction, button: discord.ui.Button):
-                modal = BugReportingModal()
-                await interaction.response.send_modal(modal)
-
-            async def on_timeout(self):
-                self.BugReportingButton.style = discord.ButtonStyle.gray
-                self.BugReportingButton.label = "🛑 已超時，請自行至 Github 回報"
-                self.BugReportingButton.disabled = True
-                await msg.edit(content=timeout_content, view=self)
-
-        view = BugReportingView()
-        if "PLAY" in errorcode:
-            embed = self._SongInfo(guild_id=message.guild.id, color_code='red')
-            msg = await message.send(content, embed=embed, view=view)
-        else:
-            msg = await message.send(content, view=view)
+        modal = BugReportingModal()
+        await interaction.response.send_modal(modal)
 
     ########
     # Help #
@@ -469,18 +451,12 @@ class UI:
         instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
         if mode == "done":
             await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
-        elif mode == "pause":
-                await instance.edit(topic='⏸️{} {}{} / {} 點歌'.format(
-                    "|🔴" if playlist[0].info['stream'] else "",
-                    playlist[0].info['title'][:30] if len(playlist[0].info['title']) >= 30 else playlist[0].info['title'],
-                    "..." if len(playlist[0].info['title']) >= 30 else "",
-                    playlist[0].requester))
         else:
-            await instance.edit(topic='▶️{} {}{} / {} 點歌'.format(
-                    "|🔴" if playlist[0].info['stream'] else "",
-                    playlist[0].info['title'][:30] if len(playlist[0].info['title']) >= 30 else playlist[0].info['title'],
-                    "..." if len(playlist[0].info['title']) >= 30 else "",
-                    playlist[0].requester))
+            await instance.edit(topic='{}{} {}{}'.format(
+                "⏸️" if mode == "pause" else "▶️",
+                "|🔴" if playlist[0].is_stream() else "",
+                playlist[0].title[:40] if len(playlist[0].title) >= 40 else playlist[0].title,
+                "..." if len(playlist[0].title) >= 40 else ""))
 
     #########
     # Leave #
@@ -517,7 +493,8 @@ class UI:
 
     #
 
-    async def SearchFailed(self, ctx: commands.Context, url: str, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
+    async def SearchFailed(self, ctx: commands.Context, trackinfo, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
+        print(exception)
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
                 or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
             reason = 'VIDPRIVATE'
@@ -530,7 +507,7 @@ class UI:
         else:
             reason = 'UNAVAILIBLE'
 
-        await self._MusicExceptionHandler(ctx, reason, url, exception)
+        await self._MusicExceptionHandler(ctx, reason, trackinfo, exception)
         
 
     ########
@@ -564,7 +541,7 @@ class UI:
         # Generate Embed Body
         embed = discord.Embed(title=song.title, url=song.uri, colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
-        embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點歌", icon_url=song.requester.display_avatar)
+        embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
         
         if song.is_stream(): 
             embed._author['name'] += " | 🔴 直播"
@@ -588,6 +565,22 @@ class UI:
 
             embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
+        return embed
+
+    def _PlaylistInfo(self, playlist: wavelink.YouTubePlaylist, requester: discord.User):
+        # Generate Embed Body
+        color = discord.Colour.from_rgb(97, 219, 83)
+        embed = discord.Embed(title=playlist.name, colour=color)
+        embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
+
+        pllist: str = ""
+        for i in range(2):
+            pllist += f"{i+1}. {playlist.tracks[i].title}\n"
+        if len(playlist.tracks) > 2:
+            pllist += f"...還有 {len(playlist.tracks)-2} 首歌"
+        
+        embed.add_field(name=f"歌曲清單 | 已新增 {len(playlist.tracks)} 首歌", value=pllist, inline=False)
+
         return embed
 
     async def _UpdateSongInfo(self, guild_id: int):
@@ -661,6 +654,7 @@ class UI:
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
+        self[channel.guild.id].skip = False
         try: 
             await self._UpdateStageTopic(channel.guild.id, 'done')
         except: 
@@ -788,7 +782,7 @@ class UI:
     ########
     # Seek #
     ########
-    def __ProgressBar(self, timestamp: int, duration: int, amount: int=15) -> str:
+    def _ProgressBar(self, timestamp: int, duration: int, amount: int=15) -> str:
         bar = ''
         persent = timestamp / duration
         bar += "**"
@@ -802,8 +796,11 @@ class UI:
     
     async def SeekSucceed(self, ctx: commands.Context, timestamp: int) -> None:
         playlist = self.musicbot._playlist[ctx.guild.id]
-        seektime = _sec_to_hms(self, timestamp, "symbol"); duration = _sec_to_hms(self, playlist[ctx.guild.id].info['length'], "symbol")
-        bar = self.__ProgressBar(timestamp, playlist[ctx.guild.id].info['length'])
+        if timestamp >= playlist[0].length:
+            return
+        seektime = _sec_to_hms(timestamp, "symbol")
+        duration = _sec_to_hms(playlist[0].length, "symbol")
+        bar = self._ProgressBar(timestamp, playlist[0].length)
         await ctx.send(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
@@ -840,29 +837,30 @@ class UI:
     # Queue #
     #########
     # Add to queue
-    async def Embed_AddedToQueue(self, ctx: commands.Context, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist]) -> None:
+    async def Embed_AddedToQueue(self, ctx: commands.Context, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist], requester: Optional[discord.User]) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
         if len(playlist.order) > 1 or (isinstance(trackinfo, wavelink.YouTubePlaylist)):
-            index = len(playlist.order) - 1
+            if isinstance(trackinfo, wavelink.YouTubePlaylist):
+                msg = '''
+                **:white_check_mark: | 成功加入隊列**
+                    以下播放清單已加入隊列中
+                '''
 
-            msg = '''
-            **:white_check_mark: | 成功加入隊列**
-                {}已加入隊列中，{}
-            '''.format(
-                "指定之播放清單" if (isinstance(trackinfo, wavelink.YouTubePlaylist)) else "以下歌曲",
-                "以下為本清單第一首歌" if (isinstance(trackinfo, wavelink.YouTubePlaylist)) else f"為第 **{len(playlist.order)-1}** 首歌"
-            )
+                embed = self._PlaylistInfo(trackinfo, requester)
+            else:
+                index = len(playlist.order) - 1
 
-            if not self[ctx.guild.id].search: 
-                await ctx.send(msg, embed=self._SongInfo(color_code="green", index=index, guild_id=ctx.guild.id))
-            else: 
-                await self[ctx.guild.id].searchmsg.edit(content=msg, embed=self._SongInfo(color_code="green", index=index))
-        else: 
-            if self[ctx.guild.id].search: 
-                await self[ctx.guild.id].searchmsg.delete()
-    
+                msg = f'''
+                **:white_check_mark: | 成功加入隊列**
+                    以下歌曲已加入隊列中，為第 **{len(playlist.order)-1}** 首歌
+                '''
+
+                embed = self._SongInfo(color_code="green", index=index, guild_id=ctx.guild.id)
+
+            await ctx.send(msg, embed=embed)
+
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> discord.Embed:
         embed = discord.Embed(title=":information_source: | 候播清單", description=f"以下清單為歌曲候播列表\n共 {len(playlist.order)-1} 首", colour=0xF2F3EE)
@@ -920,7 +918,7 @@ class UI:
 
             @property
             def total_pages(self) -> int:
-                total_pages = (len(playlist.order)-1) // 3
+                total_pages = (len(playlist.order)-1) // 3  
                 return total_pages
 
             def update_button(self):
