@@ -434,11 +434,11 @@ class MusicBot(Player, commands.Cog):
             voice_client: wavelink.Player = member.guild.voice_client
             if voice_client is None:
                 if not voice_client.is_playing() or not voice_client.is_paused():
-                    self._stop(member.guild)
+                    await self._stop(member.guild)
                     return
             if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
                 await self.ui.PauseOnAllMemberLeave(self[member.guild.id].text_channel, self)
-                self._pause(member.guild)
+                await self._pause(member.guild)
         except: 
             pass
 
