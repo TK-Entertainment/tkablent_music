@@ -3,12 +3,103 @@ import asyncio, os
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 
 import wavelink
 from .playlist import Playlist
 
 INF = int(1e18)
 bot_version = 'lavalink-test Branch'
+
+class Command:
+    def __init__(self, command: Union[commands.Context, discord.Interaction]):
+        self._channel = command.channel
+        self._guild = command.guild
+        
+        if isinstance(command, commands.Context):
+            self._author = command.author
+            self._send = command.send
+            self._message = command.message or None
+            self._reply = command.reply
+            self.command_type = 'Context'
+            self.is_response = None
+            self._pong = None
+        elif isinstance(command, discord.Interaction):
+            self._author = command.user
+            self._send = command.response.send_message
+            self._message = command.message if not command.message is None else None
+            self._reply = command.message.reply if not command.message is None else None
+            self.command_type = 'Interaction'
+            self.is_response = command.response.is_done
+            self._pong = command.response.pong
+    
+    @property
+    def guild(self) -> Optional[discord.Guild]:
+        '''
+        This function returns converted discord.Guild
+        '''
+        return self._guild
+
+    @property
+    def channel(self) -> Union[discord.PartialMessageable, None]:
+        '''
+        This function returns converted 
+        MessageableChannel or InteractionChannel
+        '''
+        return self._channel
+
+    @property
+    def author(self) -> Union[discord.User, discord.Member, None]:
+        '''
+        This function returns converted
+        discord.User or discord.Member
+        from "interaction.message.author"
+        or "ctx.author"
+        '''
+        return self._author
+
+    @property
+    def send(self):
+        '''
+        This function returns converted
+        send function either
+        "interaction.response.send_message" or
+        "ctx.send"
+        '''
+        return self._send
+
+    @property
+    def message(self) -> discord.Message:
+        '''
+        This function returns converted
+        discord.Message or InteractionMessage from
+        "interaction.message()" or
+        "ctx.message"
+        '''
+        return self._message
+
+    @property
+    def reply(self):
+        '''
+        This function returns converted
+        send function either
+        "interaction.message.reply" or
+        "ctx.reply"
+
+        Notice:
+        It must pong back (interaction.response.pong()) 
+        if use with interaction
+        otherwise interaction will failed
+        '''
+        return self._reply
+
+    @property
+    def pong(self):
+        '''
+        This function returns converted function from
+        "interaction.pong"
+        '''
+        return self._pong
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -101,9 +192,14 @@ class Player(commands.Cog):
     async def _volume(self, guild: discord.Guild, volume: float):
         voice_client: wavelink.Player = guild.voice_client
         if not voice_client is None:
-            self[guild.id].volume_level = volume
+            mute = volume == 0
+            if mute:
+                volume = 0.0000000001
+            else:
+                self[guild.id].volume_level = volume
             await voice_client.set_volume(volume, True)
-
+            await self.bot.ws.voice_state(guild.id, voice_client.channel.id, self_mute=mute)
+            
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
         await self._start_mainloop(guild)
@@ -158,20 +254,38 @@ class Player(commands.Cog):
 
 class MusicBot(Player, commands.Cog):
     def __init__(self, bot: commands.Bot):
+        global tree
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
+        tree = bot.tree
 
     async def resolve_ui(self):   
         from .ui import UI
         self.ui = UI(self, bot_version)
-    
+
+    @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
+    async def reportbug(self, interaction: discord.Interaction):
+        await self.ui.Interaction_BugReportingModal(interaction, interaction.guild)
+
+    ##############################################
+
+    async def help(self, command: Union[commands.Context, discord.Interaction]):
+        command: Command = Command(command)
+        await self.ui.Help(command)
+
     @commands.command(name='help')
-    async def help(self, ctx: commands.Context):
-        await self.ui.Help(ctx)
-    
-    async def rejoin(self, ctx: commands.Context):
-        voice_client: wavelink.Player = ctx.guild.voice_client
+    async def _c_help(self, ctx: commands.Context):
+        await self.help(ctx)
+
+    @app_commands.command(name='help', description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
+    async def _i_help(self, interaction: discord.Interaction):
+        await self.help(interaction)
+
+    ##############################################
+
+    async def rejoin(self, command: Command):
+        voice_client: wavelink.Player = command.guild.voice_client
         # Get the bot former playing state
         former: discord.VoiceChannel = voice_client.channel
         former_state: bool = voice_client.is_paused()
@@ -179,163 +293,335 @@ class MusicBot(Player, commands.Cog):
         if not former_state: 
             await self._pause()
         # Moving itself to author's channel
-        await voice_client.move_to(ctx.author.voice.channel)
+        await voice_client.move_to(command.author.voice.channel)
         # If paused before rejoining, resume the music
         if not former_state: 
             await self._resume()
         # Send a rejoin message
-        await self.ui.RejoinNormal(ctx)
+        await self.ui.RejoinNormal(command)
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and \
                 isinstance(former.instance, discord.StageInstance):
             await former.delete()
-    
-    @commands.command(name='join')
-    async def join(self, ctx: commands.Context):
-        voice_client: wavelink.Player = ctx.guild.voice_client
+
+    async def join(self, command):
+        if not isinstance(command, Command):
+            command: Optional[Command] = Command(command)
+
+        voice_client: wavelink.Player = command.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
-            if voice_client.channel != ctx.author.voice.channel:
-                await self.rejoin(ctx)
+            if voice_client.channel != command.author.voice.channel:
+                await self.rejoin(command)
             else:
                 # If bot joined the same channel, send a message to notice user
-                await self.ui.JoinAlready(ctx)
+                await self.ui.JoinAlready(command)
             return
         try:
-            await self._join(ctx.author.voice.channel)
-            if isinstance(ctx.author.voice.channel, discord.StageChannel):
-                await self.ui.JoinStage(ctx, ctx.guild.id)
-                await self.ui.CreateStageInstance(ctx, ctx.guild.id)
+            await self._join(command.author.voice.channel)
+            if isinstance(command.author.voice.channel, discord.StageChannel):
+                await self.ui.JoinStage(command, command.guild.id)
+                await self.ui.CreateStageInstance(command, command.guild.id)
             else:
-                await self.ui.JoinNormal(ctx)
+                await self.ui.JoinNormal(command)
         except Exception as e:
-            await self.ui.JoinFailed(ctx, e)
+            await self.ui.JoinFailed(command, e)
+
+    @commands.command(name='join')
+    async def _c_join(self, ctx: commands.Context):
+        await self.join(ctx)
     
-    @commands.command(name='leave', aliases=['quit'])
-    async def leave(self, ctx: commands.Context):
-        voice_client: wavelink.Player = ctx.guild.voice_client
+    @app_commands.command(name='join', description='📥 | 將我加入目前您所在的頻道')
+    async def _i_join(self, interaction: discord.Interaction):
+        await self.join(interaction)
+
+    ##############################################
+
+    async def leave(self, command):
+        if not isinstance(command, Command):
+            command: Optional[Command] = Command(command)
+
+        voice_client: wavelink.Player = command.guild.voice_client
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and \
                     isinstance(voice_client.channel.instance, discord.StageInstance):
-                await self.ui.EndStage(self, ctx.guild.id)
-            await self._leave(ctx.guild)
-            await self.ui.LeaveSucceed(ctx)
+                await self.ui.EndStage(self, command.guild.id)
+            await self._leave(command.guild)
+            await self.ui.LeaveSucceed(command)
         except Exception as e:
-            await self.ui.LeaveFailed(ctx, e)
-    
+            await self.ui.LeaveFailed(command, e)
+
+    @commands.command(name='leave', aliases=['quit'])
+    async def _c_leave(self, ctx: commands.Context):
+        await self.leave(ctx)
+
+    @app_commands.command(name='leave', description='📤 | 讓我從目前您所在的頻道離開')
+    async def _i_leave(self, interaction: discord.Interaction):
+        await self.leave(interaction)
+
+    ##############################################
+
+    async def pause(self, command):
+        if not isinstance(command, Command):
+            command: Optional[Command] = Command(command)
+        try:
+            await self._pause(command.guild)
+            await self.ui.PauseSucceed(command, command.guild.id)
+        except Exception as e:
+            await self.ui.PauseFailed(command, e)
+
     @commands.command(name='pause')
-    async def pause(self, ctx: commands.Context):
+    async def _c_pause(self, ctx: commands.Context):
+        await self.pause(ctx)
+
+    @app_commands.command(name='pause', description='⏸️ | 暫停目前播放的音樂')
+    async def _i_pause(self, interaction: discord.Interaction):
+        await self.pause(interaction)
+
+    ##############################################
+
+    async def resume(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
-            await self._pause(ctx.guild)
-            await self.ui.PauseSucceed(ctx, ctx.guild.id)
+            await self._resume(command.guild)
+            await self.ui.ResumeSucceed(command, command.guild.id)
         except Exception as e:
-            await self.ui.PauseFailed(ctx, e)
-    
+            await self.ui.ResumeFailed(command, e)
+
     @commands.command(name='resume')
-    async def resume(self, ctx: commands.Context):
+    async def _c_resume(self, ctx: commands.Context):
+        await self.resume(ctx)
+
+    @app_commands.command(name='resume', description='▶️ | 繼續播放目前暫停的歌曲')
+    async def _i_resume(self, interaction: discord.Interaction):
+        await self.resume(interaction)
+
+    ##############################################
+
+    async def skip(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
-            await self._resume(ctx.guild)
-            await self.ui.ResumeSucceed(ctx, ctx.guild.id)
+            await self._skip(command.guild)
+            self.ui.SkipProceed(command.guild.id)
+            if command.is_response() is not None and not command.is_response():
+                await command.send("⠀")
         except Exception as e:
-            await self.ui.ResumeFailed(ctx, e)
+            await self.ui.SkipFailed(command, e)
 
     @commands.command(name='skip')
-    async def skip(self, ctx: commands.Context):
+    async def _c_skip(self, ctx: commands.Context):
+        await self.skip(ctx)
+    
+    @app_commands.command(name='skip', description='⏩ | 跳過目前播放的歌曲')
+    async def _i_skip(self, interaction: discord.Interaction):
+        await self.skip(interaction)
+
+    ##############################################
+
+    async def stop(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
-            await self._skip(ctx.guild)
-            self.ui.SkipProceed(ctx.guild.id)
+            await self._stop(command.guild)
+            await self.ui.StopSucceed(command)
         except Exception as e:
-            await self.ui.SkipFailed(ctx, e)
+            await self.ui.StopFailed(command, e)
 
     @commands.command(name='stop')
-    async def stop(self, ctx: commands.Context):
-        try:
-            await self._stop(ctx.guild)
-            await self.ui.StopSucceed(ctx)
-        except Exception as e:
-            await self.ui.StopFailed(ctx, e)
-    
-    @commands.command(name='seek')
-    async def seek(self, ctx: commands.Context, timestamp: Union[float, str]):
+    async def _c_stop(self, ctx: commands.Context):
+        await self.stop(ctx)
+
+    @app_commands.command(name='stop', description='⏹️ | 停止音樂並清除待播清單')
+    async def _i_stop(self, interaction: discord.Interaction):
+        await self.stop(interaction)
+
+    ##############################################
+
+    async def seek(self, command, timestamp: Union[float, str]):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
             if isinstance(timestamp, str):
                 tmp = map(int, reversed(timestamp.split(":")))
                 timestamp = 0
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val
-            await self._seek(ctx.guild, timestamp)
-            await self.ui.SeekSucceed(ctx, timestamp)
+            await self._seek(command.guild, timestamp)
+            await self.ui.SeekSucceed(command, timestamp)
         except ValueError as e:  # For ignoring string with ":" like "o:ro"
-            await self.ui.SeekFailed(ctx, e)
+            await self.ui.SeekFailed(command, e)
             return
+
+    @commands.command(name='seek')
+    async def _c_seek(self, ctx: commands.Context, timestamp: Union[float, str]):
+        await self.seek(ctx, timestamp)
+
+    @app_commands.command(name='seek', description='⏲️ | 跳轉你想要聽的地方')
+    @app_commands.describe(timestamp='目標時間 (時間戳格式 0:20) 或 (秒數 20)')
+    @app_commands.rename(timestamp='目標時間')
+    async def _i_seek(self, interaction: discord.Interaction, timestamp: str):
+        await self.seek(interaction, timestamp)
+
+    ##############################################
+
+    async def volume(self, command, percent: Union[int, str]=None):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        if not isinstance(percent, int) and percent is not None or command.guild.voice_client is None:
+            await self.ui.VolumeAdjustFailed(command)
+            return 'Failed'
+        percent = max(0, min(200, percent))
+        await self.ui.VolumeAdjust(command, percent)
+        if percent is not None:
+            await self._volume(command.guild, percent)
 
     @commands.command(name='volume')
-    async def volume(self, ctx: commands.Context, percent: Union[float, str]=None):
-        if not isinstance(percent, float) and percent is not None:
-            await self.ui.VolumeAdjustFailed(ctx)
-            return
-        percent = max(0, min(200, percent))
-        await self.ui.VolumeAdjust(ctx, percent)
-        if percent is not None:
-            await self._volume(ctx.guild, percent / 100)
+    async def _c_volume(self, ctx: commands.Context, percent: Union[int, str]=None):
+        await self.volume(ctx, percent)
 
-    @commands.command(name="mute", aliases=['quiet', 'shutup'])
-    async def mute(self, ctx: commands.Context):
-        if self[ctx.guild.id]._volume_level == 0: 
-            await self.volume(ctx, 100.0)
-        else: 
-            await self.volume(ctx, 0.0)
-        await self.ui.MuteorUnMute(ctx, self[ctx.guild.id]._volume_level)
+    @app_commands.command(name='volume', description='🔊 | 太大聲？還是太小聲了？還是想知道目前音量？')
+    @app_commands.describe(percent='音量 (使用百份比單位，不輸入此項來取得目前音量)')
+    @app_commands.rename(percent='音量')
+    async def _i_volume(self, interaction: discord.Interaction, percent: int=None):
+        await self.volume(interaction, percent)
 
-    @commands.command(name='restart', aliases=['replay'])
-    async def restart(self, ctx: commands.Context):
+    ##############################################
+
+    async def restart(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
             await self._seek(0)
-            await self.ui.ReplaySucceed(ctx)
+            await self.ui.ReplaySucceed(command)
         except Exception as e:
-            await self.ui.ReplayFailed(ctx, e)
+            await self.ui.ReplayFailed(command, e)
+
+    @commands.command(name='restart', aliases=['replay'])
+    async def _c_restart(self, ctx: commands.Context):
+        await self.restart(ctx)
+
+    @app_commands.command(name='restart', description='🔁 | 重頭開始播放目前的歌曲')
+    async def _i_restart(self, interaction: discord.Interaction):
+        await self.restart(interaction)
+
+    ##############################################
+
+    async def single_loop(self, command, times: Union[int, str]=INF):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        if not isinstance(times, int):
+            return await self.ui.SingleLoopFailed(command)
+        self._playlist.single_loop(command.guild.id, times)
+        await self.ui.LoopSucceed(command)
 
     @commands.command(name='loop', aliases=['songloop'])
-    async def single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
-        if not isinstance(times, int):
-            return await self.ui.SingleLoopFailed(ctx)
-        self._playlist.single_loop(ctx.guild.id, times)
-        await self.ui.LoopSucceed(ctx)
+    async def _c_single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
+        await self.single_loop(ctx, times)
+
+    @app_commands.command(name='loop', description='🔂 | 循環播放目前的歌曲')
+    @app_commands.describe(times='重複播放次數 (不填寫次數以啟動無限次數循環)')
+    @app_commands.rename(times='重複播放次數')
+    async def _i_single_loop(self, interaction: discord.Interaction, times: int=INF):
+        await self.single_loop(interaction, times)
+
+    ##############################################
+
+    async def playlist_loop(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        self._playlist.playlist_loop(command.guild.id)
+        await self.ui.LoopSucceed(command)
 
     @commands.command(name='playlistloop', aliases=['queueloop', 'qloop', 'all_loop'])
-    async def playlist_loop(self, ctx: commands.Context):
-        self._playlist.playlist_loop(ctx.guild.id)
-        await self.ui.LoopSucceed(ctx)
+    async def _c_playlist_loop(self, ctx: commands.Context):
+        await self.playlist_loop(ctx)
+
+    @app_commands.command(name='queueloop', description='🔁 | 循環播放目前的待播清單')
+    async def _i_playlist_loop(self, interaction: discord.Interaction):
+        await self.playlist_loop(interaction)
+
+    ##############################################
+
+    async def show_queue(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        await self.ui.ShowQueue(command)
 
     @commands.command(name='show_queue', aliases=['queuelist', 'queue', 'show'])
-    async def show_queue(self, ctx: commands.Context):
-        await self.ui.ShowQueue(ctx)
+    async def _c_show_queue(self, ctx: commands.Context):
+        await self.show_queue(ctx)
+
+    @app_commands.command(name='queue', description='ℹ️ | 列出目前的待播清單')
+    async def _i_show_queue(self, interaction: discord.Interaction):
+        await self.show_queue(interaction)
+
+    ##############################################    
+
+    async def remove(self, command, idx: Union[int, str]):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        try:
+            await self.ui.RemoveSucceed(command, idx)
+            self._playlist.pop(command.guild.id, idx)
+        except (IndexError, TypeError) as e:
+            await self.ui.RemoveFailed(command, e)
 
     @commands.command(name='remove', aliases=['queuedel'])
-    async def remove(self, ctx: commands.Context, idx: Union[int, str]):
+    async def _c_remove(self, ctx: commands.Context, idx: Union[int, str]):
+        await self.remove(ctx, idx)
+
+    @app_commands.command(name='remove', description='🗑️ | 刪除待播清單中的一首歌')
+    @app_commands.describe(idx='欲刪除歌曲之位置 (可用 %queue 或 /queue 得知位置代號)')
+    @app_commands.rename(idx='刪除歌曲位置')
+    async def _i_remove(self, interaction: discord.Interaction, idx: int):
+        await self.remove(interaction, idx)
+
+   ##############################################
+
+    async def swap(self, command, idx1: Union[int, str], idx2: Union[int, str]):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
-            await self.ui.RemoveSucceed(ctx, idx)
-            self._playlist.pop(ctx.guild.id, idx)
+            self._playlist.swap(command.guild.id, idx1, idx2)
+            await self.ui.Embed_SwapSucceed(command, idx1, idx2)
         except (IndexError, TypeError) as e:
-            await self.ui.RemoveFailed(ctx, e)
-    
+            await self.ui.SwapFailed(command, e)
+
     @commands.command(name='swap')
-    async def swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
+    async def _c_swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
+        await self.swap(ctx, idx1, idx2)
+
+    @app_commands.command(name='swap', description='🔄 | 交換待播清單中兩首歌的位置')
+    @app_commands.describe(idx1='歌曲1 位置 (可用 %queue 或 /queue 得知位置代號)', idx2='歌曲2 位置 (可用 %queue 或 /queue 得知位置代號)')
+    @app_commands.rename(idx1='歌曲1位置', idx2='歌曲2位置')
+    async def _i_swap(self, interaction: discord.Interaction, idx1: int, idx2: int):
+        await self.swap(interaction, idx1, idx2)
+    ##############################################
+
+    async def move_to(self, command, origin: Union[int, str], new: Union[int, str]):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         try:
-            self._playlist.swap(ctx.guild.id, idx1, idx2)
-            await self.ui.Embed_SwapSucceed(ctx, idx1, idx2)
+            self._playlist.move_to(command.guild.id, origin, new)
+            await self.ui.MoveToSucceed(command, origin, new)
         except (IndexError, TypeError) as e:
-            await self.ui.SwapFailed(ctx, e)
+            await self.ui.MoveToFailed(command, e)
 
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
-    async def move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
-        try:
-            self._playlist.move_to(ctx.guild.id, origin, new)
-            await self.ui.MoveToSucceed(ctx, origin, new)
-        except (IndexError, TypeError) as e:
-            await self.ui.MoveToFailed(ctx, e)
+    async def _c_move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
+        await self.move_to(ctx, origin, new)
 
-    async def process(self, ctx: commands.Context,
+    @app_commands.command(name='move', description='🔄 | 移動待播清單中一首歌的位置')
+    @app_commands.describe(origin='原位置 (可用 %queue 或 /queue 得知位置代號)', new='目標位置 (可用 %queue 或 /queue 得知位置代號)')
+    @app_commands.rename(origin='原位置', new='目標位置')
+    async def _i_move_to(self, interaction: discord.Interaction, origin: int, new: int):
+        await self.move_to(interaction, origin, new)
+
+    ##############################################
+
+    async def process(self, command: Command,
                             trackinfo: Union[
                                 wavelink.YouTubeTrack,
                                 wavelink.YouTubeMusicTrack,
@@ -343,46 +629,90 @@ class MusicBot(Player, commands.Cog):
                                 wavelink.YouTubePlaylist
                             ]):
 
-        async with ctx.typing():
-            # Call search function
-            try: 
-                await self._search(ctx.guild, trackinfo, requester=ctx.message.author)
-            except Exception as e:
-                # If search failed, sent to handler
-                await self.ui.SearchFailed(ctx, e)
-                return
-            # If queue has more than 1 songs, then show the UI
-            await self.ui.Embed_AddedToQueue(ctx, trackinfo, requester=ctx.message.author)
+        # Call search function
+        if command.command_type == 'Context':
+            await command.channel.typing()
+        try: 
+            await self._search(command.guild, trackinfo, requester=command.author)
+        except Exception as e:
+            # If search failed, sent to handler
+            await self.ui.SearchFailed(command, e)
+            return
+        # If queue has more than 1 songs, then show the UI
+        await self.ui.Embed_AddedToQueue(command, trackinfo, requester=command.author)
     
-    @commands.command(name='play', aliases=['p', 'P'])
-    async def play(self, ctx: commands.Context, *, 
-                            trackinfo: Union[
-                                wavelink.LocalTrack,
+    async def play(self, command, trackinfo: Union[
+                                wavelink.YouTubeTrack,
+                                wavelink.YouTubeMusicTrack,
+                                wavelink.SoundCloudTrack,
                                 wavelink.YouTubePlaylist
                             ]):
+        command: Command = Command(command)
         # Try to make bot join author's channel
-        voice_client: wavelink.Player = ctx.guild.voice_client
+        voice_client: wavelink.Player = command.guild.voice_client
         if not isinstance(voice_client, wavelink.Player) or \
-                voice_client.channel != ctx.author.voice.channel:
-            await self.join(ctx)
-            voice_client = ctx.guild.voice_client
+                voice_client.channel != command.author.voice.channel:
+            await self.join(command)
+            voice_client = command.guild.voice_client
             if not isinstance(voice_client, wavelink.Player):
                 return
 
         # Start search process
-        await self.process(ctx, trackinfo)
+        await self.process(command, trackinfo)
 
         # Get bot user value
-        bot_itself: discord.Member = await ctx.guild.fetch_member(self.bot.user.id)
-        if self.ui.auto_stage_available(ctx.guild.id) and \
-                isinstance(ctx.author.voice.channel, discord.StageChannel) and \
+        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
+        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
+        if auto_stage_vaildation and \
+                isinstance(command.author.voice.channel, discord.StageChannel) and \
                 bot_itself.voice.suppress:
             try: 
                 await bot_itself.edit(suppress=False)
             except: 
-                pass
+                auto_stage_vaildation = False
 
-        await self._play(ctx.guild, ctx.channel)
+        await self._play(command.guild, command.channel)
+        if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():
+            await command.send("⠀")
+
+    @commands.command(name='play', aliases=['p', 'P'])
+    async def _c_play(self, ctx: commands.Context, *, 
+                            trackinfo: Union[
+                                wavelink.LocalTrack, # For url extract
+                                # Below are for searching or getting playlist
+                                wavelink.YouTubeTrack,
+                                wavelink.YouTubeMusicTrack,
+                                wavelink.SoundCloudTrack,
+                                wavelink.YouTubePlaylist
+                            ]):
+        await self.play(ctx, trackinfo)
+
+    @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
+    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 Youtube / SoundCloud)')
+    @app_commands.rename(search='影片網址或關鍵字')
+    async def _i_play(self, interaction: discord.Interaction, search: str):
+        for trackmethod in [
+                                wavelink.LocalTrack,
+                                wavelink.YouTubeTrack,
+                                wavelink.YouTubeMusicTrack,
+                                wavelink.SoundCloudTrack,
+                                wavelink.YouTubePlaylist
+                            ]:
+            try:
+                # SearchableTrack.convert(ctx, query)
+                # ctx here actually useless
+                trackinfo = await trackmethod.convert(interaction, search)
+            except commands.BadArgument:
+                # When there is no result for provided method
+                # Then change to next method to search
+                trackinfo = None
+                pass
+            if trackinfo is not None:
+                break
+        
+        await self.play(interaction, trackinfo)
+
+    ##############################################
 
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
@@ -441,4 +771,3 @@ class MusicBot(Player, commands.Cog):
                 await self._pause(member.guild)
         except: 
             pass
-

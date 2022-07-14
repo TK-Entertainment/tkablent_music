@@ -31,14 +31,10 @@ def on_exit():
         player.disconnect()
     node.disconnect()
 
-@bot.tree.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
-async def reportbug(interaction: discord.Interaction):
-    await bot.cogs.get('MusicBot').ui.Interaction_BugReportingModal(interaction, interaction.guild)
-
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
     await bot.add_cog(MusicBot(bot))
+    await bot.tree.sync()
     await bot.cogs.get('MusicBot').resolve_ui()
     node: wavelink.Node = await bot.cogs.get('MusicBot')._start_daemon(bot, HOST, PORT, PASSWORD)
     bot.cogs.get('MusicBot').playnode = node

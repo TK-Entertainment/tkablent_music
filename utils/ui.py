@@ -4,6 +4,8 @@ from discord.ext import commands
 import datetime
 import copy
 
+from .player import Command
+
 from pytube import exceptions as PytubeExceptions
 from yt_dlp import utils as YTDLPExceptions
 import wavelink
@@ -69,7 +71,7 @@ class UI:
             "RESUMEFAIL": ["無法續播音樂，請確認目前有處於暫停狀態的歌曲，或是候播清單是否為空", "resume", "來續播音樂"],
             "SKIPFAIL": ["無法跳過歌曲，請確認目前候播清單是否為空", "skip", "來跳過音樂"],
             "STOPFAIL": ["無法停止播放歌曲，請確認目前是否有歌曲播放，或候播清單是否為空", "stop", "來停止播放音樂"],
-            "VOLUMEADJUSTFAIL": ["無法調整音量，請確認您輸入的音量百分比是否有效\n            請以百分比格式(ex. 100%)執行指令", "volume", "來調整音量"],
+            "VOLUMEADJUSTFAIL": ["無法調整音量，請確認目前機器人有在語音頻道中\n            或是您輸入的音量百分比是否有效\n            請以百分比格式(ex. 100%)執行指令", "volume", "來調整音量"],
             "SEEKFAIL": ["無法跳轉歌曲，請確認您輸入的跳轉時間有效\n            或目前是否有歌曲播放，亦或候播清單是否為空\n            請以秒數格式(ex. 70)或時間戳格式(ex. 01:10)執行指令", "seek", "來跳轉音樂"],
             "REPLAYFAIL": ["無法重播歌曲，請確認目前是否有歌曲播放", "replay", "來重播歌曲"],
             "LOOPFAIL_SIG": ["無法啟動重複播放功能，請確認您輸入的重複次數有效", f"loop / {self.bot.command_prefix}loop [次數]", "來控制重複播放功能"],
@@ -92,7 +94,6 @@ class UI:
 
     def auto_stage_available(self, guild_id: int):
         return self[guild_id].auto_stage_available
-
 
     ############################
     # General Warning Messages #
@@ -136,7 +137,7 @@ class UI:
 
         await self._BugReportingMsg(message, content, done_content, errorcode, exception, url)
 
-    async def _CommonExceptionHandler(self, message: Union[commands.Context, discord.TextChannel] , errorcode: str, exception=None):
+    async def _CommonExceptionHandler(self, message: Command , errorcode: str, exception=None):
         done_content = f'''
             **:no_entry: | 失敗 | {errorcode}**
             {self.errorcode_to_msg[errorcode][0]}
@@ -156,7 +157,7 @@ class UI:
 
         await self._BugReportingMsg(message, content, done_content, errorcode, exception)
         
-    async def _BugReportingMsg(self, message, content, done_content, errorcode, exception=None, video_url=None):
+    async def _BugReportingMsg(self, message: Union[Command, discord.TextChannel], content, done_content, errorcode, exception=None, video_url=None):
         cdt = datetime.datetime.now()
         errortime = cdt.strftime("%Y/%m/%d %H:%M:%S")
 
@@ -257,7 +258,6 @@ class UI:
                     exception = "無可參考之錯誤回報，或錯誤代碼被更改"
                     video_url = None
                 else:
-                    self.lasterror[""]
                     exception = self.lasterror["exception"]
                     video_url = self.lasterror["video_url"]
                 submission = self.github.submit_bug(
@@ -292,23 +292,23 @@ class UI:
         {self.bot.command_prefix}pause | 暫停歌曲播放
         {self.bot.command_prefix}resume | 續播歌曲
         {self.bot.command_prefix}skip | 跳過目前歌曲
-        {self.bot.command_prefix}stop | 停止歌曲並清除所有隊列
+        {self.bot.command_prefix}stop | 停止歌曲並清除所有待播清單中的歌曲
         {self.bot.command_prefix}mute | 切換靜音狀態
         {self.bot.command_prefix}volume [音量] | 顯示機器人目前音量/更改音量(加上指定 [音量])
         {self.bot.command_prefix}seek [秒/時間戳] | 快轉至指定時間 (時間戳格式 ex.00:04)
         {self.bot.command_prefix}restart | 重新播放目前歌曲
         {self.bot.command_prefix}loop | 切換單曲循環開關
-        {self.bot.command_prefix}wholeloop | 切換全隊列循環開關
+        {self.bot.command_prefix}wholeloop | 切換全待播清單循環開關
         ''', colour=0xF2F3EE)
     def _HelpEmbedQueue(self) -> discord.Embed:
-        return discord.Embed(title=":regional_indicator_q: | 指令說明 | 隊列相關指令", description=f'''
+        return discord.Embed(title=":regional_indicator_q: | 指令說明 | 待播清單相關指令", description=f'''
         {self.bot.command_prefix}queue | 顯示待播歌曲列表
         {self.bot.command_prefix}remove [順位數] | 移除指定待播歌曲
         {self.bot.command_prefix}swap [順位數1] [順位數2] | 交換指定待播歌曲順序
         {self.bot.command_prefix}move [原順位數] [目標順位數] | 移動指定待播歌曲至指定順序
         ''', colour=0xF2F3EE)
-    
-    async def Help(self, ctx: commands.Context) -> None:
+
+    async def Help(self, command: Union[commands.Context, discord.Interaction]) -> None:
 
         class Help(discord.ui.View):
 
@@ -342,7 +342,7 @@ class UI:
                 embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='隊列相關', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(label='待播清單相關', style=discord.ButtonStyle.blurple)
             async def queue(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.toggle(button)
                 embed = self.HelpEmbedQueue()
@@ -365,30 +365,30 @@ class UI:
         embed = self._HelpEmbedBasic()
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.__embed_opt__))
         view = Help()
-        msg = await ctx.send(embed=embed, view=view)
+        msg = await command.send(embed=embed, view=view)
         
     ########
     # Join #
     ########
-    async def RejoinNormal(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-        **:inbox_tray: | 已更換語音頻道**
-        已更換至 {ctx.author.voice.channel.name} 語音頻道
+    async def RejoinNormal(self, command: Command) -> None:
+        await command.send(f'''
+            **:inbox_tray: | 已更換語音頻道**
+            已更換至 {command.author.voice.channel.name} 語音頻道
             ''')
     
-    async def JoinNormal(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
+    async def JoinNormal(self, command: Command) -> None:
+        await command.send(f'''
             **:inbox_tray: | 已加入語音頻道**
-            已成功加入 {ctx.author.voice.channel.name} 語音頻道
+            已成功加入 {command.author.voice.channel.name} 語音頻道
                 ''')
     
-    async def JoinStage(self, ctx: commands.Context, guild_id: int) -> None:
-        botitself: discord.Member = await ctx.guild.fetch_member(self.bot.user.id)
-        if botitself not in ctx.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
+    async def JoinStage(self, command: Command, guild_id: int) -> None:
+        botitself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
+        if botitself not in command.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
-                await ctx.send(f'''
+                await command.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
+            已成功加入 {command.author.voice.channel.name} 舞台頻道
             -----------
             *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
             *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
@@ -399,21 +399,21 @@ class UI:
                 return
             else:
                 self[guild_id].auto_stage_available = True
-                await ctx.send(f'''
+                await command.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
+            已成功加入 {command.author.voice.channel.name} 舞台頻道
                 ''')
                 return
         else:
-            await ctx.send(f'''
+            await command.send(f'''
             **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {ctx.author.voice.channel.name} 舞台頻道
+            已成功加入 {command.author.voice.channel.name} 舞台頻道
                 ''')
             self[guild_id].auto_stage_available = True
             return
     
-    async def JoinAlready(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
+    async def JoinAlready(self, command: Command) -> None:
+        await command.send(f'''
             **:hushed: | 我已經加入頻道囉**
             不需要再把我加入同一個頻道囉
             *若要更換頻道
@@ -422,17 +422,17 @@ class UI:
                 ''')
         return
     
-    async def JoinFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "JOINFAIL", exception)
+    async def JoinFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "JOINFAIL", exception)
         return
     
     #########
     # Stage #
     #########
-    async def CreateStageInstance(self, ctx: commands.Context, guild_id: int) -> None:
-        if isinstance(ctx.author.voice.channel.instance, discord.StageInstance) or self[guild_id].auto_stage_available == False:
+    async def CreateStageInstance(self, command: Command, guild_id: int) -> None:
+        if isinstance(command.author.voice.channel.instance, discord.StageInstance) or self[guild_id].auto_stage_available == False:
             return
-        channel: discord.StageChannel = ctx.author.voice.channel
+        channel: discord.StageChannel = command.author.voice.channel
         await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
     
     async def EndStage(self, guild_id: int) -> None:
@@ -461,8 +461,8 @@ class UI:
     #########
     # Leave #
     #########
-    async def LeaveSucceed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
+    async def LeaveSucceed(self, command: Command) -> None:
+        await command.send(f'''
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
@@ -474,26 +474,13 @@ class UI:
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
     
-    async def LeaveFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "LEAVEFAIL", exception)
+    async def LeaveFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "LEAVEFAIL", exception)
     
     ##########
     # Search #
     ##########
-    # This block had been deprecated after replacing pytube with wavelink
-
-    # async def StartSearch(self, ctx: commands.Context, url: str) -> discord.Message:
-    #     if ("http" not in url) and ("www" not in url):
-    #         self[ctx.guild.id].searchmsg =  await ctx.send(f'''
-    #         **:mag_right: | 開始搜尋 | {url}**
-    #         請稍候... 機器人已開始搜尋歌曲，若搜尋成功即會顯示歌曲資訊並開始自動播放
-    #         ''')
-    #         self[ctx.guild.id].search = True
-    #     else: self[ctx.guild.id].search = False
-
-    #
-
-    async def SearchFailed(self, ctx: commands.Context, trackinfo, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
+    async def SearchFailed(self, command: Command, trackinfo, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
         print(exception)
         if isinstance(exception, PytubeExceptions.VideoPrivate) \
                 or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
@@ -507,7 +494,7 @@ class UI:
         else:
             reason = 'UNAVAILIBLE'
 
-        await self._MusicExceptionHandler(ctx, reason, trackinfo, exception)
+        await self._MusicExceptionHandler(command, reason, trackinfo, exception)
         
 
     ########
@@ -662,8 +649,8 @@ class UI:
     #########
     # Pause #
     ######### 
-    async def PauseSucceed(self, ctx: commands.Context, guild_id: int) -> None:
-        await ctx.send(f'''
+    async def PauseSucceed(self, command: Command, guild_id: int) -> None:
+        await command.send(f'''
             **:pause_button: | 暫停歌曲**
             歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
@@ -684,14 +671,14 @@ class UI:
         except: 
             pass
     
-    async def PauseFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "PAUSEFAIL", exception)
+    async def PauseFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "PAUSEFAIL", exception)
     
     ##########
     # Resume #
     ##########
-    async def ResumeSucceed(self, ctx: commands.Context, guild_id: int) -> None:
-        await ctx.send(f'''
+    async def ResumeSucceed(self, command: Command, guild_id: int) -> None:
+        await command.send(f'''
             **:arrow_forward: | 續播歌曲**
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
@@ -701,8 +688,8 @@ class UI:
         except: 
             pass
     
-    async def ResumeFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "RESUMEFAIL", exception)
+    async def ResumeFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "RESUMEFAIL", exception)
     
     ########
     # Skip #
@@ -710,74 +697,78 @@ class UI:
     def SkipProceed(self, guild_id: int):
         self[guild_id].skip = True
 
-    async def SkipFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "SKIPFAIL", exception)
+    async def SkipFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "SKIPFAIL", exception)
     
     ########
     # Stop #
     ########
-    async def StopSucceed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
+    async def StopSucceed(self, command: Command) -> None:
+        await command.send(f'''
             **:stop_button: | 停止播放**
             歌曲已停止播放
             *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
             ''')
     
-    async def StopFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "STOPFAIL", exception)
+    async def StopFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "STOPFAIL", exception)
     
     ##########
     # Volume #
     ##########
-    async def VolumeAdjust(self, ctx: commands.Context, percent: Union[float, str]):
+    async def VolumeAdjust(self, command: Command, percent: Union[float, str]):
+        if percent == 0:
+            return
         # If percent = None, show current volume
         if percent == None: 
-            await ctx.send(f'''
+            await command.send(f'''
             **:loud_sound: | 音量調整**
-            目前音量為 {self.musicbot[ctx.guild.id].volume_level*100}%
+            目前音量為 {self.musicbot[command.guild.id].volume_level}%
         ''')
 
         # Volume unchanged
-        if (percent / 100) == self.musicbot[ctx.guild.id].volume_level:
-            await ctx.send(f'''
+        if (percent) == self.musicbot[command.guild.id].volume_level:
+            await command.send(f'''
             **:loud_sound: | 音量調整**
             音量沒有變更，仍為 {percent}%
         ''')
 
         # Volume up
-        elif (percent / 100) > self.musicbot[ctx.guild.id].volume_level:
-            await ctx.send(f'''
+        elif (percent) > self.musicbot[command.guild.id].volume_level:
+            await command.send(f'''
             **:loud_sound: | 調高音量**
             音量已設定為 {percent}%
         ''')
-            self[ctx.guild.id].mute = False
+            self[command.guild.id].mute = False
         # Volume down
-        elif (percent / 100) < self.musicbot[ctx.guild.id].volume_level:
-            await ctx.send(f'''
+        elif (percent) < self.musicbot[command.guild.id].volume_level:
+            await command.send(f'''
             **:sound: | 降低音量**
             音量已設定為 {percent}%
         ''')
-            self[ctx.guild.id].mute = False
-        await self._UpdateSongInfo(ctx.guild.id)
+            self[command.guild.id].mute = False
+
+        if self[command.guild.id].playinfo is not None:
+            await self._UpdateSongInfo(command.guild.id)
     
-    async def MuteorUnMute(self, ctx: commands.Context, percent: Union[float, str]) -> bool:
-        mute = self[ctx.guild.id].mute
-        if mute and percent == 100:
-            await ctx.send(f'''
+    async def Mute(self, command: Command, percent: Union[float, str]) -> bool:
+        mute = self[command.guild.id].mute
+        if mute and percent != 0:
+            await command.send(f'''
             **:speaker: | 解除靜音**
-            音量已設定為 100%，目前已解除靜音模式
+            音量已設定為 {percent}%，目前已解除靜音模式
         ''')
-            self[ctx.guild.id].mute = False
         elif percent == 0: 
-            await ctx.send(f'''
+            await command.send(f'''
             **:mute: | 靜音**
             音量已設定為 0%，目前處於靜音模式
         ''')
-            self[ctx.guild.id].mute = True
-        await self._UpdateSongInfo(ctx.guild.id, mute)
+        if self[command.guild.id].playinfo is not None:
+            await self._UpdateSongInfo(command.guild.id)
+        self[command.guild.id].mute = percent == 0
 
-    async def VolumeAdjustFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "VOLUMEADJUSTFAIL")
+    async def VolumeAdjustFailed(self, command: Command) -> None:
+        await self._CommonExceptionHandler(command, "VOLUMEADJUSTFAIL")
         
     ########
     # Seek #
@@ -794,58 +785,83 @@ class UI:
         bar += "**"
         return bar
     
-    async def SeekSucceed(self, ctx: commands.Context, timestamp: int) -> None:
-        playlist = self.musicbot._playlist[ctx.guild.id]
+    async def SeekSucceed(self, command: Command, timestamp: int) -> None:
+        playlist = self.musicbot._playlist[command.guild.id]
         if timestamp >= playlist[0].length:
             return
         seektime = _sec_to_hms(timestamp, "symbol")
         duration = _sec_to_hms(playlist[0].length, "symbol")
         bar = self._ProgressBar(timestamp, playlist[0].length)
-        await ctx.send(f'''
+        await command.send(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
             **{seektime}** {bar} **{duration}**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
         ''')
     
-    async def SeekFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "SEEKFAIL", exception)
+    async def SeekFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "SEEKFAIL", exception)
     
     ##########
     # Replay #
     ##########
-    async def ReplaySucceed(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
+    async def ReplaySucceed(self, command: Command) -> None:
+        await command.send(f'''
             **:repeat: | 重播歌曲**
             歌曲已重新開始播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
     
-    async def ReplayFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "REPLAYFAIL", exception)
+    async def ReplayFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "REPLAYFAIL", exception)
     
     ########
     # Loop #
     ########
-    async def LoopSucceed(self, ctx: commands.Context) -> None:
-        await self._UpdateSongInfo(ctx.guild.id)
-    
-    async def SingleLoopFailed(self, ctx: commands.Context) -> None:
-        await self._CommonExceptionHandler(ctx, "LOOPFAIL_SIG")
+    async def LoopSucceed(self, command: Command) -> None:
+        if command.command_type == 'Interaction' or self[command.guild.id].playinfo is None:
+            loopstate = self.musicbot._playlist[command.guild.id].loop_state
+            looptimes = self.musicbot._playlist[command.guild.id].times
+            if loopstate == LoopState.SINGLEINF:
+                msg = '''
+            **:repeat_one: | 循環播放**
+            已啟動單曲循環播放
+            '''
+            elif loopstate == LoopState.SINGLE:
+                msg = f'''
+            **:repeat_one: | 循環播放**
+            已啟動單曲循環播放，將會循環 {looptimes} 次
+            '''
+            elif loopstate == LoopState.PLAYLIST:
+                msg = '''
+            **:repeat: | 循環播放**
+            已啟動待播清單循環播放
+            '''
+            else:
+                msg = '''
+            **:repeat: | 循環播放**
+            已關閉循環播放功能
+            '''
+            await command.send(msg)
+        if self[command.guild.id].playinfo is not None:
+            await self._UpdateSongInfo(command.guild.id)
+
+    async def SingleLoopFailed(self, command: Command) -> None:
+        await self._CommonExceptionHandler(command, "LOOPFAIL_SIG")
     
     #########
     # Queue #
     #########
     # Add to queue
-    async def Embed_AddedToQueue(self, ctx: commands.Context, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist], requester: Optional[discord.User]) -> None:
+    async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist], requester: Optional[discord.User]) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
-        playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
+        playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
         if len(playlist.order) > 1 or (isinstance(trackinfo, wavelink.YouTubePlaylist)):
             if isinstance(trackinfo, wavelink.YouTubePlaylist):
                 msg = '''
-                **:white_check_mark: | 成功加入隊列**
-                    以下播放清單已加入隊列中
+                **:white_check_mark: | 成功加入待播清單**
+                以下播放清單已加入待播清單中
                 '''
 
                 embed = self._PlaylistInfo(trackinfo, requester)
@@ -853,13 +869,13 @@ class UI:
                 index = len(playlist.order) - 1
 
                 msg = f'''
-                **:white_check_mark: | 成功加入隊列**
-                    以下歌曲已加入隊列中，為第 **{len(playlist.order)-1}** 首歌
+                **:white_check_mark: | 成功加入待播清單**
+                以下歌曲已加入待播清單中，為第 **{len(playlist.order)-1}** 首歌
                 '''
 
-                embed = self._SongInfo(color_code="green", index=index, guild_id=ctx.guild.id)
+                embed = self._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
-            await ctx.send(msg, embed=embed)
+            await command.send(msg, embed=embed)
 
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> discord.Embed:
@@ -887,8 +903,8 @@ class UI:
         return embed
     
     # Queue Listing
-    async def ShowQueue(self, ctx: commands.Context) -> None:
-        playlist: PlaylistBase = self.musicbot._playlist[ctx.guild.id]
+    async def ShowQueue(self, command: Command) -> None:
+        playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
 
         class QueueListing(discord.ui.View):
 
@@ -969,20 +985,15 @@ class UI:
 
             @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-                embed = self.QueueEmbed(playlist, self.page)
-                self.clear_items()
-                await interaction.response.edit_message(embed=embed, view=view)
-                original_message = await interaction.original_message()
-                await original_message.add_reaction('✅')
+                await interaction.message.delete()
+                await interaction.response.pong()
                 self.stop()
 
             async def on_timeout(self):
-                self.clear_items()
-                await msg.edit(view=view)
-                await msg.add_reaction('🛑')
+                await msg.delete()
             
         if (len(playlist.order) < 2):
-            await ctx.send(f'''
+            await command.send(f'''
             **:information_source: | 待播歌曲**
             目前沒有任何歌曲待播中
             *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*
@@ -992,23 +1003,23 @@ class UI:
             embed = self._QueueEmbed(playlist, 0)
             if not (len(playlist.order)) <= 4:
                 view = QueueListing()
-                msg = await ctx.send(embed=embed, view=view)
+                msg = await command.send(embed=embed, view=view)
             else:
-                await ctx.send(embed=embed)
+                await command.send(embed=embed)
     
     # Remove an entity from queue
-    async def RemoveSucceed(self, ctx: commands.Context, idx: int) -> None:
-        await ctx.send(f'''
+    async def RemoveSucceed(self, command: Command, idx: int) -> None:
+        await command.send(f'''
             **:wastebasket: | 已刪除指定歌曲**
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
-            ''', embed=self._SongInfo(ctx.guild.id, 'red', idx))
+            ''', embed=self._SongInfo(command.guild.id, 'red', idx))
     
-    async def RemoveFailed(self, ctx: commands.Context, exception):
-        await self._CommonExceptionHandler(ctx, "REMOVEFAIL", exception)
+    async def RemoveFailed(self, command: Command, exception):
+        await self._CommonExceptionHandler(command, "REMOVEFAIL", exception)
     
     # Swap entities in queue
-    async def Embed_SwapSucceed(self, ctx: commands.Context, idx1: int, idx2: int) -> None:
-        playlist = self.musicbot._playlist[ctx.guild.id]
+    async def Embed_SwapSucceed(self, command: Command, idx1: int, idx2: int) -> None:
+        playlist = self.musicbot._playlist[command.guild.id]
         embed = discord.Embed(title=":arrows_counterclockwise: | 調換歌曲順序", description="已調換歌曲順序，以下為詳細資料", colour=0xF2F3EE)
         
         embed.add_field(name=f"第 ~~{idx2}~~ -> **{idx1}** 順序", value='{}\n{}\n{} 點歌\n'
@@ -1025,14 +1036,14 @@ class UI:
                 playlist[idx2].requester
             ), inline=True)
 
-        await ctx.send(embed=embed)
+        await command.send(embed=embed)
 
-    async def SwapFailed(self, ctx: commands.Context, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "SWAPFAIL", exception)
+    async def SwapFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "SWAPFAIL", exception)
     
     # Move entity to other place in queue
-    async def MoveToSucceed(self, ctx: commands.Context, origin: int, new: int) -> None:
-        playlist = self.musicbot._playlist[ctx.guild.id]
+    async def MoveToSucceed(self, command: Command, origin: int, new: int) -> None:
+        playlist = self.musicbot._playlist[command.guild.id]
         embed = discord.Embed(title=":arrows_counterclockwise: | 移動歌曲順序", description="已移動歌曲順序，以下為詳細資料", colour=0xF2F3EE)
         
         embed.add_field(name=f"第 ~~{origin}~~ -> **{new}** 順序", value='{}\n{}\n{} 點歌\n'
@@ -1042,7 +1053,7 @@ class UI:
                 playlist[new].requester
             ), inline=True)
         
-        await ctx.send(embed=embed)
+        await command.send(embed=embed)
 
-    async def MoveToFailed(self, ctx, exception) -> None:
-        await self._CommonExceptionHandler(ctx, "MOVEFAIL", exception)
+    async def MoveToFailed(self, command: Command, exception) -> None:
+        await self._CommonExceptionHandler(command, "MOVEFAIL", exception)
