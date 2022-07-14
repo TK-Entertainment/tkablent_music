@@ -103,7 +103,6 @@ class Playlist:
         else:
             trackinfo.requester = requester
             self[guild_id].order.append(trackinfo)
-            print(trackinfo.info)
 
     def get_music_info(self, guild_id, index):
         return self[guild_id].order[index]

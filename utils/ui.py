@@ -41,6 +41,7 @@ class GuildUIInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
         self.auto_stage_available: bool = True
+        self.stage_topic_exist: bool = False
         self.skip: bool = False
         self.mute: bool = False
         self.search: bool = False
@@ -440,7 +441,8 @@ class UI:
             return
         if not isinstance(self.bot.get_guild(guild_id).voice_client.channel.instance, discord.StageInstance):
             return
-        instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
+        channel: discord.StageChannel = self.bot.get_guild(guild_id).voice_client.channel
+        instance: discord.StageInstance = channel.instance
         await instance.delete()
     
     async def _UpdateStageTopic(self, guild_id: int, mode: str='update') -> None:
@@ -449,19 +451,25 @@ class UI:
             or isinstance(self.bot.get_guild(guild_id).voice_client.channel, discord.VoiceChannel):
             return
         instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
-        if mode == "done":
-            await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
-        else:
-            await instance.edit(topic='{}{} {}{}'.format(
-                "⏸️" if mode == "pause" else "▶️",
-                "|🔴" if playlist[0].is_stream() else "",
-                playlist[0].title[:40] if len(playlist[0].title) >= 40 else playlist[0].title,
-                "..." if len(playlist[0].title) >= 40 else ""))
+        if (instance.topic != '🕓 目前無歌曲播放 | 等待指令') \
+            and self[guild_id].stage_topic_exist == False:
+            self[guild_id].stage_topic_exist = True
+        if not self[guild_id].stage_topic_exist:
+            if mode == "done":
+                await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
+            else:
+                await instance.edit(topic='{}{} {}{}'.format(
+                    "⏸️" if mode == "pause" else "▶️",
+                    "|🔴" if playlist[0].is_stream() else "",
+                    playlist[0].title[:40] if len(playlist[0].title) >= 40 else playlist[0].title,
+                    "..." if len(playlist[0].title) >= 40 else ""))
 
     #########
     # Leave #
     #########
     async def LeaveSucceed(self, command: Command) -> None:
+        guild_info = self[command.guild.id]
+        del guild_info
         await command.send(f'''
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道

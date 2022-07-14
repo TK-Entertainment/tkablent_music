@@ -291,24 +291,27 @@ class MusicBot(Player, commands.Cog):
         former_state: bool = voice_client.is_paused()
         # To determine is the music paused before rejoining or not
         if not former_state: 
-            await self._pause()
+            await self.pause(command, 'rejoin')
         # Moving itself to author's channel
         await voice_client.move_to(command.author.voice.channel)
+
         # If paused before rejoining, resume the music
         if not former_state: 
-            await self._resume()
+            await self.resume(command, 'rejoin')
         # Send a rejoin message
         await self.ui.RejoinNormal(command)
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and \
                 isinstance(former.instance, discord.StageInstance):
-            await former.delete()
+            await former.instance.delete()
 
     async def join(self, command):
         if not isinstance(command, Command):
             command: Optional[Command] = Command(command)
 
+        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
+        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
         voice_client: wavelink.Player = command.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
             if voice_client.channel != command.author.voice.channel:
@@ -319,9 +322,16 @@ class MusicBot(Player, commands.Cog):
             return
         try:
             await self._join(command.author.voice.channel)
-            if isinstance(command.author.voice.channel, discord.StageChannel):
+            voice_client: wavelink.Player = command.guild.voice_client
+            if isinstance(voice_client.channel, discord.StageChannel):
                 await self.ui.JoinStage(command, command.guild.id)
                 await self.ui.CreateStageInstance(command, command.guild.id)
+                if auto_stage_vaildation and \
+                    bot_itself.voice.suppress:
+                    try: 
+                        await bot_itself.edit(suppress=False)
+                    except: 
+                        auto_stage_vaildation = False
             else:
                 await self.ui.JoinNormal(command)
         except Exception as e:
@@ -345,7 +355,7 @@ class MusicBot(Player, commands.Cog):
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and \
                     isinstance(voice_client.channel.instance, discord.StageInstance):
-                await self.ui.EndStage(self, command.guild.id)
+                await self.ui.EndStage( command.guild.id)
             await self._leave(command.guild)
             await self.ui.LeaveSucceed(command)
         except Exception as e:
@@ -361,13 +371,17 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
-    async def pause(self, command):
+    async def pause(self, command, op: str):
         if not isinstance(command, Command):
             command: Optional[Command] = Command(command)
         try:
             await self._pause(command.guild)
+            if op == 'rejoin':
+                return
             await self.ui.PauseSucceed(command, command.guild.id)
         except Exception as e:
+            if op == 'rejoin':
+                return
             await self.ui.PauseFailed(command, e)
 
     @commands.command(name='pause')
@@ -380,13 +394,28 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
-    async def resume(self, command):
+    async def resume(self, command, op: str):
         if not isinstance(command, Command):
             command: Command = Command(command)
+        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
+        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
         try:
+            if auto_stage_vaildation and \
+            isinstance(command.author.voice.channel, discord.StageChannel):
+                try: 
+                    await bot_itself.edit(suppress=False)
+                except: 
+                    auto_stage_vaildation = False
+            
+                if command.author.voice.channel.instance is None:
+                    await self.ui.CreateStageInstance(command, command.guild.id)
             await self._resume(command.guild)
+            if op == 'rejoin':
+                return
             await self.ui.ResumeSucceed(command, command.guild.id)
         except Exception as e:
+            if op == 'rejoin':
+                return
             await self.ui.ResumeFailed(command, e)
 
     @commands.command(name='resume')
@@ -472,7 +501,8 @@ class MusicBot(Player, commands.Cog):
         if not isinstance(percent, int) and percent is not None or command.guild.voice_client is None:
             await self.ui.VolumeAdjustFailed(command)
             return 'Failed'
-        percent = max(0, min(200, percent))
+        if percent is not None:
+            percent = max(0, min(200, percent))
         await self.ui.VolumeAdjust(command, percent)
         if percent is not None:
             await self._volume(command.guild, percent)
@@ -659,17 +689,6 @@ class MusicBot(Player, commands.Cog):
 
         # Start search process
         await self.process(command, trackinfo)
-
-        # Get bot user value
-        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
-        if auto_stage_vaildation and \
-                isinstance(command.author.voice.channel, discord.StageChannel) and \
-                bot_itself.voice.suppress:
-            try: 
-                await bot_itself.edit(suppress=False)
-            except: 
-                auto_stage_vaildation = False
 
         await self._play(command.guild, command.channel)
         if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():
