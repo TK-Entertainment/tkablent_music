@@ -371,7 +371,7 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
-    async def pause(self, command, op: str):
+    async def pause(self, command, op: str=None):
         if not isinstance(command, Command):
             command: Optional[Command] = Command(command)
         try:
@@ -394,7 +394,7 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
-    async def resume(self, command, op: str):
+    async def resume(self, command, op: str=None):
         if not isinstance(command, Command):
             command: Command = Command(command)
         bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
@@ -711,17 +711,17 @@ class MusicBot(Player, commands.Cog):
     @app_commands.rename(search='影片網址或關鍵字')
     async def _i_play(self, interaction: discord.Interaction, search: str):
         for trackmethod in [
+                                wavelink.YouTubePlaylist,
                                 wavelink.LocalTrack,
                                 wavelink.YouTubeTrack,
                                 wavelink.YouTubeMusicTrack,
                                 wavelink.SoundCloudTrack,
-                                wavelink.YouTubePlaylist
                             ]:
             try:
                 # SearchableTrack.convert(ctx, query)
                 # ctx here actually useless
                 trackinfo = await trackmethod.convert(interaction, search)
-            except commands.BadArgument:
+            except Exception:
                 # When there is no result for provided method
                 # Then change to next method to search
                 trackinfo = None

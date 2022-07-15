@@ -883,7 +883,10 @@ class UI:
 
                 embed = self._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
+        if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
             await command.send(msg, embed=embed)
+        else:
+            await command.channel.send(msg, embed=embed)
 
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> discord.Embed:
