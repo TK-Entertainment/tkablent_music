@@ -42,6 +42,7 @@ class GuildUIInfo:
         self.guild_id: int = guild_id
         self.auto_stage_available: bool = True
         self.stage_topic_exist: bool = False
+        self.stage_topic_checked: bool = False
         self.skip: bool = False
         self.mute: bool = False
         self.search: bool = False
@@ -452,8 +453,11 @@ class UI:
             return
         instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
         if (instance.topic != '🕓 目前無歌曲播放 | 等待指令') \
-            and self[guild_id].stage_topic_exist == False:
+            and self[guild_id].stage_topic_exist == False \
+            and self[guild_id].stage_topic_checked == False:
             self[guild_id].stage_topic_exist = True
+        if self[guild_id].stage_topic_checked == False:
+            self[guild_id].stage_topic_checked = True
         if not self[guild_id].stage_topic_exist:
             if mode == "done":
                 await instance.edit(topic='🕓 目前無歌曲播放 | 等待指令')
@@ -467,9 +471,15 @@ class UI:
     #########
     # Leave #
     #########
-    async def LeaveSucceed(self, command: Command) -> None:
+    def reset_value(self, command: Command):
         guild_info = self[command.guild.id]
-        del guild_info
+        
+        guild_info.auto_stage_available = True
+        guild_info.stage_topic_checked = False
+        guild_info.stage_topic_exist = False
+
+    async def LeaveSucceed(self, command: Command) -> None:
+        self.reset_value(command)
         await command.send(f'''
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道

@@ -16,10 +16,13 @@ class Command:
 
     def __init__(self, command: Union[commands.Context, discord.Interaction]):
         if not isinstance(command, commands.Context) and not isinstance(command, discord.Interaction):
-            raise "can't not convert to command, please check the original command type"
+            raise "Can't convert to command, please check the original command type"
         
         self._command = command
-        
+
+    def is_response(self):
+        return self._command.response.is_done()
+
     @property
     def command_type(self):
         if isinstance(self._command, commands.Context):
@@ -53,7 +56,7 @@ class Command:
         if isinstance(self._command, commands.Context):
             return self._command.author
         if isinstance(self._command, discord.Interaction):
-            return self._command.response.send_message
+            return self._command.user
 
     @property
     def send(self):
@@ -91,7 +94,10 @@ class Command:
         if use with interaction
         otherwise interaction will failed
         '''
-        return self._command.message.reply
+        if isinstance(self._command, commands.Context):
+            return self._command.reply
+        if isinstance(self._command, discord.Interaction):
+            return self._command.message.reply
 
     @property
     def pong(self):
@@ -685,7 +691,7 @@ class MusicCog(Player, commands.Cog):
         await self.process(command, trackinfo)
 
         await self._play(command.guild, command.channel)
-        if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():
+        if command.command_type == 'Interaction' and command.is_response is not None and not command.is_response():
             await command.send("⠀")
 
     @commands.command(name='play', aliases=['p', 'P'])
