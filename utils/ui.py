@@ -33,7 +33,7 @@ def _sec_to_hms(seconds, format) -> str:
         elif sec != 0:
             return f"{sec} 秒"
 
-from .player import MusicBot, Player
+from .player import MusicCog, Player
 from .playlist import Playlist, LoopState, PlaylistBase
 from .github import GithubIssue
 
@@ -52,7 +52,7 @@ class UI:
     def __init__(self, musicbot, bot_version):
         self.__bot_version__: str = bot_version
 
-        self.musicbot: MusicBot = musicbot
+        self.musicbot: MusicCog = musicbot
         self.bot: commands.Bot = musicbot.bot
         self.github: GithubIssue = GithubIssue()
         self._guild_ui_info = dict()
@@ -448,7 +448,7 @@ class UI:
     async def _UpdateStageTopic(self, guild_id: int, mode: str='update') -> None:
         playlist = self.musicbot._playlist[guild_id]
         if self[guild_id].auto_stage_available == False \
-            or isinstance(self.bot.get_guild(guild_id).voice_client.channel, discord.VoiceChannel):
+                or isinstance(self.bot.get_guild(guild_id).voice_client.channel, discord.VoiceChannel):
             return
         instance: discord.StageInstance = self.bot.get_guild(guild_id).voice_client.channel.instance
         if (instance.topic != '🕓 目前無歌曲播放 | 等待指令') \
@@ -883,10 +883,10 @@ class UI:
 
                 embed = self._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
-        if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
-            await command.send(msg, embed=embed)
-        else:
-            await command.channel.send(msg, embed=embed)
+            if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
+                await command.send(msg, embed=embed)
+            else:
+                await command.channel.send(msg, embed=embed)
 
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0) -> discord.Embed:

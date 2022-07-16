@@ -3,7 +3,7 @@ import asyncio, os
 
 import discord
 from discord.ext import commands
-from discord import app_commands
+from discord import VoiceClient, app_commands
 
 import wavelink
 from .playlist import Playlist
@@ -12,33 +12,27 @@ INF = int(1e18)
 bot_version = 'lavalink-test Branch'
 
 class Command:
+    "A command wrapper for commands.Context and discord.Interaction"
+
     def __init__(self, command: Union[commands.Context, discord.Interaction]):
-        self._channel = command.channel
-        self._guild = command.guild
+        if not isinstance(command, commands.Context) and not isinstance(command, discord.Interaction):
+            raise "can't not convert to command, please check the original command type"
         
-        if isinstance(command, commands.Context):
-            self._author = command.author
-            self._send = command.send
-            self._message = command.message or None
-            self._reply = command.reply
-            self.command_type = 'Context'
-            self.is_response = None
-            self._pong = None
-        elif isinstance(command, discord.Interaction):
-            self._author = command.user
-            self._send = command.response.send_message
-            self._message = command.message if not command.message is None else None
-            self._reply = command.message.reply if not command.message is None else None
-            self.command_type = 'Interaction'
-            self.is_response = command.response.is_done
-            self._pong = command.response.pong
-    
+        self._command = command
+        
+    @property
+    def command_type(self):
+        if isinstance(self._command, commands.Context):
+            return 'Context'
+        if isinstance(self._command, discord.Interaction):
+            return 'Interaction'
+
     @property
     def guild(self) -> Optional[discord.Guild]:
         '''
         This function returns converted discord.Guild
         '''
-        return self._guild
+        return self._command.guild
 
     @property
     def channel(self) -> Union[discord.PartialMessageable, None]:
@@ -46,7 +40,7 @@ class Command:
         This function returns converted 
         MessageableChannel or InteractionChannel
         '''
-        return self._channel
+        return self._command.channel
 
     @property
     def author(self) -> Union[discord.User, discord.Member, None]:
@@ -56,7 +50,10 @@ class Command:
         from "interaction.message.author"
         or "ctx.author"
         '''
-        return self._author
+        if isinstance(self._command, commands.Context):
+            return self._command.author
+        if isinstance(self._command, discord.Interaction):
+            return self._command.response.send_message
 
     @property
     def send(self):
@@ -66,7 +63,10 @@ class Command:
         "interaction.response.send_message" or
         "ctx.send"
         '''
-        return self._send
+        if isinstance(self._command, commands.Context):
+            return self._command.send
+        if isinstance(self._command, discord.Interaction):
+            return self._command.response.send_message
 
     @property
     def message(self) -> discord.Message:
@@ -76,7 +76,7 @@ class Command:
         "interaction.message()" or
         "ctx.message"
         '''
-        return self._message
+        return self._command.message
 
     @property
     def reply(self):
@@ -91,7 +91,7 @@ class Command:
         if use with interaction
         otherwise interaction will failed
         '''
-        return self._reply
+        return self._command.message.reply
 
     @property
     def pong(self):
@@ -99,7 +99,10 @@ class Command:
         This function returns converted function from
         "interaction.pong"
         '''
-        return self._pong
+        if isinstance(self._command, commands.Context):
+            return None
+        if isinstance(self._command, discord.Interaction):
+            return self._command.response.pong
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -127,9 +130,8 @@ class GuildInfo:
     def update(self):
         '''update database'''
 
-class Player(commands.Cog):
+class Player:
     def __init__(self, bot: commands.Bot):
-        super().__init__()
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
@@ -140,8 +142,8 @@ class Player(commands.Cog):
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    async def _start_daemon(self, bot, host, port, password):
-        return await wavelink.NodePool.create_node(
+    def _start_daemon(self, bot, host, port, password):
+        return wavelink.NodePool.create_node(
             bot=bot,
             host=host,
             port=port,
@@ -251,14 +253,11 @@ class Player(commands.Cog):
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
 
-
-class MusicBot(Player, commands.Cog):
+class MusicCog(Player, commands.Cog):
     def __init__(self, bot: commands.Bot):
-        global tree
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
-        tree = bot.tree
 
     async def resolve_ui(self):   
         from .ui import UI
@@ -284,6 +283,24 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
+    async def ensure_stage_status(self, command: Command):
+        '''a helper function for opening a stage'''
+
+        if not isinstance(command.author.voice.channel, discord.StageChannel):
+            return
+
+        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
+        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
+        
+        if command.author.voice.channel.instance is None:
+            await self.ui.CreateStageInstance(command, command.guild.id)
+        
+        if auto_stage_vaildation and bot_itself.voice.suppress:
+            try: 
+                await bot_itself.edit(suppress=False)
+            except: 
+                auto_stage_vaildation = False
+
     async def rejoin(self, command: Command):
         voice_client: wavelink.Player = command.guild.voice_client
         # Get the bot former playing state
@@ -291,27 +308,27 @@ class MusicBot(Player, commands.Cog):
         former_state: bool = voice_client.is_paused()
         # To determine is the music paused before rejoining or not
         if not former_state: 
-            await self.pause(command, 'rejoin')
+            await self._pause(command.guild)
         # Moving itself to author's channel
         await voice_client.move_to(command.author.voice.channel)
+        if isinstance(command.author.voice.channel, discord.StageChannel):
+            await self.ensure_stage_status(command)
 
         # If paused before rejoining, resume the music
         if not former_state: 
-            await self.resume(command, 'rejoin')
+            await self._resume(command.guild)
         # Send a rejoin message
         await self.ui.RejoinNormal(command)
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and \
                 isinstance(former.instance, discord.StageInstance):
-            await former.instance.delete()
+            await self.ui.EndStage(command.guild.id)
 
     async def join(self, command):
         if not isinstance(command, Command):
             command: Optional[Command] = Command(command)
 
-        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
         voice_client: wavelink.Player = command.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
             if voice_client.channel != command.author.voice.channel:
@@ -324,14 +341,8 @@ class MusicBot(Player, commands.Cog):
             await self._join(command.author.voice.channel)
             voice_client: wavelink.Player = command.guild.voice_client
             if isinstance(voice_client.channel, discord.StageChannel):
+                await self.ensure_stage_status(command)
                 await self.ui.JoinStage(command, command.guild.id)
-                await self.ui.CreateStageInstance(command, command.guild.id)
-                if auto_stage_vaildation and \
-                    bot_itself.voice.suppress:
-                    try: 
-                        await bot_itself.edit(suppress=False)
-                    except: 
-                        auto_stage_vaildation = False
             else:
                 await self.ui.JoinNormal(command)
         except Exception as e:
@@ -355,7 +366,7 @@ class MusicBot(Player, commands.Cog):
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and \
                     isinstance(voice_client.channel.instance, discord.StageInstance):
-                await self.ui.EndStage( command.guild.id)
+                await self.ui.EndStage(command.guild.id)
             await self._leave(command.guild)
             await self.ui.LeaveSucceed(command)
         except Exception as e:
@@ -371,17 +382,13 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
-    async def pause(self, command, op: str=None):
+    async def pause(self, command):
         if not isinstance(command, Command):
             command: Optional[Command] = Command(command)
         try:
             await self._pause(command.guild)
-            if op == 'rejoin':
-                return
             await self.ui.PauseSucceed(command, command.guild.id)
         except Exception as e:
-            if op == 'rejoin':
-                return
             await self.ui.PauseFailed(command, e)
 
     @commands.command(name='pause')
@@ -394,28 +401,15 @@ class MusicBot(Player, commands.Cog):
 
     ##############################################
 
-    async def resume(self, command, op: str=None):
+    async def resume(self, command):
         if not isinstance(command, Command):
             command: Command = Command(command)
-        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
         try:
-            if auto_stage_vaildation and \
-            isinstance(command.author.voice.channel, discord.StageChannel):
-                try: 
-                    await bot_itself.edit(suppress=False)
-                except: 
-                    auto_stage_vaildation = False
-            
-                if command.author.voice.channel.instance is None:
-                    await self.ui.CreateStageInstance(command, command.guild.id)
+            if isinstance(command.channel, discord.StageChannel):
+                await self.ensure_stage_status(command)
             await self._resume(command.guild)
-            if op == 'rejoin':
-                return
             await self.ui.ResumeSucceed(command, command.guild.id)
         except Exception as e:
-            if op == 'rejoin':
-                return
             await self.ui.ResumeFailed(command, e)
 
     @commands.command(name='resume')
@@ -786,7 +780,7 @@ class MusicBot(Player, commands.Cog):
                     await self._stop(member.guild)
                     return
             if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
-                await self.ui.PauseOnAllMemberLeave(self[member.guild.id].text_channel, self)
+                await self.ui.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
                 await self._pause(member.guild)
         except: 
             pass

@@ -26,18 +26,23 @@ bot = commands.Bot(command_prefix='%', intents=intents, help_command=None, activ
 from utils import *
 
 def on_exit():
-    node: wavelink.Node = bot.cogs.get('MusicBot').playnode
+    cog: MusicCog = bot.cogs['MusicCog']
+
+    node: wavelink.Node = cog.playnode
     for player in node.players:
         player.disconnect()
     node.disconnect()
 
 @bot.event
 async def on_ready():
-    await bot.add_cog(MusicBot(bot))
+    await bot.add_cog(MusicCog(bot))
     await bot.tree.sync()
-    await bot.cogs.get('MusicBot').resolve_ui()
-    node: wavelink.Node = await bot.cogs.get('MusicBot')._start_daemon(bot, HOST, PORT, PASSWORD)
-    bot.cogs.get('MusicBot').playnode = node
+
+    cog: MusicCog = bot.cogs['MusicCog']
+    await cog.resolve_ui()
+    node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD)
+    cog.playnode = node
+
     atexit.register(on_exit)
     print(f'''
         =========================================
