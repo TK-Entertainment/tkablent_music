@@ -1,5 +1,5 @@
 from typing import *
-import asyncio, os
+import asyncio, json, os
 
 import discord
 from discord.ext import commands
@@ -7,108 +7,10 @@ from discord import VoiceClient, app_commands
 
 import wavelink
 from .playlist import Playlist
+from .command import Command
 
 INF = int(1e18)
 bot_version = 'lavalink-test Branch'
-
-class Command:
-    "A command wrapper for commands.Context and discord.Interaction"
-
-    def __init__(self, command: Union[commands.Context, discord.Interaction]):
-        if not isinstance(command, commands.Context) and not isinstance(command, discord.Interaction):
-            raise "Can't convert to command, please check the original command type"
-        
-        self._command = command
-
-    def is_response(self):
-        return self._command.response.is_done()
-
-    @property
-    def command_type(self):
-        if isinstance(self._command, commands.Context):
-            return 'Context'
-        if isinstance(self._command, discord.Interaction):
-            return 'Interaction'
-
-    @property
-    def guild(self) -> Optional[discord.Guild]:
-        '''
-        This function returns converted discord.Guild
-        '''
-        return self._command.guild
-
-    @property
-    def channel(self) -> Union[discord.PartialMessageable, None]:
-        '''
-        This function returns converted 
-        MessageableChannel or InteractionChannel
-        '''
-        return self._command.channel
-
-    @property
-    def author(self) -> Union[discord.User, discord.Member, None]:
-        '''
-        This function returns converted
-        discord.User or discord.Member
-        from "interaction.message.author"
-        or "ctx.author"
-        '''
-        if isinstance(self._command, commands.Context):
-            return self._command.author
-        if isinstance(self._command, discord.Interaction):
-            return self._command.user
-
-    @property
-    def send(self):
-        '''
-        This function returns converted
-        send function either
-        "interaction.response.send_message" or
-        "ctx.send"
-        '''
-        if isinstance(self._command, commands.Context):
-            return self._command.send
-        if isinstance(self._command, discord.Interaction):
-            return self._command.response.send_message
-
-    @property
-    def message(self) -> discord.Message:
-        '''
-        This function returns converted
-        discord.Message or InteractionMessage from
-        "interaction.message()" or
-        "ctx.message"
-        '''
-        return self._command.message
-
-    @property
-    def reply(self):
-        '''
-        This function returns converted
-        send function either
-        "interaction.message.reply" or
-        "ctx.reply"
-
-        Notice:
-        It must pong back (interaction.response.pong()) 
-        if use with interaction
-        otherwise interaction will failed
-        '''
-        if isinstance(self._command, commands.Context):
-            return self._command.reply
-        if isinstance(self._command, discord.Interaction):
-            return self._command.message.reply
-
-    @property
-    def pong(self):
-        '''
-        This function returns converted function from
-        "interaction.pong"
-        '''
-        if isinstance(self._command, commands.Context):
-            return None
-        if isinstance(self._command, discord.Interaction):
-            return self._command.response.pong
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -121,20 +23,33 @@ class GuildInfo:
     @property
     def volume_level(self):
         if self._volume_level is None:
-            self.fetch()
+            self._volume_level = self.fetch('volume_level')
         return self._volume_level
 
     @volume_level.setter
     def volume_level(self, value):
         self._volume_level = value
-        self.update()
+        self.update('volume_level', value)
 
-    def fetch(self):
+    def fetch(self, key: str) -> not None:
         '''fetch from database'''
-        self._volume_level = 100
 
-    def update(self):
+        with open(r'utils\data.json', 'r') as f:
+            data: dict = json.load(f)
+        if data.get(str(self.guild_id)) is None or data[str(self.guild_id)].get(key) is None:
+            return data['default'][key]
+        return data[str(self.guild_id)][key]
+
+    def update(self, key: str, value: str) -> None:
         '''update database'''
+
+        with open(r'utils\data.json', 'r') as f:
+            data: dict = json.load(f)
+        if data.get(str(self.guild_id)) is None:
+            data[str(self.guild_id)] = dict()
+        data[str(self.guild_id)][key] = value
+        with open(r'utils\data.json', 'w') as f:
+            json.dump(data, f)
 
 class Player:
     def __init__(self, bot: commands.Bot):
@@ -199,13 +114,13 @@ class Player:
     
     async def _volume(self, guild: discord.Guild, volume: float):
         voice_client: wavelink.Player = guild.voice_client
-        if not voice_client is None:
+        if voice_client is not None:
             mute = volume == 0
             if mute:
                 volume = 0.0000000001
             else:
                 self[guild.id].volume_level = volume
-            await voice_client.set_volume(volume, True)
+            await voice_client.set_volume(volume)
             await self.bot.ws.voice_state(guild.id, voice_client.channel.id, self_mute=mute)
             
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
