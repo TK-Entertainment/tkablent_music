@@ -17,6 +17,8 @@ class GuildInfo:
         self.guild_id: int = guild_id
         self.text_channel: discord.TextChannel = None
         self._volume_level: int = None
+        self._multitype_remembered: bool = None
+        self._multitype_choice: str = None
         self._task: asyncio.Task = None
         self._timer: asyncio.Task = None
     
@@ -30,6 +32,28 @@ class GuildInfo:
     def volume_level(self, value):
         self._volume_level = value
         self.update('volume_level', value)
+
+    @property
+    def multitype_remembered(self):
+        if self._multitype_remembered is None:
+            self._multitype_remembered = self.fetch('multitype_remembered')
+        return self._multitype_remembered
+
+    @multitype_remembered.setter
+    def multitype_remembered(self, value):
+        self._multitype_remembered = value
+        self.update('multitype_remembered', value)
+
+    @property
+    def multitype_choice(self):
+        if self._multitype_choice is None:
+            self._multitype_choice = self.fetch('multitype_choice')
+        return self._multitype_choice
+
+    @multitype_choice.setter
+    def multitype_choice(self, value):
+        self._multitype_choice = value
+        self.update('multitype_choice', value)
 
     def fetch(self, key: str) -> not None:
         '''fetch from database'''
@@ -117,7 +141,7 @@ class Player:
         if voice_client is not None:
             mute = volume == 0
             if mute:
-                volume = 0.0000000001
+                volume = 1e-5
             else:
                 self[guild.id].volume_level = volume
             await voice_client.set_volume(volume)
@@ -188,6 +212,19 @@ class MusicCog(Player, commands.Cog):
     async def reportbug(self, interaction: discord.Interaction):
         await self.ui.Interaction_BugReportingModal(interaction, interaction.guild)
 
+    ##############################################
+
+    async def mtsetup(self, command: Union[commands.Context, discord.Interaction]):
+        command: Command = Command(command)
+        await self.ui.MultiTypeSetup(command)
+
+    @commands.command(name='playwith')
+    async def _c_mtsetup(self, ctx: commands.Context):
+        await self.mtsetup(ctx)
+
+    @app_commands.command(name='playwith', description="⚙️ | 設定對於混合連結的預設動作")
+    async def _i_mtsetup(self, interaction: discord.Interaction):
+        await self.mtsetup(interaction)
     ##############################################
 
     async def help(self, command: Union[commands.Context, discord.Interaction]):
@@ -410,27 +447,27 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    async def volume(self, command, percent: Union[int, str]=None):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        if not isinstance(percent, int) and percent is not None or command.guild.voice_client is None:
-            await self.ui.VolumeAdjustFailed(command)
-            return 'Failed'
-        if percent is not None:
-            percent = max(0, min(200, percent))
-        await self.ui.VolumeAdjust(command, percent)
-        if percent is not None:
-            await self._volume(command.guild, percent)
+    # async def volume(self, command, percent: Union[int, str]=None):
+    #     if not isinstance(command, Command):
+    #         command: Command = Command(command)
+    #     if not isinstance(percent, int) and percent is not None or command.guild.voice_client is None:
+    #         await self.ui.VolumeAdjustFailed(command)
+    #         return 'Failed'
+    #     if percent is not None:
+    #         percent = max(0, min(200, percent))
+    #     await self.ui.VolumeAdjust(command, percent)
+    #     if percent is not None:
+    #         await self._volume(command.guild, percent)
 
-    @commands.command(name='volume')
-    async def _c_volume(self, ctx: commands.Context, percent: Union[int, str]=None):
-        await self.volume(ctx, percent)
+    # @commands.command(name='volume')
+    # async def _c_volume(self, ctx: commands.Context, percent: Union[int, str]=None):
+    #     await self.volume(ctx, percent)
 
-    @app_commands.command(name='volume', description='🔊 | 太大聲？還是太小聲了？還是想知道目前音量？')
-    @app_commands.describe(percent='音量 (使用百份比單位，不輸入此項來取得目前音量)')
-    @app_commands.rename(percent='音量')
-    async def _i_volume(self, interaction: discord.Interaction, percent: int=None):
-        await self.volume(interaction, percent)
+    # @app_commands.command(name='volume', description='🔊 | 太大聲？還是太小聲了？還是想知道目前音量？')
+    # @app_commands.describe(percent='音量 (使用百份比單位，不輸入此項來取得目前音量)')
+    # @app_commands.rename(percent='音量')
+    # async def _i_volume(self, interaction: discord.Interaction, percent: int=None):
+    #     await self.volume(interaction, percent)
 
     ##############################################
 
@@ -575,8 +612,6 @@ class MusicCog(Player, commands.Cog):
                             ]):
 
         # Call search function
-        if command.command_type == 'Context':
-            await command.channel.typing()
         try: 
             await self._search(command.guild, trackinfo, requester=command.author)
         except Exception as e:
@@ -592,8 +627,9 @@ class MusicCog(Player, commands.Cog):
                                 wavelink.SoundCloudTrack,
                                 wavelink.YouTubePlaylist
                             ]):
-        command: Command = Command(command)
         # Try to make bot join author's channel
+        if command.command_type == 'Context':
+            await command.channel.typing()
         voice_client: wavelink.Player = command.guild.voice_client
         if not isinstance(voice_client, wavelink.Player) or \
                 voice_client.channel != command.author.voice.channel:
@@ -610,21 +646,43 @@ class MusicCog(Player, commands.Cog):
             await command.send("⠀")
 
     @commands.command(name='play', aliases=['p', 'P'])
-    async def _c_play(self, ctx: commands.Context, *, 
-                            trackinfo: Union[
-                                wavelink.LocalTrack, # For url extract
-                                # Below are for searching or getting playlist
-                                wavelink.YouTubeTrack,
-                                wavelink.YouTubeMusicTrack,
-                                wavelink.SoundCloudTrack,
-                                wavelink.YouTubePlaylist
-                            ]):
-        await self.play(ctx, trackinfo)
+    async def _c_play(self, ctx: commands.Context, *, search):
+        command: Command = Command(ctx)
+        if "list" in search \
+                and "watch" in search \
+                and "http" in search \
+                and "//" in search:
+            if self[command.guild.id].multitype_remembered:
+                await self._get_track(command, search, self[command.guild.id].multitype_choice)   
+            else:
+                await self.ui.MultiTypeNotify(command, search)
+        else:
+            await self._get_track(command, search, 'normal')       
 
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
     @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 Youtube / SoundCloud)')
     @app_commands.rename(search='影片網址或關鍵字')
     async def _i_play(self, interaction: discord.Interaction, search: str):
+        command: Command = Command(interaction)
+        if "list" in search \
+                and "watch" in search \
+                and "http" in search \
+                and "//" in search:
+            if self[command.guild.id].multitype_remembered:
+                await self._get_track(command, search, self[command.guild.id].multitype_choice)   
+            else:
+                await self.ui.MultiTypeNotify(command, search)
+        else:
+            await self._get_track(command, search, 'normal')       
+
+    async def _get_track(self, command, search: str, choice):
+        extract = search.split('&')
+        if choice == 'videoonly':
+            url = extract[0]
+        elif choice == 'playlist':
+            url = f'https://www.youtube.com/playlist?{extract[1]}'
+        else:
+            url = search
         for trackmethod in [
                                 wavelink.YouTubePlaylist,
                                 wavelink.LocalTrack,
@@ -635,7 +693,7 @@ class MusicCog(Player, commands.Cog):
             try:
                 # SearchableTrack.convert(ctx, query)
                 # ctx here actually useless
-                trackinfo = await trackmethod.convert(interaction, search)
+                trackinfo = await trackmethod.convert(command, url)
             except Exception:
                 # When there is no result for provided method
                 # Then change to next method to search
@@ -643,10 +701,10 @@ class MusicCog(Player, commands.Cog):
                 pass
             if trackinfo is not None:
                 break
-        
-        await self.play(interaction, trackinfo)
 
-    ##############################################
+        await self.play(command, trackinfo)
+
+    ##############################
 
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
@@ -699,6 +757,7 @@ class MusicCog(Player, commands.Cog):
             if voice_client is None:
                 if not voice_client.is_playing() or not voice_client.is_paused():
                     await self._stop(member.guild)
+                    self._cleanup(member.guild)
                     return
             if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
                 await self.ui.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)

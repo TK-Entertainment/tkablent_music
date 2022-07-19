@@ -8,7 +8,7 @@ class Command:
 
     def __init__(self, command: Union[commands.Context, discord.Interaction]):
         if not isinstance(command, commands.Context) and not isinstance(command, discord.Interaction):
-            raise "Can't convert to command, please check the original command type"
+            raise Exception("Can't convert to command, please check the original command type")
         
         self._command = command
 

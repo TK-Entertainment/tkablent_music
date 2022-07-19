@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 import datetime
 import copy
+import random
 
 from .player import Command
 
@@ -353,10 +354,8 @@ class UI:
 
             @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-                self.clear_items()
-                await interaction.response.edit_message(embed=embed, view=view)
-                original_message = await interaction.original_message()
-                await original_message.add_reaction('✅')
+                await interaction.response.pong()
+                await interaction.message.delete()
                 self.stop()
 
             async def on_timeout(self):
@@ -599,6 +598,150 @@ class UI:
     ########
     # Play #
     ########
+    async def MultiTypeSetup(self, command):
+        content = f'''
+        **:bell: | 混合連結預設動作設定**
+        部分連結會同時包含歌曲和播放清單
+        如 https://www.youtube.com/watch?v=xxxx&list=xxxx
+        預設情況下系統會詢問要播放的種類
+        但若您已經記住選項，或想要先手動設定，都可以在這邊重新設定
+
+        請選擇以後的預設選項，或清除已記住的選項。
+        '''
+
+        class MultiType(discord.ui.View):
+
+            bot = self.bot
+            musicbot = self.musicbot
+            
+            def __init__(self, *, timeout=60):
+                self.choice = ""
+                super().__init__(timeout=timeout)
+
+            async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, choice: str):
+                view.clear_items()
+                if choice == "clear_remember":
+                    self.musicbot[command.guild.id].multitype_remembered = False
+                    self.musicbot[command.guild.id].multitype_choice = ""
+                    await interaction.response.edit_message(
+                        content='''
+        **:white_check_mark: | 已清除混合連結預設動作設定**
+        已清除混合連結預設動作設定，之後將會重新詢問預設動作
+                        ''', view=view
+                    )
+                else:
+                    self.musicbot[command.guild.id].multitype_remembered = True
+                    self.musicbot[command.guild.id].multitype_choice = choice
+                    choice_translated = {"videoonly": "只播放影片", "playlist": "播放整個播放清單"}
+                    await interaction.response.edit_message(
+                        content=f'''
+        **:white_check_mark: | 已設定混合連結預設動作設定**
+        已設定混合連結預設動作為 **{choice_translated[choice]}**
+                        ''', view=view)
+                self.stop()
+                    
+            @discord.ui.button(label='影片', style=discord.ButtonStyle.blurple)
+            async def videoonly(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'videoonly')
+
+            @discord.ui.button(label='播放清單', style=discord.ButtonStyle.blurple)
+            async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'playlist')
+
+            @discord.ui.button(
+                label='清除記住的選擇',
+                style=discord.ButtonStyle.danger if musicbot[command.guild.id].multitype_remembered else discord.ButtonStyle.gray,
+                disabled = not musicbot[command.guild.id].multitype_remembered)
+            async def clear(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, 'clear_remember')
+
+            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.pong()
+                await interaction.message.delete()
+                self.stop()
+
+            async def on_timeout(self):
+                self.clear_items()
+                await msg.edit(view=self)
+                await msg.add_reaction('🛑')
+
+        view = MultiType()
+        msg = await command.send(content, view=view)
+
+    async def MultiTypeNotify(self, command, search):
+        content = f'''
+        **:bell: | 你所提供的連結有點特別**
+        你的連結似乎同時包含歌曲和播放清單，請選擇你想要加入的那一種
+        *(如果有選擇困難，你也可以交給機器人決定(#)*
+        *"你開心就好" 選項不會被儲存，即使勾選了 "記住我的選擇"*
+        *如果記住選擇後想要更改，可以輸入 /playwith 或 *{self.bot.command_prefix}playwith 來重新選擇*'''
+
+        class MultiType(discord.ui.View):
+
+            bot = self.bot
+            get_track = self.musicbot._get_track
+            musicbot = self.musicbot
+            
+            def __init__(self, *, timeout=60):
+                self.choice = ""
+                super().__init__(timeout=timeout)
+
+            async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, choice: str):
+                if choice != 'remember_choice':
+                    if choice == 'whatever':
+                        self.choice = random.choice(['videoonly', 'playlist'])
+                    else:
+                        self.choice = choice
+                    if self.musicbot[command.guild.id].multitype_remembered and choice != 'whatever':
+                        self.musicbot[command.guild.id].multitype_choice = choice
+                    await interaction.response.pong()
+                    await interaction.message.delete()
+                    await self.get_track(command, search, self.choice)
+                    self.stop()
+                else:
+                    if button.label == '⬜ 記住我的選擇':
+                        button.label = '✅ 記住我的選擇'
+                        button.style = discord.ButtonStyle.success
+                        self.musicbot[command.guild.id].multitype_remembered = True
+                    else:
+                        button.label = '⬜ 記住我的選擇'
+                        button.style = discord.ButtonStyle.danger
+                        self.musicbot[command.guild.id].multitype_remembered = False
+                    await interaction.response.edit_message(view=view)
+                    
+            @discord.ui.button(label='影片', style=discord.ButtonStyle.blurple)
+            async def videoonly(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'videoonly')
+
+            @discord.ui.button(label='播放清單', style=discord.ButtonStyle.blurple)
+            async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'playlist')
+
+            @discord.ui.button(label='你開心就好', style=discord.ButtonStyle.blurple)
+            async def whatever(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'whatever')
+
+            @discord.ui.button(
+                label='⬜ 記住我的選擇' if not musicbot[command.guild.id].multitype_remembered else "✅ 記住我的選擇", 
+                style=discord.ButtonStyle.danger if not musicbot[command.guild.id].multitype_remembered else discord.ButtonStyle.success)
+            async def remember(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, 'remember_choice')
+
+            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.pong()
+                await interaction.message.delete()
+                self.stop()
+
+            async def on_timeout(self):
+                self.clear_items()
+                await msg.edit(view=self)
+                await msg.add_reaction('🛑')
+
+        view = MultiType()
+        msg = await command.send(content, view=view)
+
     async def PlayingMsg(self, channel: discord.TextChannel):
         playlist = self.musicbot._playlist[channel.guild.id]
         if self[channel.guild.id].skip:
