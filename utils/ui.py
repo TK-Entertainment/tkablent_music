@@ -59,15 +59,8 @@ class UI:
         self.github: GithubIssue = GithubIssue()
         self._guild_ui_info = dict()
 
-        self.music_errorcode_to_msg = {
-            "VIDPRIVATE": "私人影片",
-            "FORMEMBERS": "會員限定影片",
-            "NOTSTARTED": "尚未開始的直播",
-            "UNAVAILIBLE": "無法存取的影片",
-            "PLAYER_FAULT": "機器人遇到了一些問題，故無法正常播放\n            將跳過此歌曲"
-        }
-
         self.errorcode_to_msg = {
+            "PLAYER_FAULT": "機器人遇到了一些問題，故無法正常播放\n            將跳過此歌曲",
             "JOINFAIL": ["請確認您是否已加入一個語音頻道", "join", "來把我加入頻道"],
             "LEAVEFAIL": ["請確認您是否已加入一個語音/舞台頻道，或機器人並不在頻道中", "leave", "來讓我離開頻道"],
             "PAUSEFAIL": ["無法暫停音樂，請確認目前有歌曲正在播放，或是當前歌曲並非處於暫停狀態，亦或是候播清單是否為空", "pause", "來暫停音樂"],
@@ -101,35 +94,12 @@ class UI:
     ############################
     # General Warning Messages #
     ############################
-    async def _MusicExceptionHandler(self, message, errorcode: str, trackinfo: wavelink.YouTubeTrack=None, exception=None):
-        if 'PLAY' not in errorcode:
-            part_content = f'''
-            **:no_entry: | 失敗 | {errorcode}**
-            您所指定的音樂 {trackinfo.uri}
-            為 **{self.music_errorcode_to_msg[errorcode]}**，機器人無法存取
-            請更換其他音樂播放
-            --------
-            *請在確認排除以上可能問題後*
-            *再次嘗試使用 **{self.bot.command_prefix}play** 來把我加入頻道*'''
-        else:
-            if errorcode == "PLAYER_FAULT":
-                part_content = f'''
-            **:warning: | 警告 | {errorcode}**
-            {self.music_errorcode_to_msg[errorcode]}
-            --------
-            技術資訊:
-            {exception}
-            --------
-            *此錯誤不會影響到播放，僅為提醒訊息*'''
-            else:
-                part_content = f'''
-            **:warning: | 警告 | {errorcode}**
-            您所指定的播放清單中之歌曲或單一歌曲(如下面所示)
-            為 **{self.music_errorcode_to_msg[errorcode[5:]]}**，機器人無法存取
-            將直接跳過此曲目
-            --------
-            *此錯誤不會影響到播放，僅為提醒訊息*'''
-            url = self.musicbot._playlist[message.guild.id].current().info['watch_url']
+    async def _MusicExceptionHandler(self, message, exception=None, url=None):
+        part_content = f'''
+        **:warning: | 警告 | SEARCH_FAILED**
+        您提供{self.music_errorcode_to_msg["SEARCH_FAILED"]}
+
+        *此錯誤不會影響到播放，僅為提醒訊息*'''
 
         done_content = part_content
 
@@ -138,7 +108,7 @@ class UI:
             *若您覺得有Bug或錯誤，請輸入 /reportbug 來回報錯誤*
         '''
 
-        await self._BugReportingMsg(message, content, done_content, errorcode, exception, url)
+        await self._BugReportingMsg(message, content, done_content, errorcode="SEARCH_FAILED", exception=exception, url=url)
 
     async def _CommonExceptionHandler(self, message: Command , errorcode: str, exception=None):
         done_content = f'''
@@ -164,11 +134,17 @@ class UI:
         cdt = datetime.datetime.now()
         errortime = cdt.strftime("%Y/%m/%d %H:%M:%S")
 
-        if "PLAY" in errorcode:
+        if errorcode == "SEARCH_FAILED":
             embed = self._SongInfo(guild_id=message.guild.id, color_code='red')
-            msg = await message.send(content, embed=embed)
+            if isinstance(message, Command) and message.is_response():
+                msg = await message.channel.send(content, embed=embed)
+            else:
+                msg = await message.send(content, embed=embed)
         else:
-            msg = await message.send(content)
+            if isinstance(message, Command) and message.is_response():
+                msg = await message.channel.send(content)
+            else:
+                msg = await message.send(content)
 
         self[message.guild.id].lasterrorinfo = {
             "errortime": errortime,
@@ -273,6 +249,11 @@ class UI:
                     video_url,
                 )
                 await interaction.response.send_message(embed=self.result_embed(submission))
+
+                try:
+                    await self.lasterror["msg"].edit(content=self.lasterror["done_content"])
+                except:
+                    pass
 
             async def on_timeout(self):
                 pass
@@ -497,22 +478,8 @@ class UI:
     ##########
     # Search #
     ##########
-    async def SearchFailed(self, command: Command, trackinfo, exception: Union[YTDLPExceptions.DownloadError, Exception]) -> None:
-        print(exception)
-        if isinstance(exception, PytubeExceptions.VideoPrivate) \
-                or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
-            reason = 'VIDPRIVATE'
-        elif isinstance(exception, PytubeExceptions.MembersOnly) \
-            or (isinstance(exception, YTDLPExceptions.DownloadError) and "members-only" in exception.msg):
-            reason = 'FORMEMBERS'
-        elif isinstance(exception, PytubeExceptions.LiveStreamError) \
-            or (isinstance(exception, YTDLPExceptions.DownloadError) and "This live event will begin in" in exception.msg):
-            reason = 'NOTSTARTED'
-        else:
-            reason = 'UNAVAILIBLE'
-
-        await self._MusicExceptionHandler(command, reason, trackinfo, exception)
-        
+    async def SearchFailed(self, command: Command, url) -> None:
+        await self._MusicExceptionHandler(command, None, url)
 
     ########
     # Info #

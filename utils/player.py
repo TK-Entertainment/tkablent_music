@@ -701,6 +701,9 @@ class MusicCog(Player, commands.Cog):
                 pass
             if trackinfo is not None:
                 break
+        
+        if trackinfo is None:
+            await self.ui.SearchFailed(command, url)
 
         await self.play(command, trackinfo)
 

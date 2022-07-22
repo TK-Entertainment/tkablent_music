@@ -17,14 +17,7 @@ class GithubIssue:
             self.issue_user_url = "https://github.com/TK-Entertainment/tkablent/issues"
         
         self.errorcode_to_msg = {
-            "VIDPRIVATE": "搜尋時，機器人偵測到該影片為私人影片",
-            "FORMEMBERS": "搜尋時，機器人偵測到該影片為會員限定影片",
-            "NOTSTARTED": "搜尋時，機器人偵測到該影片為尚未開始的直播",
-            "UNAVAILIBLE": "搜尋時，機器人偵測到該影片為無法存取的影片",
-            "PLAY_VIDPRIVATE": "播放時，機器人偵測到該影片為私人影片",
-            "PLAY_FORMEMBERS": "播放時，機器人偵測到該影片為會員限定影片",
-            "PLAY_NOTSTARTED": "播放時，機器人偵測到該影片為尚未開始的直播",
-            "PLAY_UNAVAILIBLE": "播放時，機器人偵測到該影片為無法存取的影片",
+            "SEARCH_FAILED": "搜尋時，提供的連結無法正常播放或不存在",
             "PLAYER_FAULT": "播放時，機器人發生錯誤，無法正常播放",
             "JOINFAIL": "機器人嘗試加入頻道時失敗",
             "LEAVEFAIL": "機器人嘗試離開頻道時失敗",
