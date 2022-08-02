@@ -218,7 +218,7 @@ class MusicCog(Player, commands.Cog):
 
     async def mtsetup(self, command: Union[commands.Context, discord.Interaction]):
         command: Command = Command(command)
-        await self.ui.Play.MultiTypeSetup(command)
+        await self.ui.PlayerControl.MultiTypeSetup(command)
 
     @commands.command(name='playwith')
     async def _c_mtsetup(self, ctx: commands.Context):

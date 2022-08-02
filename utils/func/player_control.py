@@ -156,11 +156,17 @@ class PlayerControl:
 
             @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
+                if self.musicbot[command.guild.id].multitype_remembered and \
+                    self.musicbot[command.guild.id].multitype_choice == "":
+                    self.musicbot[command.guild.id].multitype_remembered = False
                 await interaction.response.pong()
                 await interaction.message.delete()
                 self.stop()
 
             async def on_timeout(self):
+                if self.musicbot[command.guild.id].multitype_remembered and \
+                    self.musicbot[command.guild.id].multitype_choice == "":
+                    self.musicbot[command.guild.id].multitype_remembered = False
                 self.clear_items()
                 await msg.edit(view=self)
                 await msg.add_reaction('🛑')
