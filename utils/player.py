@@ -205,18 +205,20 @@ class MusicCog(Player, commands.Cog):
         self.bot: commands.Bot = bot
 
     async def resolve_ui(self):   
-        from .ui import UI
+        from .ui import UI, auto_stage_available, guild_info
         self.ui = UI(self, bot_version)
+        self.auto_stage_available = auto_stage_available
+        self.ui_guild_info = guild_info
 
     @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
     async def reportbug(self, interaction: discord.Interaction):
-        await self.ui.Interaction_BugReportingModal(interaction, interaction.guild)
+        await self.ui.ExceptionHandler.Interaction_BugReportingModal(interaction, interaction.guild)
 
     ##############################################
 
     async def mtsetup(self, command: Union[commands.Context, discord.Interaction]):
         command: Command = Command(command)
-        await self.ui.MultiTypeSetup(command)
+        await self.ui.Play.MultiTypeSetup(command)
 
     @commands.command(name='playwith')
     async def _c_mtsetup(self, ctx: commands.Context):
@@ -229,7 +231,7 @@ class MusicCog(Player, commands.Cog):
 
     async def help(self, command: Union[commands.Context, discord.Interaction]):
         command: Command = Command(command)
-        await self.ui.Help(command)
+        await self.ui.Help.Help(command)
 
     @commands.command(name='help')
     async def _c_help(self, ctx: commands.Context):
@@ -248,10 +250,10 @@ class MusicCog(Player, commands.Cog):
             return
 
         bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        auto_stage_vaildation = self.ui.auto_stage_available(command.guild.id)
+        auto_stage_vaildation = self.auto_stage_available(command.guild.id)
         
         if command.author.voice.channel.instance is None:
-            await self.ui.CreateStageInstance(command, command.guild.id)
+            await self.ui.Stage.CreateStageInstance(command, command.guild.id)
         
         if auto_stage_vaildation and bot_itself.voice.suppress:
             try: 
@@ -276,12 +278,12 @@ class MusicCog(Player, commands.Cog):
         if not former_state: 
             await self._resume(command.guild)
         # Send a rejoin message
-        await self.ui.RejoinNormal(command)
+        await self.ui.Join.RejoinNormal(command)
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and \
                 isinstance(former.instance, discord.StageInstance):
-            await self.ui.EndStage(command.guild.id)
+            await self.ui.Stage.EndStage(command.guild.id)
 
     async def join(self, command):
         if not isinstance(command, Command):
@@ -293,18 +295,18 @@ class MusicCog(Player, commands.Cog):
                 await self.rejoin(command)
             else:
                 # If bot joined the same channel, send a message to notice user
-                await self.ui.JoinAlready(command)
+                await self.ui.Join.JoinAlready(command)
             return
         try:
             await self._join(command.author.voice.channel)
             voice_client: wavelink.Player = command.guild.voice_client
             if isinstance(voice_client.channel, discord.StageChannel):
                 await self.ensure_stage_status(command)
-                await self.ui.JoinStage(command, command.guild.id)
+                await self.ui.Join.JoinStage(command, command.guild.id)
             else:
-                await self.ui.JoinNormal(command)
+                await self.ui.Join.JoinNormal(command)
         except Exception as e:
-            await self.ui.JoinFailed(command, e)
+            await self.ui.Join.JoinFailed(command, e)
 
     @commands.command(name='join')
     async def _c_join(self, ctx: commands.Context):
@@ -324,11 +326,11 @@ class MusicCog(Player, commands.Cog):
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and \
                     isinstance(voice_client.channel.instance, discord.StageInstance):
-                await self.ui.EndStage(command.guild.id)
+                await self.ui.Stage.EndStage(command.guild.id)
             await self._leave(command.guild)
-            await self.ui.LeaveSucceed(command)
+            await self.ui.Leave.LeaveSucceed(command)
         except Exception as e:
-            await self.ui.LeaveFailed(command, e)
+            await self.ui.Leave.LeaveFailed(command, e)
 
     @commands.command(name='leave', aliases=['quit'])
     async def _c_leave(self, ctx: commands.Context):
@@ -345,9 +347,9 @@ class MusicCog(Player, commands.Cog):
             command: Optional[Command] = Command(command)
         try:
             await self._pause(command.guild)
-            await self.ui.PauseSucceed(command, command.guild.id)
+            await self.ui.PlayerControl.PauseSucceed(command, command.guild.id)
         except Exception as e:
-            await self.ui.PauseFailed(command, e)
+            await self.ui.PlayerControl.PauseFailed(command, e)
 
     @commands.command(name='pause')
     async def _c_pause(self, ctx: commands.Context):
@@ -366,9 +368,9 @@ class MusicCog(Player, commands.Cog):
             if isinstance(command.channel, discord.StageChannel):
                 await self.ensure_stage_status(command)
             await self._resume(command.guild)
-            await self.ui.ResumeSucceed(command, command.guild.id)
+            await self.ui.PlayerControl.ResumeSucceed(command, command.guild.id)
         except Exception as e:
-            await self.ui.ResumeFailed(command, e)
+            await self.ui.PlayerControl.ResumeFailed(command, e)
 
     @commands.command(name='resume')
     async def _c_resume(self, ctx: commands.Context):
@@ -385,11 +387,11 @@ class MusicCog(Player, commands.Cog):
             command: Command = Command(command)
         try:
             await self._skip(command.guild)
-            self.ui.SkipProceed(command.guild.id)
+            self.ui.PlayerControl.SkipProceed(command.guild.id)
             if command.is_response() is not None and not command.is_response():
                 await command.send("⠀")
         except Exception as e:
-            await self.ui.SkipFailed(command, e)
+            await self.ui.PlayerControl.SkipFailed(command, e)
 
     @commands.command(name='skip')
     async def _c_skip(self, ctx: commands.Context):
@@ -406,9 +408,9 @@ class MusicCog(Player, commands.Cog):
             command: Command = Command(command)
         try:
             await self._stop(command.guild)
-            await self.ui.StopSucceed(command)
+            await self.ui.PlayerControl.StopSucceed(command)
         except Exception as e:
-            await self.ui.StopFailed(command, e)
+            await self.ui.PlayerControl.StopFailed(command, e)
 
     @commands.command(name='stop')
     async def _c_stop(self, ctx: commands.Context):
@@ -430,9 +432,9 @@ class MusicCog(Player, commands.Cog):
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val
             await self._seek(command.guild, timestamp)
-            await self.ui.SeekSucceed(command, timestamp)
+            await self.ui.PlayerControl.SeekSucceed(command, timestamp)
         except ValueError as e:  # For ignoring string with ":" like "o:ro"
-            await self.ui.SeekFailed(command, e)
+            await self.ui.PlayerControl.SeekFailed(command, e)
             return
 
     @commands.command(name='seek')
@@ -476,9 +478,9 @@ class MusicCog(Player, commands.Cog):
             command: Command = Command(command)
         try:
             await self._seek(0)
-            await self.ui.ReplaySucceed(command)
+            await self.ui.PlayerControl.ReplaySucceed(command)
         except Exception as e:
-            await self.ui.ReplayFailed(command, e)
+            await self.ui.PlayerControl.ReplayFailed(command, e)
 
     @commands.command(name='restart', aliases=['replay'])
     async def _c_restart(self, ctx: commands.Context):
@@ -494,9 +496,9 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         if not isinstance(times, int):
-            return await self.ui.SingleLoopFailed(command)
+            return await self.ui.PlayerControl.SingleLoopFailed(command)
         self._playlist.single_loop(command.guild.id, times)
-        await self.ui.LoopSucceed(command)
+        await self.ui.PlayerControl.LoopSucceed(command)
 
     @commands.command(name='loop', aliases=['songloop'])
     async def _c_single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
@@ -514,7 +516,7 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         self._playlist.playlist_loop(command.guild.id)
-        await self.ui.LoopSucceed(command)
+        await self.ui.PlayerControl.LoopSucceed(command)
 
     @commands.command(name='playlistloop', aliases=['queueloop', 'qloop', 'all_loop'])
     async def _c_playlist_loop(self, ctx: commands.Context):
@@ -529,7 +531,7 @@ class MusicCog(Player, commands.Cog):
     async def show_queue(self, command):
         if not isinstance(command, Command):
             command: Command = Command(command)
-        await self.ui.ShowQueue(command)
+        await self.ui.Queue.ShowQueue(command)
 
     @commands.command(name='show_queue', aliases=['queuelist', 'queue', 'show'])
     async def _c_show_queue(self, ctx: commands.Context):
@@ -545,10 +547,10 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         try:
-            await self.ui.RemoveSucceed(command, idx)
+            await self.ui.QueueControl.RemoveSucceed(command, idx)
             self._playlist.pop(command.guild.id, idx)
         except (IndexError, TypeError) as e:
-            await self.ui.RemoveFailed(command, e)
+            await self.ui.QueueControl.RemoveFailed(command, e)
 
     @commands.command(name='remove', aliases=['queuedel'])
     async def _c_remove(self, ctx: commands.Context, idx: Union[int, str]):
@@ -567,9 +569,9 @@ class MusicCog(Player, commands.Cog):
             command: Command = Command(command)
         try:
             self._playlist.swap(command.guild.id, idx1, idx2)
-            await self.ui.Embed_SwapSucceed(command, idx1, idx2)
+            await self.ui.QueueControl.Embed_SwapSucceed(command, idx1, idx2)
         except (IndexError, TypeError) as e:
-            await self.ui.SwapFailed(command, e)
+            await self.ui.QueueControl.SwapFailed(command, e)
 
     @commands.command(name='swap')
     async def _c_swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
@@ -587,9 +589,9 @@ class MusicCog(Player, commands.Cog):
             command: Command = Command(command)
         try:
             self._playlist.move_to(command.guild.id, origin, new)
-            await self.ui.MoveToSucceed(command, origin, new)
+            await self.ui.QueueControl.MoveToSucceed(command, origin, new)
         except (IndexError, TypeError) as e:
-            await self.ui.MoveToFailed(command, e)
+            await self.ui.QueueControl.MoveToFailed(command, e)
 
     @commands.command(name='move_to', aliases=['insert_to', 'move'])
     async def _c_move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
@@ -616,10 +618,10 @@ class MusicCog(Player, commands.Cog):
             await self._search(command.guild, trackinfo, requester=command.author)
         except Exception as e:
             # If search failed, sent to handler
-            await self.ui.SearchFailed(command, e)
+            await self.ui.Search.SearchFailed(command, e)
             return
         # If queue has more than 1 songs, then show the UI
-        await self.ui.Embed_AddedToQueue(command, trackinfo, requester=command.author)
+        await self.ui.Queue.Embed_AddedToQueue(command, trackinfo, requester=command.author)
     
     async def play(self, command, trackinfo: Union[
                                 wavelink.YouTubeTrack,
@@ -655,7 +657,7 @@ class MusicCog(Player, commands.Cog):
             if self[command.guild.id].multitype_remembered:
                 await self._get_track(command, search, self[command.guild.id].multitype_choice)   
             else:
-                await self.ui.MultiTypeNotify(command, search)
+                await self.ui.PlayerControl.MultiTypeNotify(command, search)
         else:
             await self._get_track(command, search, 'normal')       
 
@@ -671,7 +673,7 @@ class MusicCog(Player, commands.Cog):
             if self[command.guild.id].multitype_remembered:
                 await self._get_track(command, search, self[command.guild.id].multitype_choice)   
             else:
-                await self.ui.MultiTypeNotify(command, search)
+                await self.ui.PlayerControl.MultiTypeNotify(command, search)
         else:
             await self._get_track(command, search, 'normal')       
 
@@ -703,7 +705,7 @@ class MusicCog(Player, commands.Cog):
                 break
         
         if trackinfo is None:
-            await self.ui.SearchFailed(command, url)
+            await self.ui.Search.SearchFailed(command, url)
 
         await self.play(command, trackinfo)
 
@@ -716,15 +718,15 @@ class MusicCog(Player, commands.Cog):
             try:
                 try:
                     await voice_client.play(song)
-                    await self.ui.PlayingMsg(self[guild.id].text_channel)
+                    await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
                 except Exception as e:
-                    await self.ui.PlayingError(self[guild.id].text_channel, e)
+                    await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(0.1)
             finally:
                 self._playlist.rule(guild.id)
-        await self.ui.DonePlaying(self[guild.id].text_channel)
+        await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')
     async def end_session(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
@@ -733,7 +735,7 @@ class MusicCog(Player, commands.Cog):
         guild = member.guild
         channel = self[guild.id].text_channel
         if self[guild.id]._timer is not None and self[guild.id]._timer.done():
-            await self.ui.LeaveOnTimeout(channel)
+            await self.ui.Leave.LeaveOnTimeout(channel)
         self._cleanup(guild)
     
 
@@ -763,7 +765,7 @@ class MusicCog(Player, commands.Cog):
                     self._cleanup(member.guild)
                     return
             if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
-                await self.ui.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
+                await self.ui.PlayerControl.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
                 await self._pause(member.guild)
         except: 
             pass
