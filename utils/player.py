@@ -731,11 +731,13 @@ class MusicCog(Player, commands.Cog):
     @commands.Cog.listener(name='on_voice_state_update')
     async def end_session(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
-            return
+            return 
         guild = member.guild
         channel = self[guild.id].text_channel
         if self[guild.id]._timer is not None and self[guild.id]._timer.done():
             await self.ui.Leave.LeaveOnTimeout(channel)
+        elif after.channel is None:
+            await self._stop(member.guild)
         self._cleanup(guild)
     
 
@@ -759,12 +761,7 @@ class MusicCog(Player, commands.Cog):
     async def _pause_on_being_alone(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         try:
             voice_client: wavelink.Player = member.guild.voice_client
-            if voice_client is None:
-                if not voice_client.is_playing() or not voice_client.is_paused():
-                    await self._stop(member.guild)
-                    self._cleanup(member.guild)
-                    return
-            if len(voice_client.channel.members) == 1 and not voice_client.is_paused():
+            if len(voice_client.channel.members) == 1 and not voice_client.is_paused() and member != self.bot.user:
                 await self.ui.PlayerControl.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
                 await self._pause(member.guild)
         except: 

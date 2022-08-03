@@ -2,14 +2,6 @@ from typing import *
 import discord
 from discord.ext import commands
 import datetime
-import copy
-import random
-
-from .player import Command
-
-from pytube import exceptions as PytubeExceptions
-from yt_dlp import utils as YTDLPExceptions
-import wavelink
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -34,9 +26,7 @@ def _sec_to_hms(seconds, format) -> str:
         elif sec != 0:
             return f"{sec} 秒"
 
-from .player import MusicCog, Player
-from .playlist import Playlist, LoopState, PlaylistBase
-from .github import GithubIssue
+from .player import MusicCog
 
 class GuildUIInfo:
     def __init__(self, guild_id):
@@ -157,59 +147,59 @@ class UI:
         from .func.queue_control import QueueControl
         self.QueueControl = QueueControl(self.ExceptionHandler, self._InfoGenerator)
 
-    ##########
-    # Volume #
-    ##########
-    # async def VolumeAdjust(self, command: Command, percent: Union[float, str]):
-    #     if percent == 0:
-    #         return
-    #     # If percent = None, show current volume
-    #     if percent == None: 
-    #         await command.send(f'''
-    #         **:loud_sound: | 音量調整**
-    #         目前音量為 {self.musicbot[command.guild.id].volume_level}%
-    #     ''')
+        ##########
+        # Volume # Deprecated for now (might be used in the future)
+        ##########
+        # async def VolumeAdjust(self, command: Command, percent: Union[float, str]):
+        #     if percent == 0:
+        #         return
+        #     # If percent = None, show current volume
+        #     if percent == None: 
+        #         await command.send(f'''
+        #         **:loud_sound: | 音量調整**
+        #         目前音量為 {self.musicbot[command.guild.id].volume_level}%
+        #     ''')
 
-    #     # Volume unchanged
-    #     if (percent) == self.musicbot[command.guild.id].volume_level:
-    #         await command.send(f'''
-    #         **:loud_sound: | 音量調整**
-    #         音量沒有變更，仍為 {percent}%
-    #     ''')
+        #     # Volume unchanged
+        #     if (percent) == self.musicbot[command.guild.id].volume_level:
+        #         await command.send(f'''
+        #         **:loud_sound: | 音量調整**
+        #         音量沒有變更，仍為 {percent}%
+        #     ''')
 
-    #     # Volume up
-    #     elif (percent) > self.musicbot[command.guild.id].volume_level:
-    #         await command.send(f'''
-    #         **:loud_sound: | 調高音量**
-    #         音量已設定為 {percent}%
-    #     ''')
-    #         self[command.guild.id].mute = False
-    #     # Volume down
-    #     elif (percent) < self.musicbot[command.guild.id].volume_level:
-    #         await command.send(f'''
-    #         **:sound: | 降低音量**
-    #         音量已設定為 {percent}%
-    #     ''')
-    #         self[command.guild.id].mute = False
+        #     # Volume up
+        #     elif (percent) > self.musicbot[command.guild.id].volume_level:
+        #         await command.send(f'''
+        #         **:loud_sound: | 調高音量**
+        #         音量已設定為 {percent}%
+        #     ''')
+        #         self[command.guild.id].mute = False
+        #     # Volume down
+        #     elif (percent) < self.musicbot[command.guild.id].volume_level:
+        #         await command.send(f'''
+        #         **:sound: | 降低音量**
+        #         音量已設定為 {percent}%
+        #     ''')
+        #         self[command.guild.id].mute = False
 
-    #     if self[command.guild.id].playinfo is not None:
-    #         await self._UpdateSongInfo(command.guild.id)
-    
-    # async def Mute(self, command: Command, percent: Union[float, str]) -> bool:
-    #     mute = self[command.guild.id].mute
-    #     if mute and percent != 0:
-    #         await command.send(f'''
-    #         **:speaker: | 解除靜音**
-    #         音量已設定為 {percent}%，目前已解除靜音模式
-    #     ''')
-    #     elif percent == 0: 
-    #         await command.send(f'''
-    #         **:mute: | 靜音**
-    #         音量已設定為 0%，目前處於靜音模式
-    #     ''')
-    #     if self[command.guild.id].playinfo is not None:
-    #         await self._UpdateSongInfo(command.guild.id)
-    #     self[command.guild.id].mute = percent == 0
+        #     if self[command.guild.id].playinfo is not None:
+        #         await self._UpdateSongInfo(command.guild.id)
+        
+        # async def Mute(self, command: Command, percent: Union[float, str]) -> bool:
+        #     mute = self[command.guild.id].mute
+        #     if mute and percent != 0:
+        #         await command.send(f'''
+        #         **:speaker: | 解除靜音**
+        #         音量已設定為 {percent}%，目前已解除靜音模式
+        #     ''')
+        #     elif percent == 0: 
+        #         await command.send(f'''
+        #         **:mute: | 靜音**
+        #         音量已設定為 0%，目前處於靜音模式
+        #     ''')
+        #     if self[command.guild.id].playinfo is not None:
+        #         await self._UpdateSongInfo(command.guild.id)
+        #     self[command.guild.id].mute = percent == 0
 
-    # async def VolumeAdjustFailed(self, command: Command) -> None:
-    #     await self._CommonExceptionHandler(command, "VOLUMEADJUSTFAIL")
+        # async def VolumeAdjustFailed(self, command: Command) -> None:
+        #     await self._CommonExceptionHandler(command, "VOLUMEADJUSTFAIL")
