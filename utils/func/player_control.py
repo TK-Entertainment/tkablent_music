@@ -1,21 +1,24 @@
 from typing import *
 import discord
 import random
+import wavelink
 
 from ..player import Command
 from ..playlist import LoopState
 from .info import InfoGenerator
 from .stage import Stage
 from .exception_handler import ExceptionHandler
+from .queue import Queue
 
 class PlayerControl:
-    def __init__(self, exception_handler, info_generator, stage):
+    def __init__(self, exception_handler, info_generator, stage, queue):
         from ..ui import bot, musicbot, guild_info, auto_stage_available, _sec_to_hms
 
         self.info_generator: InfoGenerator = info_generator
         self.exception_handler: ExceptionHandler = exception_handler
         self.bot = bot
         self.stage: Stage = stage
+        self.queue: Queue = queue
         self.musicbot = musicbot
         self.guild_info = guild_info
         self.auto_stage_available = auto_stage_available
@@ -176,18 +179,98 @@ class PlayerControl:
 
     async def PlayingMsg(self, channel: discord.TextChannel):
         playlist = self.musicbot._playlist[channel.guild.id]
+        if self.guild_info(channel.guild.id).playinfo_view is not None \
+            and not (playlist.loop_state == LoopState.SINGLE \
+                    or playlist.loop_state == LoopState.SINGLEINF):
+            self.guild_info(channel.guild.id).playinfo_view.clear_items()
+            await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
+            self.guild_info(channel.guild.id).playinfo_view.stop()
+        
+        class PlaybackControl(discord.ui.View):
+
+            bot = self.bot
+            voice_client: wavelink.Player = channel.guild.voice_client
+            musicbot = self.musicbot
+            info_generator = self.info_generator
+            queue = self.queue
+            guild_info = self.guild_info
+
+            def __init__(self, *, timeout=60):
+                super().__init__(timeout=playlist.order[0].length)
+                    
+            @discord.ui.button(label='⏸️', style=discord.ButtonStyle.blurple)
+            async def playorpause(self, interaction: discord.Interaction, button: discord.ui.Button):
+                if self.voice_client.is_paused():
+                    await self.voice_client.resume()
+                    button.label = '⏸️'
+                else:
+                    await self.voice_client.pause()
+                    button.label = '▶️'
+
+                await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                await interaction.response.edit_message(view=view)
+
+            @discord.ui.button(label='⏹️', style=discord.ButtonStyle.blurple)
+            async def stop_action(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.musicbot._stop(channel.guild)
+                self.clear_items()
+                await interaction.response.send_message(f'''
+            **:stop_button: | 停止播放**
+            歌曲已由 {interaction.user.mention} 停止播放
+            *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
+            ''')
+                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                self.stop()
+
+            @discord.ui.button(label='⏩', style=discord.ButtonStyle.blurple)
+            async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.musicbot._skip(channel.guild)
+                self.clear_items()
+                await interaction.response.edit_message(view=view)
+                self.stop()
+
+            @discord.ui.button(
+                label='🔁' if musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST \
+                                or musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
+                                else '🔂', 
+                style=discord.ButtonStyle.danger if musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
+                                                    else discord.ButtonStyle.success)
+            async def loop_control(self, interaction: discord.Interaction, button: discord.ui.Button):
+                if self.musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING:
+                    self.musicbot._playlist[channel.guild.id].loop_state = LoopState.PLAYLIST
+                    button.label = '🔁'
+                    button.style = discord.ButtonStyle.success
+                elif self.musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST:
+                    self.musicbot._playlist[channel.guild.id].loop_state = LoopState.SINGLEINF
+                    button.label = '🔂'
+                    button.style = discord.ButtonStyle.success
+                else:
+                    self.musicbot._playlist[channel.guild.id].loop_state = LoopState.NOTHING
+                    button.label = '🔁'
+                    button.style = discord.ButtonStyle.danger
+                await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                await interaction.response.edit_message(view=view)
+
+            @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.green)
+            async def listqueue(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.queue.ShowQueue(interaction, 'button')
+
+            async def on_timeout(self):
+                self.clear_items()
+                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+
         if self.guild_info(channel.guild.id).skip:
             if len(playlist.order) > 1:
                 msg = f'''
             **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，即將播放下一首歌曲，資訊如下所示
+            目前歌曲已成功跳過，正在播放下一首歌曲，資訊如下所示
             *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
                 '''
             else:
                 msg = f'''
             **:fast_forward: | 跳過歌曲**
             目前歌曲已成功跳過，候播清單已無歌曲
-            即將播放最後一首歌曲，資訊如下所示
+            正在播放最後一首歌曲，資訊如下所示
             *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
                 '''
             self.guild_info(channel.guild.id).skip = False
@@ -205,7 +288,12 @@ class PlayerControl:
             
         if not self.auto_stage_available(channel.guild.id):
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        self.guild_info(channel.guild.id).playinfo = await channel.send(msg, embed=self.info_generator._SongInfo(guild_id=channel.guild.id))
+        
+        embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
+        view = PlaybackControl()
+
+        self.guild_info(channel.guild.id).playinfo_view = view
+        self.guild_info(channel.guild.id).playinfo = await channel.send(msg, embed=embed, view=view)
         try: 
             await self.stage._UpdateStageTopic(channel.guild.id)
         except: 

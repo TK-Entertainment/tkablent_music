@@ -19,38 +19,69 @@ class Join:
             ''')
     
     async def JoinNormal(self, command: Command) -> None:
-        await command.send(f'''
+        try:
+            await command.send(f'''
+                **:inbox_tray: | 已加入語音頻道**
+                已成功加入 {command.author.voice.channel.name} 語音頻道
+                    ''')
+        except discord.InteractionResponded:
+            channel = command.channel
+            await channel.send(f'''
             **:inbox_tray: | 已加入語音頻道**
             已成功加入 {command.author.voice.channel.name} 語音頻道
                 ''')
-    
+
     async def JoinStage(self, command: Command, guild_id: int) -> None:
+        channel = command.channel
         botitself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
         if botitself not in command.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
-                await command.send(f'''
-            **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {command.author.voice.channel.name} 舞台頻道
-            -----------
-            *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
-            *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
-            *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
-            *此警告僅會出現一次*
-                    ''')
+                try:
+                    await command.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                -----------
+                *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
+                *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
+                *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
+                *此警告僅會出現一次*
+                        ''')
+                except discord.InteractionResponded:
+                    await channel.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                -----------
+                *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
+                *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
+                *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
+                *此警告僅會出現一次*
+                        ''')
                 self.guild_info(guild_id).auto_stage_available = False
                 return
             else:
                 self.guild_info(guild_id).auto_stage_available = True
-                await command.send(f'''
-            **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {command.author.voice.channel.name} 舞台頻道
-                ''')
+                try:
+                    await command.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                    ''')
+                except discord.InteractionResponded:
+                    await channel.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                    ''')
                 return
         else:
-            await command.send(f'''
-            **:inbox_tray: | 已加入舞台頻道**
-            已成功加入 {command.author.voice.channel.name} 舞台頻道
-                ''')
+            try:
+                await command.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                    ''')
+            except discord.InteractionResponded:
+                await channel.send(f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                    ''')
             self.guild_info(guild_id).auto_stage_available = True
             return
     

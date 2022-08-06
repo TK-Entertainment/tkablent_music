@@ -208,8 +208,7 @@ class MusicCog(Player, commands.Cog):
         from .ui import UI, auto_stage_available, guild_info
         self.ui = UI(self, bot_version)
         self.auto_stage_available = auto_stage_available
-        self.ui_guild_info = guild_info
-
+        
     @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
     async def reportbug(self, interaction: discord.Interaction):
         await self.ui.ExceptionHandler.Interaction_BugReportingModal(interaction, interaction.guild)
@@ -677,7 +676,7 @@ class MusicCog(Player, commands.Cog):
         else:
             await self._get_track(command, search, 'normal')       
 
-    async def _get_track(self, command, search: str, choice):
+    async def _get_track(self, command, search: str, choice: str):
         extract = search.split('&')
         if choice == 'videoonly':
             url = extract[0]
@@ -737,7 +736,7 @@ class MusicCog(Player, commands.Cog):
         if self[guild.id]._timer is not None and self[guild.id]._timer.done():
             await self.ui.Leave.LeaveOnTimeout(channel)
         elif after.channel is None:
-            await self._stop(member.guild)
+            await self._leave(member.guild)
         self._cleanup(guild)
     
 

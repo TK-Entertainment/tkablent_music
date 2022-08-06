@@ -39,6 +39,7 @@ class GuildUIInfo:
         self.search: bool = False
         self.lasterrorinfo: dict = {}
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
+        self.playinfo_view: discord.ui.View = None
 
 bot_version: str = None
 musicbot: MusicCog = None
@@ -46,6 +47,7 @@ bot: commands.Bot = None
 embed_opt = None
 _guild_ui_info = dict()
 
+@staticmethod
 def guild_info(guild_id) -> GuildUIInfo:
     if _guild_ui_info.get(guild_id) is None:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
@@ -111,6 +113,15 @@ class UI:
         from .func.search import Search
         self.Search = Search(self.ExceptionHandler)
 
+        #########
+        # Queue #
+        #########
+        from .func.queue import Queue
+        self.Queue = Queue(self._InfoGenerator)
+
+        from .func.queue_control import QueueControl
+        self.QueueControl = QueueControl(self.ExceptionHandler, self._InfoGenerator)
+
         ########
         # Play #
         ########
@@ -136,16 +147,7 @@ class UI:
         # Loop #
         ########
         from .func.player_control import PlayerControl
-        self.PlayerControl = PlayerControl(self.ExceptionHandler, self._InfoGenerator, self.Stage)
-
-        #########
-        # Queue #
-        #########
-        from .func.queue import Queue
-        self.Queue = Queue(self._InfoGenerator)
-
-        from .func.queue_control import QueueControl
-        self.QueueControl = QueueControl(self.ExceptionHandler, self._InfoGenerator)
+        self.PlayerControl = PlayerControl(self.ExceptionHandler, self._InfoGenerator, self.Stage, self.Queue)
 
         ##########
         # Volume # Deprecated for now (might be used in the future)

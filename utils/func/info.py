@@ -59,7 +59,6 @@ class InfoGenerator:
         if loopstate != LoopState.NOTHING: 
             embed._author['name'] += f"{loopicon}"
         
-        
         if len(playlist.order) > 1 and color_code != 'red':
             queuelist: str = ""
             queuelist += f"1." + playlist[1].title + "\n"
@@ -67,6 +66,7 @@ class InfoGenerator:
                 queuelist += f"...還有 {len(playlist.order)-2} 首歌"
 
             embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
+        embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed
 
@@ -83,6 +83,8 @@ class InfoGenerator:
             pllist += f"...還有 {len(playlist.tracks)-2} 首歌"
         
         embed.add_field(name=f"歌曲清單 | 已新增 {len(playlist.tracks)} 首歌", value=pllist, inline=False)
+        embed.set_thumbnail(url=f'https://img.youtube.com/vi/{playlist.tracks[0].identifier}/0.jpg')
+        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 
         return embed
 
@@ -92,4 +94,4 @@ class InfoGenerator:
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
         if not self.auto_stage_available(guild_id):
             message += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id))
+        await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
