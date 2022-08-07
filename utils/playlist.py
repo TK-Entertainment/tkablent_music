@@ -5,6 +5,7 @@ import asyncio
 
 import discord
 from discord import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
+import wavelink
 
 from .ytdl import YTDL
 
@@ -14,48 +15,6 @@ class SeekError(Exception): ...
 class OutOfBound(Exception): ...
 
 ytdl = YTDL()
-# db = _database()
-
-class Song:
-    info: dict
-    source: PCMVolumeTransformer[FFmpegPCMAudio]
-
-    # def __new__(cls, url, *args, **kwargs):
-    #     song = object.__new__(cls)
-    #     if ytdl.is_playlist(url):
-    #         pass
-    #     song.info = ytdl.get_info(url)
-    
-    def __init__(self, url, requester: discord.Member):
-        self.requester: discord.Member = requester
-        self.left_off: float = 0
-        self.info = ytdl.get_info(url)
-        # flag for local server, need to change for multiple server
-        self.source: PCMVolumeTransformer[FFmpegPCMAudio] = None
-        # self.add_info(url, requester)
-
-    @property
-    def url(self) -> Union[str, Exception]:
-        return ytdl.get_url(self.info['watch_url'])
-
-    # @property
-    # def source(self, volume_level):
-    #     return PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volume_level)
-
-    def set_source(self, volumelevel):
-        self.source = PCMVolumeTransformer(FFmpegPCMAudio(self.url, **self.ffmpeg_options), volume=volumelevel)
-        
-    def set_ffmpeg_options(self, timestamp):
-        self.left_off = timestamp
-        self.ffmpeg_options = {
-            'options': f'-vn -ss {timestamp}',
-            'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 10',
-        }
-    
-    def seek(self, stamp: float):
-        if self.info['stream']:
-            raise SeekError
-        self.set_ffmpeg_options(stamp)
 
 class LoopState(Enum):
     NOTHING = auto()
@@ -66,11 +25,11 @@ class LoopState(Enum):
 class PlaylistBase:
     '''maintain some info in a playlist for single guild'''
     def __init__(self):
-        self.order: List[Song] = [] # maintain the song order in a playlist
+        self.order: list[wavelink.Track] = [] # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
         self.text_channel: discord.TextChannel = None # where to show information to user
-        self._playlisttask: dict[str, asyncio.Task] = {}
+        # self._playlisttask: dict[str, asyncio.Task] = {}
 
     def __getitem__(self, idx):
         if len(self.order) == 0:
@@ -79,13 +38,10 @@ class PlaylistBase:
 
     def clear(self):
         self.order.clear()
-        for key in self._playlisttask: 
-            self._playlisttask[key].cancel()
-        self._playlisttask.clear()
         self.loop_state = LoopState.NOTHING
         self.times = 0
 
-    def current(self) -> Optional[Song]:
+    def current(self) -> Optional[wavelink.Track]:
         return self[0]
     
     def swap(self, idx1: int, idx2: int):
@@ -105,6 +61,7 @@ class PlaylistBase:
             self.order.append(self.order.pop(0))
         else:
             self.order.pop(0)
+
         if self.loop_state == LoopState.SINGLE and self.times == 0:
             self.loop_state =  LoopState.NOTHING
             
@@ -138,27 +95,14 @@ class Playlist:
             self._guilds_info[guild_id] = PlaylistBase()
         return self._guilds_info[guild_id]
 
-    def is_playlist(self, url):
-        return ytdl.is_playlist(url)
-
-    async def process_playlist(self, guild_id, url, requester):
-        for url in ytdl.get_playlist(url):
-            song = Song(url, requester)
-            self[guild_id].order.append(song)
-            await asyncio.sleep(0.1)
-        return
-
-    def get_playlist_id(self, url):
-        return ytdl.get_playlist_id(url)
-
-    async def add_songs(self, guild_id, url, requester):
-        # info = ytdl.get_info(url)
-        if self.is_playlist(url):
-            url = ytdl.get_first_video(url)
-        song = Song(url, requester)
-        self[guild_id].order.append(song)
-        # self.requester = requester
-        # self.set_ffmpeg_options(0)
+    async def add_songs(self, guild_id, trackinfo: Union[wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist], requester):
+        if isinstance(trackinfo, wavelink.YouTubePlaylist):
+            for track in trackinfo.tracks:
+                track.requester = requester
+            self[guild_id].order.extend(trackinfo.tracks)
+        else:
+            trackinfo.requester = requester
+            self[guild_id].order.append(trackinfo)
 
     def get_music_info(self, guild_id, index):
         return self[guild_id].order[index]

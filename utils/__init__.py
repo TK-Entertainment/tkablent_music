@@ -1,5 +1,5 @@
-from .playlist import Playlist, Song
+from .playlist import Playlist
 from .ytdl import YTDL
 from .player import Player
 from .ui import UI
-from .player import MusicBot
+from .player import MusicCog

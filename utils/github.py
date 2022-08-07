@@ -17,14 +17,7 @@ class GithubIssue:
             self.issue_user_url = "https://github.com/TK-Entertainment/tkablent/issues"
         
         self.errorcode_to_msg = {
-            "VIDPRIVATE": "搜尋時，機器人偵測到該影片為私人影片",
-            "FORMEMBERS": "搜尋時，機器人偵測到該影片為會員限定影片",
-            "NOTSTARTED": "搜尋時，機器人偵測到該影片為尚未開始的直播",
-            "UNAVAILIBLE": "搜尋時，機器人偵測到該影片為無法存取的影片",
-            "PLAY_VIDPRIVATE": "播放時，機器人偵測到該影片為私人影片",
-            "PLAY_FORMEMBERS": "播放時，機器人偵測到該影片為會員限定影片",
-            "PLAY_NOTSTARTED": "播放時，機器人偵測到該影片為尚未開始的直播",
-            "PLAY_UNAVAILIBLE": "播放時，機器人偵測到該影片為無法存取的影片",
+            "SEARCH_FAILED": "搜尋時，提供的連結無法正常播放或不存在",
             "PLAYER_FAULT": "播放時，機器人發生錯誤，無法正常播放",
             "JOINFAIL": "機器人嘗試加入頻道時失敗",
             "LEAVEFAIL": "機器人嘗試離開頻道時失敗",
@@ -39,6 +32,7 @@ class GithubIssue:
             "REMOVEFAIL": "機器人嘗試從待播清單中移除音樂時失敗",
             "SWAPFAIL": "機器人嘗試從待播清單中更換兩個音樂順序時失敗",
             "MOVEFAIL": "機器人嘗試從待播清單中移動音樂時失敗",
+            "TESTING": "機器人表單測試"
         }
 
 
@@ -53,11 +47,16 @@ class GithubIssue:
         else:
             version = "Stable / 正式版本"
 
+        if errorcode not in self.errorcode_to_msg.keys():
+            errortext = "其他錯誤代碼/未知錯誤"
+        else:
+            errortext = self.errorcode_to_msg[errorcode]
+
         data = {
             "title": f"機器人錯誤回報表單 from {guild}",
             "body": f'''
 **錯誤代碼**  
-{errorcode} ({self.errorcode_to_msg[errorcode]})  
+{errorcode} ({errortext})  
   
 **錯誤回報時間**  
 {timestamp} (Taipei Standard Time)  
