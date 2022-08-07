@@ -25,6 +25,19 @@ class PlayerControl:
         self._sec_to_hms = _sec_to_hms
 
     ############################################################
+    # Now Playing ##############################################
+
+    async def NowPlaying(self, command: Command):
+        if len(self.musicbot._playlist[command.guild.id].order) == 0:
+            await command.send(f'''
+            **:arrow_forward: | 目前沒有歌曲正在播放**
+            *輸入 **{self.bot.command_prefix}play** 來開始播放歌曲*''')
+        else:
+            if command.command_type == 'Interaction' and command.is_response is not None and not command.is_response():
+                await command.send("⠀")
+            await self.PlayingMsg(command.channel)
+
+    ############################################################
     # Play #####################################################
 
     async def MultiTypeSetup(self, command: Command):
@@ -177,7 +190,7 @@ class PlayerControl:
         view = MultiType()
         msg = await command.send(content, view=view)
 
-    async def PlayingMsg(self, channel: discord.TextChannel):
+    async def PlayingMsg(self, channel: Union[discord.TextChannel, Command]):
         playlist = self.musicbot._playlist[channel.guild.id]
         if self.guild_info(channel.guild.id).playinfo_view is not None \
             and not (playlist.loop_state == LoopState.SINGLE \
@@ -198,7 +211,9 @@ class PlayerControl:
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=playlist.order[0].length)
                     
-            @discord.ui.button(label='⏸️', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(
+                label='⏸️' if not voice_client.is_paused() else '▶️', 
+                style=discord.ButtonStyle.blurple)
             async def playorpause(self, interaction: discord.Interaction, button: discord.ui.Button):
                 if self.voice_client.is_paused():
                     await self.voice_client.resume()
@@ -232,7 +247,7 @@ class PlayerControl:
             @discord.ui.button(
                 label='🔁' if musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST \
                                 or musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
-                                else '🔂', 
+                                else '🔂ₛ', 
                 style=discord.ButtonStyle.danger if musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
                                                     else discord.ButtonStyle.success)
             async def loop_control(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -242,7 +257,7 @@ class PlayerControl:
                     button.style = discord.ButtonStyle.success
                 elif self.musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.SINGLEINF
-                    button.label = '🔂'
+                    button.label = '🔂ₛ'
                     button.style = discord.ButtonStyle.success
                 else:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.NOTHING
@@ -251,7 +266,7 @@ class PlayerControl:
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
-            @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.green)
+            @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.gray)
             async def listqueue(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.queue.ShowQueue(interaction, 'button')
 
@@ -299,22 +314,8 @@ class PlayerControl:
         except: 
             pass
 
-    # async def PlayingError(self, channel: discord.TextChannel, exception):
-    #     if isinstance(exception, PytubeExceptions.VideoPrivate) \
-    #             or (isinstance(exception, YTDLPExceptions.DownloadError) and "Private Video" in exception.msg):
-    #         reason = 'PLAY_VIDPRIVATE'
-    #     elif isinstance(exception, PytubeExceptions.MembersOnly) \
-    #         or (isinstance(exception, YTDLPExceptions.DownloadError) and "members-only" in exception.msg):
-    #         reason = 'PLAY_FORMEMBERS'
-    #     elif isinstance(exception, PytubeExceptions.LiveStreamError) \
-    #         or (isinstance(exception, YTDLPExceptions.DownloadError) and "This live event will begin in" in exception.msg):
-    #         reason = 'PLAY_NOTSTARTED'
-    #     elif isinstance(exception, PytubeExceptions or YTDLPExceptions.DownloadError):
-    #         reason = 'PLAY_UNAVAILIBLE'
-    #     else:
-    #         reason = "PLAYER_FAULT"
-
-    #     await self._MusicExceptionHandler(channel, reason, None, exception)
+    async def PlayingError(self, channel: discord.TextChannel, exception):
+        await self.exception_handler._MusicExceptionHandler(channel, exception, None)
 
     async def DonePlaying(self, channel: discord.TextChannel) -> None:
         await channel.send(f'''
@@ -323,6 +324,9 @@ class PlayerControl:
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
         self.guild_info(channel.guild.id).skip = False
+        self.guild_info(channel.guild.id).playinfo_view.clear_items()
+        await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
+        self.guild_info(channel.guild.id).playinfo_view.stop()
         try: 
             await self.stage._UpdateStageTopic(channel.guild.id, 'done')
         except: 
@@ -337,6 +341,8 @@ class PlayerControl:
             歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
+        self.guild_info(command.guild.id).playinfo_view.playorpause.label = '▶️'
+        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'pause')
         except: 
@@ -348,6 +354,10 @@ class PlayerControl:
             所有人皆已退出語音頻道，歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
+        self.guild_info(channel.guild.id).playinfo_view.playorpause.label = '▶️'
+        self.guild_info(channel.guild.id).playinfo_view.playorpause.disabled = True
+        self.guild_info(channel.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+        await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'pause')
         except: 
@@ -365,6 +375,8 @@ class PlayerControl:
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
+        self.guild_info(command.guild.id).playinfo_view.playorpause.label = '⏸️'
+        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'resume')
         except: 
@@ -452,24 +464,35 @@ class PlayerControl:
             **:repeat_one: | 循環播放**
             已啟動單曲循環播放
             '''
+                icon = '🔂ₛ'
+                color = discord.ButtonStyle.green
             elif loopstate == LoopState.SINGLE:
                 msg = f'''
             **:repeat_one: | 循環播放**
             已啟動單曲循環播放，將會循環 {looptimes} 次
             '''
+                icon = '🔂ₛ'
+                color = discord.ButtonStyle.green
             elif loopstate == LoopState.PLAYLIST:
                 msg = '''
             **:repeat: | 循環播放**
             已啟動待播清單循環播放
             '''
+                icon = '🔁'
+                color = discord.ButtonStyle.green
             else:
                 msg = '''
             **:repeat: | 循環播放**
             已關閉循環播放功能
             '''
+                icon = '🔁'
+                color = discord.ButtonStyle.danger
             await command.send(msg)
-        if self[command.guild.id].playinfo is not None:
+        if self.guild_info(command.guild.id).playinfo is not None:
             await self.info_generator._UpdateSongInfo(command.guild.id)
+            self.guild_info(command.guild.id).playinfo_view.loop_control.label = icon
+            self.guild_info(command.guild.id).playinfo_view.loop_control.style = color
+            await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
 
     async def SingleLoopFailed(self, command: Command) -> None:
         await self.exception_handler._CommonExceptionHandler(command, "LOOPFAIL_SIG")

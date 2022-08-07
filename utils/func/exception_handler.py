@@ -33,9 +33,10 @@ class ExceptionHandler:
 
     async def _MusicExceptionHandler(self, message, exception=None, url=None):
         part_content = f'''
-        **:warning: | 警告 | SEARCH_FAILED**
+        **:warning: | 警告 | SEARCH_OR_PLAYING_FAILED**
         您提供的音樂，機器人無法播放
         有可能該音樂為會員影片、為私人影片或不存在
+        或為機器人不支援的平台
 
         *此錯誤不會影響到播放，僅為提醒訊息*'''
 
@@ -46,7 +47,7 @@ class ExceptionHandler:
             *若您覺得有Bug或錯誤，請輸入 /reportbug 來回報錯誤*
         '''
 
-        await self._BugReportingMsg(message, content, done_content, errorcode="SEARCH_FAILED", exception=exception, url=url)
+        await self._BugReportingMsg(message, content, done_content, errorcode="SEARCH_OR_PLAYING_FAILED", exception=exception, video_url=url)
 
     async def _CommonExceptionHandler(self, message: Command , errorcode: str, exception=None):
         done_content = f'''

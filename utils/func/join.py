@@ -17,6 +17,9 @@ class Join:
             **:inbox_tray: | 已更換語音頻道**
             已更換至 {command.author.voice.channel.name} 語音頻道
             ''')
+        self.guild_info(command.guild.id).playinfo_view.playorpause.disabled = False
+        self.guild_info(command.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
     
     async def JoinNormal(self, command: Command) -> None:
         try:
@@ -34,7 +37,7 @@ class Join:
     async def JoinStage(self, command: Command, guild_id: int) -> None:
         channel = command.channel
         botitself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        if botitself not in command.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
+        if botitself not in command.author.voice.channel.moderators and self.guild_info(guild_id).auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 try:
                     await command.send(f'''

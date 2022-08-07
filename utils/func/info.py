@@ -32,9 +32,9 @@ class InfoGenerator:
             loopstate: LoopState = playlist.loop_state
             loopicon = ''
             if loopstate == LoopState.SINGLE:
-                loopicon = f' | 🔂 🕗 {playlist.times} 次'
+                loopicon = f' | 🔂ₛ 🕗 {playlist.times} 次'
             elif loopstate == LoopState.SINGLEINF:
-                loopicon = ' | 🔂'
+                loopicon = ' | 🔂ₛ'
             elif loopstate == LoopState.PLAYLIST:
                 loopicon = ' | 🔁'
         else:

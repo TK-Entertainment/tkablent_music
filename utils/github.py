@@ -17,7 +17,7 @@ class GithubIssue:
             self.issue_user_url = "https://github.com/TK-Entertainment/tkablent/issues"
         
         self.errorcode_to_msg = {
-            "SEARCH_FAILED": "搜尋時，提供的連結無法正常播放或不存在",
+            "SEARCH_OR_PLAYING_FAILED": "搜尋或播放時，提供的連結無法正常播放或不存在，或機器人播放時發生錯誤",
             "PLAYER_FAULT": "播放時，機器人發生錯誤，無法正常播放",
             "JOINFAIL": "機器人嘗試加入頻道時失敗",
             "LEAVEFAIL": "機器人嘗試離開頻道時失敗",

@@ -10,7 +10,7 @@ from .playlist import Playlist
 from .command import Command
 
 INF = int(1e18)
-bot_version = 'lavalink-test Branch'
+bot_version = 'master Branch'
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -208,6 +208,7 @@ class MusicCog(Player, commands.Cog):
         from .ui import UI, auto_stage_available, guild_info
         self.ui = UI(self, bot_version)
         self.auto_stage_available = auto_stage_available
+        self.ui_guild_info = guild_info
         
     @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
     async def reportbug(self, interaction: discord.Interaction):
@@ -402,6 +403,21 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
+    async def nowplaying(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        await self.ui.PlayerControl.NowPlaying(command)
+
+    @commands.command(name='np')
+    async def _c_nowplaying(self, ctx: commands.Context):
+        await self.nowplaying(ctx)
+
+    @app_commands.command(name='np', description='▶️ | 查看現在在播放什麼!')
+    async def _i_nowplaying(self, interaction: discord.Interaction):
+        await self.nowplaying(interaction)
+
+    ##############################################
+
     async def stop(self, command):
         if not isinstance(command, Command):
             command: Command = Command(command)
@@ -445,30 +461,6 @@ class MusicCog(Player, commands.Cog):
     @app_commands.rename(timestamp='目標時間')
     async def _i_seek(self, interaction: discord.Interaction, timestamp: str):
         await self.seek(interaction, timestamp)
-
-    ##############################################
-
-    # async def volume(self, command, percent: Union[int, str]=None):
-    #     if not isinstance(command, Command):
-    #         command: Command = Command(command)
-    #     if not isinstance(percent, int) and percent is not None or command.guild.voice_client is None:
-    #         await self.ui.VolumeAdjustFailed(command)
-    #         return 'Failed'
-    #     if percent is not None:
-    #         percent = max(0, min(200, percent))
-    #     await self.ui.VolumeAdjust(command, percent)
-    #     if percent is not None:
-    #         await self._volume(command.guild, percent)
-
-    # @commands.command(name='volume')
-    # async def _c_volume(self, ctx: commands.Context, percent: Union[int, str]=None):
-    #     await self.volume(ctx, percent)
-
-    # @app_commands.command(name='volume', description='🔊 | 太大聲？還是太小聲了？還是想知道目前音量？')
-    # @app_commands.describe(percent='音量 (使用百份比單位，不輸入此項來取得目前音量)')
-    # @app_commands.rename(percent='音量')
-    # async def _i_volume(self, interaction: discord.Interaction, percent: int=None):
-    #     await self.volume(interaction, percent)
 
     ##############################################
 
@@ -760,8 +752,17 @@ class MusicCog(Player, commands.Cog):
     async def _pause_on_being_alone(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         try:
             voice_client: wavelink.Player = member.guild.voice_client
-            if len(voice_client.channel.members) == 1 and not voice_client.is_paused() and member != self.bot.user:
-                await self.ui.PlayerControl.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
-                await self._pause(member.guild)
+            if len(voice_client.channel.members) == 1 and member != self.bot.user:
+                if not voice_client.is_paused():
+                    await self.ui.PlayerControl.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
+                    await self._pause(member.guild)
+                else:
+                    self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
+                    self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                    await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
+            elif len(voice_client.channel.members) > 1 and voice_client.is_paused() and member != self.bot.user and self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled:
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
         except: 
             pass
