@@ -7,14 +7,10 @@ import discord
 from discord import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
 import wavelink
 
-from .ytdl import YTDL
-
 INF = int(1e18)
 
 class SeekError(Exception): ...
 class OutOfBound(Exception): ...
-
-ytdl = YTDL()
 
 class LoopState(Enum):
     NOTHING = auto()

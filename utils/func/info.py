@@ -1,5 +1,6 @@
 from typing import *
 import discord
+import requests
 
 import wavelink
 from ..playlist import LoopState
@@ -66,14 +67,17 @@ class InfoGenerator:
                 queuelist += f"...還有 {len(playlist.order)-2} 首歌"
 
             embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
-        embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
+        
+        if 'youtube' in song.uri:
+            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
+
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed
 
     def _PlaylistInfo(self, playlist: wavelink.YouTubePlaylist, requester: discord.User):
         # Generate Embed Body
         color = discord.Colour.from_rgb(97, 219, 83)
-        embed = discord.Embed(title=playlist.name, colour=color)
+        embed = discord.Embed(title=playlist.name, url=playlist.uri, colour=color)
         embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
 
         pllist: str = ""
