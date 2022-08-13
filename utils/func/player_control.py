@@ -209,7 +209,7 @@ class PlayerControl:
             guild_info = self.guild_info
 
             def __init__(self, *, timeout=60):
-                super().__init__(timeout=playlist.order[0].length)
+                super().__init__(timeout=None)
                     
             @discord.ui.button(
                 label='⏸️' if not voice_client.is_paused() else '▶️', 
@@ -269,10 +269,6 @@ class PlayerControl:
             @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.gray)
             async def listqueue(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.queue.ShowQueue(interaction, 'button')
-
-            async def on_timeout(self):
-                self.clear_items()
-                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
 
         if self.guild_info(channel.guild.id).skip:
             if len(playlist.order) > 1:

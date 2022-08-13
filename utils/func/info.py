@@ -70,6 +70,14 @@ class InfoGenerator:
         
         if 'youtube' in song.uri:
             embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
+        elif 'spotify' in song.uri and (color != 'green' or color != 'red'):
+            embed.set_thumbnail(url=song.cover)
+            embed.add_field(name=f"音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
+            embed.add_field(name=f"為何有這個？", value=f'''
+因 Spotify 平台的特殊性 (無法取得其音源)
+故此機器人是使用相對應的標題及其他資料
+在 Youtube 上找到最相近的音源
+            ''', inline=False)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed

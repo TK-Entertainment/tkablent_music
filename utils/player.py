@@ -1,3 +1,4 @@
+from http import client
 from typing import *
 import asyncio, json, os
 
@@ -6,6 +7,8 @@ from discord.ext import commands
 from discord import VoiceClient, app_commands
 
 import wavelink
+import spotipy
+from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
 from .playlist import Playlist
 from .command import Command
@@ -88,6 +91,7 @@ class Player:
         return self._guilds_info[guild_id] 
 
     def _start_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
+        self.spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=spotify_id, client_secret=spotify_secret))
         return wavelink.NodePool.create_node(
             bot=bot,
             host=host,
@@ -673,39 +677,56 @@ class MusicCog(Player, commands.Cog):
         else:
             await self._get_track(command, search, 'normal')       
 
+    async def spotify_info_process(self, search, trackinfo: spotify.SpotifyTrack):
+        #backup
+        trackinfo.yt_title = trackinfo.title
+        trackinfo.yt_url = trackinfo.uri
+
+        # replace with spotify data
+        count = 0
+        spotify_data = self.spotify.track(search)
+        trackinfo.title = spotify_data['name']
+        trackinfo.uri = search
+        trackinfo.author = spotify_data['artists'][0]['name']
+        trackinfo.cover = spotify_data['album']['images'][0]['url']
+
     async def _get_track(self, command, search: str, choice: str):
-        extract = search.split('&')
-        if choice == 'videoonly':
-            url = extract[0]
-        elif choice == 'playlist':
-            url = f'https://www.youtube.com/playlist?{extract[1]}'
+        if 'spotify' in search:
+            trackinfo = await spotify.SpotifyTrack.convert(command, search)
+            await self.spotify_info_process(search, trackinfo)
         else:
-            url = search
-        for trackmethod in [
-                                wavelink.YouTubePlaylist,
-                                wavelink.LocalTrack,
-                                wavelink.YouTubeTrack,
-                                wavelink.YouTubeMusicTrack,
-                                wavelink.SoundCloudTrack,
-                                spotify.SpotifyTrack
-                            ]:
-            try:
-                # SearchableTrack.convert(ctx, query)
-                # ctx here actually useless
-                trackinfo = await trackmethod.convert(command, url)
-            except Exception:
-                # When there is no result for provided method
-                # Then change to next method to search
-                trackinfo = None
-                pass
-            if trackinfo is not None:
-                break
+            extract = search.split('&')
+            if choice == 'videoonly':
+                url = extract[0]
+            elif choice == 'playlist':
+                url = f'https://www.youtube.com/playlist?{extract[1]}'
+            else:
+                url = search
+
+            for trackmethod in [
+                                    wavelink.YouTubePlaylist,
+                                    wavelink.LocalTrack,
+                                    wavelink.YouTubeTrack,
+                                    wavelink.YouTubeMusicTrack,
+                                    wavelink.SoundCloudTrack,
+                                ]: 
+                try:
+                    # SearchableTrack.convert(ctx, query)
+                    # ctx here actually useless
+                    trackinfo = await trackmethod.convert(command, url)
+                except Exception:
+                    # When there is no result for provided method
+                    # Then change to next method to search
+                    trackinfo = None
+                    pass
+                if trackinfo is not None:
+                    break
         
         if trackinfo is None:
             await self.ui.Search.SearchFailed(command, url)
 
         if isinstance(trackinfo, wavelink.YouTubePlaylist):
-            trackinfo.uri = f'https://www.youtube.com/playlist?{trackinfo.identifier}'
+            trackinfo.uri = url
 
         await self.play(command, trackinfo)
 
