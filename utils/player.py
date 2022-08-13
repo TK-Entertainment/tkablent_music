@@ -122,6 +122,8 @@ class Player:
     async def _skip(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
         if voice_client.is_playing() or voice_client.is_paused():
+            if voice_client.is_paused():
+                await voice_client.resume()
             await voice_client.stop()
         self._playlist[guild].times = 0
     
