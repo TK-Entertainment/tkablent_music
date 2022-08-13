@@ -29,6 +29,8 @@ TOKEN = os.getenv('TOKEN')
 HOST = os.getenv('WAVELINK_HOST')
 PORT = os.getenv('WAVELINK_PORT')
 PASSWORD = os.getenv('WAVELINK_PWD')
+SPOTIFY_ID = os.getenv('SPOTIFY_ID')
+SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
 presence = discord.Game(name='播放音樂 | $play')
 intents = discord.Intents.all()
@@ -51,7 +53,7 @@ async def on_ready():
 
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
-    node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD)
+    node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
     cog.playnode = node
 
     atexit.register(on_exit)

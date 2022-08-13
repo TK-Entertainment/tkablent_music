@@ -6,6 +6,7 @@ from discord.ext import commands
 from discord import VoiceClient, app_commands
 
 import wavelink
+from wavelink.ext import spotify
 from .playlist import Playlist
 from .command import Command
 
@@ -86,13 +87,14 @@ class Player:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    def _start_daemon(self, bot, host, port, password):
+    def _start_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
         return wavelink.NodePool.create_node(
             bot=bot,
             host=host,
             port=port,
             password=password,
-            identifier="PlaybackServer"
+            identifier="PlaybackServer",
+            spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
 
     async def _join(self, channel: discord.VoiceChannel):
@@ -620,7 +622,8 @@ class MusicCog(Player, commands.Cog):
                                 wavelink.YouTubeTrack,
                                 wavelink.YouTubeMusicTrack,
                                 wavelink.SoundCloudTrack,
-                                wavelink.YouTubePlaylist
+                                wavelink.YouTubePlaylist,
+                                
                             ]):
         # Try to make bot join author's channel
         if command.command_type == 'Context':
@@ -684,6 +687,7 @@ class MusicCog(Player, commands.Cog):
                                 wavelink.YouTubeTrack,
                                 wavelink.YouTubeMusicTrack,
                                 wavelink.SoundCloudTrack,
+                                spotify.SpotifyTrack
                             ]:
             try:
                 # SearchableTrack.convert(ctx, query)
@@ -699,6 +703,9 @@ class MusicCog(Player, commands.Cog):
         
         if trackinfo is None:
             await self.ui.Search.SearchFailed(command, url)
+
+        if isinstance(trackinfo, wavelink.YouTubePlaylist):
+            trackinfo.uri = f'https://www.youtube.com/playlist?{trackinfo.identifier}'
 
         await self.play(command, trackinfo)
 
