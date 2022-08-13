@@ -1,5 +1,3 @@
-bot_version = 'LOCAL DEVELOPMENT'
-
 from typing import *
 import os, dotenv, sys
 
@@ -13,6 +11,19 @@ Current Version
 {sys.version}
 ''')
 
+production = False
+
+if production:
+    prefix = '$'
+    status = discord.Status.online
+    production_status = 'ce' # ce for cutting edge, s for stable
+    bot_version = f'20220813-{production_status}'
+else:
+    prefix = '%'
+    status = discord.Status.dnd
+    branch = 'master'
+    bot_version = f'LOCAL DEVELOPMENT / {branch} Branch'
+
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
 HOST = os.getenv('WAVELINK_HOST')
@@ -21,7 +32,7 @@ PASSWORD = os.getenv('WAVELINK_PWD')
 
 presence = discord.Game(name='播放音樂 | $play')
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix='%', intents=intents, help_command=None, activity=presence, status=discord.Status.dnd)
+bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, activity=presence, status=status)
 
 from utils import *
 
@@ -35,7 +46,7 @@ def on_exit():
 
 @bot.event
 async def on_ready():
-    await bot.add_cog(MusicCog(bot))
+    await bot.add_cog(MusicCog(bot, bot_version))
     await bot.tree.sync()
 
     cog: MusicCog = bot.cogs['MusicCog']

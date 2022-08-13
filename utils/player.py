@@ -10,7 +10,6 @@ from .playlist import Playlist
 from .command import Command
 
 INF = int(1e18)
-bot_version = 'master Branch'
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -199,14 +198,15 @@ class Player:
             self[guild.id]._timer = None
 
 class MusicCog(Player, commands.Cog):
-    def __init__(self, bot: commands.Bot):
+    def __init__(self, bot: commands.Bot, bot_version):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
+        self.bot_version = bot_version
 
     async def resolve_ui(self):   
         from .ui import UI, auto_stage_available, guild_info
-        self.ui = UI(self, bot_version)
+        self.ui = UI(self, self.bot_version)
         self.auto_stage_available = auto_stage_available
         self.ui_guild_info = guild_info
         
