@@ -194,7 +194,7 @@ class Player:
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: discord.Guild):
-        await asyncio.sleep(60.0)
+        await asyncio.sleep(600.0)
         await self._leave(guild)
     
     def _cleanup(self, guild: discord.Guild):
@@ -743,10 +743,13 @@ class MusicCog(Player, commands.Cog):
                 except Exception as e:
                     await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
+                await asyncio.sleep(0.5)
+
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(0.1)
             finally:
                 self._playlist.rule(guild.id)
+                await asyncio.sleep(1)
         await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')
