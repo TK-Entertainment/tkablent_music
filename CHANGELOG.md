@@ -1,6 +1,36 @@
 # 完整更新日誌
 ```diff  
 =========================================
+Codename TKablent | Version Cutting Edge
+Copyright 2022-present @ TK Entertainment
+Shared under CC-NC-SS-4.0 license
+=========================================
+# Version 20220813-ce (f5b7e68)
+# Rebranded Alpha to Cutting Edge
++ [UI] Added help command
++ [UI] Added /np command
++ [Core] add "leave while inactive" feature
++ [UI][Core] Added playlist support
++ [UI] Added playing exception handler
++ [UI] Added bug reporting modal
++ [Proto] Added Github API
++ [Core][UI] Added slash command support
++ [UI] 新增對於混合連結的支援
++ [UI] Added playback control buttons
++ [UI] Spotify supported (audio source from youtube)
+
+! [Core] Replaced pytube/yt-dlp with Lavalink (Wavelink)
+! [Core] Replaced disnake with discord.py
+! [Core][UI] Merged UI.SkipSucceed into UI.PlayingMsg
+! [Core] Update garbage collector
+! [Core] rewrite some functions
+! [Core] Rewrite code for stage
+! [UI] Organised UI functions
+! [Core][UI] Catched few bugs
+
+- [Core] Removed volume function
+
+=========================================
 Codename TKablent | Version Alpha
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
