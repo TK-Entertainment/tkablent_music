@@ -14,7 +14,7 @@
 **最新更新日誌**
 
 如需觀看更詳細的更新日誌，請點下方連結
-```[cf249c6...f5b7e68](https://github.com/TK-Entertainment/tkablent/compare/cf249c6...f5b7e68)```
+[cf249c6...f5b7e68](https://github.com/TK-Entertainment/tkablent/compare/cf249c6...f5b7e68)
 
 ```diff
 =========================================
