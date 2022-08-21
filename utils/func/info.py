@@ -43,7 +43,14 @@ class InfoGenerator:
             loopicon = ''
 
         # Generate Embed Body
-        embed = discord.Embed(title=song.title, url=song.uri, colour=color)
+        if 'youtube' in song.uri:
+            source_icon = '<:youtube:1010812724009242745>'
+        elif 'soundcloud' in song.uri:
+            source_icon = '<:soundcloud:1010812662155837511>'
+        elif 'spotify' in song.uri:
+            source_icon = '<:spotify:1010844746647883828>'
+
+        embed = discord.Embed(title=f"{source_icon} | {song.title}", url=song.uri, colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
         embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
         
@@ -72,7 +79,7 @@ class InfoGenerator:
             embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
         elif 'spotify' in song.uri and (color != 'green' or color != 'red'):
             embed.set_thumbnail(url=song.cover)
-            embed.add_field(name=f"音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
+            embed.add_field(name=f"<:youtube:1010812724009242745> | 音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
             embed.add_field(name=f"為何有這個？", value=f'''
 因 Spotify 平台的特殊性 (無法取得其音源)
 故此機器人是使用相對應的標題及其他資料

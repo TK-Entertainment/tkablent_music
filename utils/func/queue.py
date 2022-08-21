@@ -41,6 +41,11 @@ class Queue:
 
                 embed = self.info_generator._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
+            if self.guild_info(command.guild.id).playinfo is not None:
+                self.guild_info(command.guild.id).playinfo_view.skip.disabled = False
+                self.guild_info(command.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+                await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+
             if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
                 await command.send(msg, embed=embed)
             else:

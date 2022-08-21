@@ -237,9 +237,14 @@ class PlayerControl:
                 await self.guild_info(channel.guild.id).playinfo.edit(view=view)
                 self.stop()
 
-            @discord.ui.button(label='⏩', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(
+                label='⏩', 
+                style=discord.ButtonStyle.gray if len(musicbot._playlist[channel.guild.id].order) == 1 else discord.ButtonStyle.blurple,
+                disabled=len(musicbot._playlist[channel.guild.id].order) == 1
+                )
             async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.musicbot._skip(channel.guild)
+                self.guild_info(channel.guild.id).skip = True
                 self.clear_items()
                 await interaction.response.edit_message(view=view)
                 self.stop()
@@ -285,6 +290,7 @@ class PlayerControl:
             *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
                 '''
             self.guild_info(channel.guild.id).skip = False
+
             if playlist.loop_state != LoopState.SINGLEINF:
                 playlist.loop_state = LoopState.NOTHING
                 playlist.times = 0
