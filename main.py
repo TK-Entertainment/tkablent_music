@@ -49,6 +49,7 @@ def on_exit():
 @bot.event
 async def on_ready():
     await bot.add_cog(MusicCog(bot, bot_version))
+    await bot.add_cog(HelperCog(bot))
     await bot.tree.sync()
 
     cog: MusicCog = bot.cogs['MusicCog']
