@@ -48,7 +48,6 @@ bot: commands.Bot = None
 embed_opt = None
 _guild_ui_info = dict()
 
-@staticmethod
 def guild_info(guild_id) -> GuildUIInfo:
     if _guild_ui_info.get(guild_id) is None:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
@@ -57,32 +56,45 @@ def guild_info(guild_id) -> GuildUIInfo:
 def auto_stage_available(guild_id: int):
     return guild_info(guild_id).auto_stage_available
 
-class UI:
+
+from .func.base import UIBase, GuildUIInfo
+class UI(UIBase):
+    # _guild_ui_info: dict
+    # def __getitem__(self, guild_id) -> GuildUIInfo:
+    #     if self._guild_ui_info.get(guild_id) is None:
+    #         self._guild_ui_info[guild_id] = GuildUIInfo(guild_id)
+    #     return _guild_ui_info[guild_id]
+
     def __init__(self, music_bot, botversion):
+        super().__init__(music_bot)
+        self._guild_ui_info = dict()
+
         global bot_version, musicbot, bot, embed_opt
         bot_version = botversion
 
         musicbot = music_bot
         bot = musicbot.bot
+        from .func.misc import _generate_embed_option
+        embed_opt = _generate_embed_option(bot, bot_version)
 
-        embed_opt = {
-            'footer': {
-                'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment",
-                'icon_url': "https://i.imgur.com/wApgX8J.png"
-            },
-        }
+        # embed_opt = {
+        #     'footer': {
+        #         'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment",
+        #         'icon_url': "https://i.imgur.com/wApgX8J.png"
+        #     },
+        # }
 
         ########
         # Info #
         ########
         from .func.info import InfoGenerator
-        self._InfoGenerator = InfoGenerator()
+        self._InfoGenerator = InfoGenerator(musicbot, embed_opt)
 
         ############################
         # General Warning Messages #
         ############################
         from .func.exception_handler import ExceptionHandler
-        self.ExceptionHandler = ExceptionHandler(self._InfoGenerator)
+        self.ExceptionHandler = ExceptionHandler(musicbot=musicbot, embed_opt=embed_opt)
 
         ########
         # Help #

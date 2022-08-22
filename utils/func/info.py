@@ -1,21 +1,19 @@
 from typing import *
 import discord
-import requests
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum
 
-class InfoGenerator:
-    def __init__(self):
-        from ..ui import musicbot, bot, _sec_to_hms, embed_opt,\
-                        auto_stage_available, guild_info
+from .base import UIBase
+from .misc import _sec_to_hms
 
-        self.musicbot = musicbot
-        self.bot = bot
-        self._sec_to_hms = _sec_to_hms
+class InfoGenerator(UIBase):
+    def __init__(self, musicbot, embed_opt):
+        super().__init__(musicbot)
+        from ..player import MusicCog
+        self.musicbot: MusicCog = musicbot # MusicCog
+        self.bot = self.musicbot.bot
         self.embed_opt = embed_opt
-        self.auto_stage_available = auto_stage_available
-        self.guild_info = guild_info
 
     def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0):
         playlist = self.musicbot._playlist[guild_id]
@@ -59,7 +57,7 @@ class InfoGenerator:
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
-            embed.add_field(name="歌曲時長", value=self._sec_to_hms(song.length, "zh"), inline=True)
+            embed.add_field(name="歌曲時長", value=_sec_to_hms(song.length, "zh"), inline=True)
         
         if self.musicbot[guild_id]._volume_level == 0: 
             embed._author['name'] += " | 🔇 靜音"
@@ -81,9 +79,9 @@ class InfoGenerator:
             embed.set_thumbnail(url=song.cover)
             embed.add_field(name=f"<:youtube:1010812724009242745> | 音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
             embed.add_field(name=f"為何有這個？", value=f'''
-因 Spotify 平台的特殊性 (無法取得其音源)
-故此機器人是使用相對應的標題及其他資料
-在 Youtube 上找到最相近的音源
+                因 Spotify 平台的特殊性 (無法取得其音源)
+                故此機器人是使用相對應的標題及其他資料
+                在 Youtube 上找到最相近的音源
             ''', inline=False)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
@@ -105,7 +103,7 @@ class InfoGenerator:
             if i == 1: 
                 break
         if len(playlist.tracks) > 2:
-            pllist += f"...還有 {len(playlist.tracks)-2} 首歌"
+            pllist += f"...還有 {len(playlist.tracks) - 2} 首歌"
         
         embed.add_field(name=f"歌曲清單 | 已新增 {len(playlist.tracks)} 首歌", value=pllist, inline=False)
         if isinstance(playlist, wavelink.YouTubePlaylist):
@@ -120,6 +118,6 @@ class InfoGenerator:
         message = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
-        if not self.auto_stage_available(guild_id):
+        if not self[guild_id].auto_stage_available:
             message += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
-        await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
+        await self[guild_id].playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self[guild_id].playinfo_view)

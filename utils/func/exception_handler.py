@@ -6,13 +6,9 @@ from ..player import Command
 from ..github import GithubIssue
 from .info import InfoGenerator
 
-class ExceptionHandler:
-    def __init__(self, info_generator):
-        from ..ui import embed_opt, bot, guild_info
-        self.guild_info = guild_info
-        self.info_generator: InfoGenerator = info_generator
-        self.embed_opt = embed_opt
-        self.bot = bot
+class ExceptionHandler(InfoGenerator):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.github: GithubIssue = GithubIssue()
         self.errorcode_to_msg = {
             "PLAYER_FAULT": "機器人遇到了一些問題，故無法正常播放\n            將跳過此歌曲",
@@ -74,7 +70,7 @@ class ExceptionHandler:
         errortime = cdt.strftime("%Y/%m/%d %H:%M:%S")
 
         if errorcode == "SEARCH_FAILED":
-            embed = self.info_generator._SongInfo(guild_id=message.guild.id, color_code='red')
+            embed = self._SongInfo(guild_id=message.guild.id, color_code='red')
             if isinstance(message, Command) and message.is_response():
                 msg = await message.channel.send(content, embed=embed)
             else:
@@ -88,7 +84,7 @@ class ExceptionHandler:
             else:
                 msg = await message.send(content)
 
-        self.guild_info(message.guild.id).lasterrorinfo = {
+        self[message.guild.id].lasterrorinfo = {
             "errortime": errortime,
             "msg": msg,
             "done_content": done_content,
@@ -97,12 +93,12 @@ class ExceptionHandler:
             "video_url": video_url
         }
 
-    async def Interaction_BugReportingModal(self, interaction: discord.Interaction, guild: discord.Guild):
+    async def Interaction_BugReportingModal(self, interaction: discord.Interaction, _guild: discord.Guild):
 
         class BugReportingModal(discord.ui.Modal):
-            lasterror = self.guild_info(guild.id).lasterrorinfo
+            guild = _guild
+            lasterror = self[guild.id].lasterrorinfo
             github = self.github
-            guildinfo = guild
             bot = self.bot
 
             if "errorcode" not in lasterror.keys():
@@ -127,7 +123,7 @@ class ExceptionHandler:
                 self.guild = discord.ui.TextInput(
                     custom_id="guild",
                     label="伺服器名稱 (已自動填入，不需更改)",
-                    default=f"{self.guildinfo.name} ({self.guildinfo.id})"
+                    default=f"{self.guild.name} ({self.guild.id})"
                 )
 
                 self.error_code_text = discord.ui.TextInput(
