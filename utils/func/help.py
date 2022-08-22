@@ -18,12 +18,11 @@ class Help:
     def _HelpEmbedPlayback(self) -> discord.Embed:
         return discord.Embed(title=":regional_indicator_q: | 指令說明 | 播放相關指令", description=f'''
         {self.bot.command_prefix}play [URL/名稱] | 開始播放指定歌曲(輸入名稱會啟動搜尋)
+        {self.bot.command_prefix}np | 顯示目前播放歌曲資訊
         {self.bot.command_prefix}pause | 暫停歌曲播放
         {self.bot.command_prefix}resume | 續播歌曲
         {self.bot.command_prefix}skip | 跳過目前歌曲
         {self.bot.command_prefix}stop | 停止歌曲並清除所有待播清單中的歌曲
-        {self.bot.command_prefix}mute | 切換靜音狀態
-        {self.bot.command_prefix}volume [音量] | 顯示機器人目前音量/更改音量(加上指定 [音量])
         {self.bot.command_prefix}seek [秒/時間戳] | 快轉至指定時間 (時間戳格式 ex.00:04)
         {self.bot.command_prefix}restart | 重新播放目前歌曲
         {self.bot.command_prefix}loop | 切換單曲循環開關

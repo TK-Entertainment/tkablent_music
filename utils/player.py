@@ -673,7 +673,7 @@ class MusicCog(Player, commands.Cog):
             await self._get_track(command, search, 'normal')       
 
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
-    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 Youtube / SoundCloud)')
+    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 Youtube / SoundCloud / Spotify)')
     @app_commands.rename(search='影片網址或關鍵字')
     async def _i_play(self, interaction: discord.Interaction, search: str):
         command: Command = Command(interaction)

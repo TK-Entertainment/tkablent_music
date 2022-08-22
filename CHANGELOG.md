@@ -5,6 +5,15 @@ Codename TKablent | Version Cutting Edge
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
+# Version 20220822-ce (6511239)
++ [Core][UI] 新增對於 Spotify 播放清單及專輯的播放支援
+# 注意，Spotify 歌曲尋找將會較 Youtube 緩慢
++ [UI] 播放資訊開始顯示播放來源
+
+! [Core] 將搜尋伺服器獨立於播放伺服器，提供更穩定的播放體驗
+! [UI] 跳過按鈕將會在只剩一首歌時，無法按下
+! [Core][UI] 抓了一些小蟲子
+
 # Version 20220813-ce (f5b7e68)
 # Rebranded Alpha to Cutting Edge
 + [UI] Added help command

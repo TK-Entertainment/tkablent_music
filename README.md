@@ -8,13 +8,13 @@
 
 ## 目前版本
 正式版(Stable): *N/A*
-測試版(Cutting Edge): *20220813-ce*
-源碼(Source Code): *5cc9ac6 (20220820)*
+測試版(Cutting Edge): *20220822-ce*
+源碼(Source Code): *6511239 (20220822)*
   
 **最新更新日誌**
 
 如需觀看更詳細的更新日誌，請點下方連結
-[cf249c6...f5b7e68](https://github.com/TK-Entertainment/tkablent/compare/cf249c6...f5b7e68)
+[f5b7e68...6511239](https://github.com/TK-Entertainment/tkablent/compare/f5b7e68...6511239)
 
 ```diff
 =========================================
@@ -22,30 +22,14 @@ Codename TKablent | Version Cutting Edge
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
-# Version 20220813-ce (f5b7e68)
-# Rebranded Alpha to Cutting Edge
-+ [UI] Added help command
-+ [UI] Added /np command
-+ [Core] add "leave while inactive" feature
-+ [UI][Core] Added playlist support
-+ [UI] Added playing exception handler
-+ [UI] Added bug reporting modal
-+ [Proto] Added Github API
-+ [Core][UI] Added slash command support
-+ [UI] 新增對於混合連結的支援
-+ [UI] Added playback control buttons
-+ [UI] Spotify supported (audio source from youtube)
+# Version 20220822-ce (6511239)
++ [Core][UI] 新增對於 Spotify 播放清單及專輯的播放支援
+# 注意，Spotify 歌曲尋找將會較 Youtube 緩慢
++ [UI] 播放資訊開始顯示播放來源
 
-! [Core] Replaced pytube/yt-dlp with Lavalink (Wavelink)
-! [Core] Replaced disnake with discord.py
-! [Core][UI] Merged UI.SkipSucceed into UI.PlayingMsg
-! [Core] Update garbage collector
-! [Core] rewrite some functions
-! [Core] Rewrite code for stage
-! [UI] Organised UI functions
-! [Core][UI] Catched few bugs
-
-- [Core] Removed volume function
+! [Core] 將搜尋伺服器獨立於播放伺服器，提供更穩定的播放體驗
+! [UI] 跳過按鈕將會在只剩一首歌時，無法按下
+! [Core][UI] 抓了一些小蟲子
 ```  
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權
