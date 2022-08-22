@@ -40,6 +40,7 @@ class GuildUIInfo:
         self.lasterrorinfo: dict = {}
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
+        self.processing_msg: discord.Message = None
 
 bot_version: str = None
 musicbot: MusicCog = None

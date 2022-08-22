@@ -2,8 +2,8 @@ from typing import *
 import discord
 import copy
 
-from ..player import Command
-from ..playlist import PlaylistBase
+from ..player import Command, SpotifyAlbum
+from ..playlist import PlaylistBase, SpotifyPlaylist
 from .info import InfoGenerator
 
 import wavelink
@@ -23,11 +23,16 @@ class Queue:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
-        if len(playlist.order) > 1 or (isinstance(trackinfo, wavelink.YouTubePlaylist)):
-            if isinstance(trackinfo, wavelink.YouTubePlaylist):
-                msg = '''
+        if len(playlist.order) > 1 or (isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyAlbum])):
+            if isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyAlbum, SpotifyPlaylist]):
+                if isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyPlaylist]):
+                    type_string = '播放清單'
+                elif isinstance(trackinfo, SpotifyAlbum):
+                    type_string = 'Spotify 專輯'
+
+                msg = f'''
                 **:white_check_mark: | 成功加入待播清單**
-                以下播放清單已加入待播清單中
+                以下{type_string}已加入待播清單中
                 '''
 
                 embed = self.info_generator._PlaylistInfo(trackinfo, requester)
@@ -49,6 +54,9 @@ class Queue:
             if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
                 await command.send(msg, embed=embed)
             else:
+                if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(command.guild.id).processing_msg is not None:
+                    await self.guild_info(command.guild.id).processing_msg.delete()
+                    self.guild_info(command.guild.id).processing_msg = None
                 await command.channel.send(msg, embed=embed)
 
     # Queue Embed Generator
@@ -66,17 +74,19 @@ class Queue:
             )
 
         embed_opt = copy.deepcopy(self.embed_opt)
+        if op == 'button':
+            txt = '請點按「刪除這些訊息」來關閉\n'
+        else:
+            txt = ''
 
         if len(playlist.order) > 4:
-            if op == 'button':
-                txt = '請點按「刪除這些訊息」來關閉\n'
-            else:
-                txt = ''
             total_pages = (len(playlist.order)-1) // 3
             if (len(playlist.order)-1) % 3 != 0:
                 total_pages += 1
             embed_opt['footer']['text'] = f'{txt}第 {page+1} 頁 / 共 {total_pages} 頁\n' + self.embed_opt['footer']['text']
-        
+        else:
+            embed_opt['footer']['text'] = f'{txt}' + self.embed_opt['footer']['text']
+
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed
     
@@ -171,7 +181,10 @@ class Queue:
 
             async def on_timeout(self):
                 if self.operation == 'button':
-                    await command.edit_original_message(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
+                    try:
+                        await command.edit_original_message(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
+                    except:
+                        pass
                 else:
                     await msg.delete()
             

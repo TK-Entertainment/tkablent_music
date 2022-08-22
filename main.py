@@ -27,6 +27,7 @@ else:
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
 HOST = os.getenv('WAVELINK_HOST')
+SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
 PORT = os.getenv('WAVELINK_PORT')
 PASSWORD = os.getenv('WAVELINK_PWD')
 SPOTIFY_ID = os.getenv('SPOTIFY_ID')
@@ -55,7 +56,9 @@ async def on_ready():
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
     node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    searchnode: wavelink.Node = await cog._start_search_daemon(bot, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
     cog.playnode = node
+    cog.searchnode = searchnode
 
     atexit.register(on_exit)
     print(f'''

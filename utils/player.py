@@ -10,7 +10,7 @@ import wavelink
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
-from .playlist import Playlist
+from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist
 from .command import Command
 
 INF = int(1e18)
@@ -84,6 +84,7 @@ class Player:
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self.playnode: wavelink.Node = None
+        self.searchnode: wavelink.Node = None
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
@@ -98,6 +99,16 @@ class Player:
             port=port,
             password=password,
             identifier="PlaybackServer",
+            spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
+        )
+
+    def _start_search_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
+        return wavelink.NodePool.create_node(
+            bot=bot,
+            host=host,
+            port=port,
+            password=password,
+            identifier="SearchServer",
             spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
 
@@ -677,23 +688,68 @@ class MusicCog(Player, commands.Cog):
         else:
             await self._get_track(command, search, 'normal')       
 
-    async def spotify_info_process(self, search, trackinfo: spotify.SpotifyTrack):
-        #backup
-        trackinfo.yt_title = trackinfo.title
-        trackinfo.yt_url = trackinfo.uri
+    async def spotify_info_process(self, search, trackinfo, type: spotify.SpotifySearchType):
+        if type == spotify.SpotifySearchType.track:
+            #backup
+            trackinfo.yt_title = trackinfo.title
+            trackinfo.yt_url = trackinfo.uri
+            # replace with spotify data
+            spotify_data = self.spotify.track(search)
+            trackinfo.title = spotify_data['name']
+            trackinfo.uri = search
+            trackinfo.author = spotify_data['artists'][0]['name']
+            trackinfo.cover = spotify_data['album']['images'][0]['url']
+            return trackinfo
+        else:
+            if type == spotify.SpotifySearchType.album:
+                spotify_data = self.spotify.album(search)
+                tracks = SpotifyAlbum()
+            elif type == spotify.SpotifySearchType.playlist:
+                spotify_data = self.spotify.playlist(search)
+                tracks = SpotifyPlaylist()
 
-        # replace with spotify data
-        count = 0
-        spotify_data = self.spotify.track(search)
-        trackinfo.title = spotify_data['name']
-        trackinfo.uri = search
-        trackinfo.author = spotify_data['artists'][0]['name']
-        trackinfo.cover = spotify_data['album']['images'][0]['url']
+            count = 0
 
-    async def _get_track(self, command, search: str, choice: str):
+            for track in trackinfo:
+                track.yt_title = track.title
+                track.yt_url = track.uri
+
+                if type == spotify.SpotifySearchType.album:
+                    track.title = spotify_data['tracks']['items'][count]['name']
+                    track.uri = spotify_data['tracks']['items'][count]['external_urls']['spotify']
+                    track.author = spotify_data['tracks']['items'][count]['artists'][0]['name']
+                    track.cover = spotify_data['images'][0]['url']
+                else:
+                    track.title = spotify_data['tracks']['items'][count]['track']['name']
+                    track.uri = spotify_data['tracks']['items'][count]['track']['external_urls']['spotify']
+                    track.author = spotify_data['tracks']['items'][count]['track']['artists'][0]['name']
+                    track.cover = spotify_data['tracks']['items'][count]['track']['album']['images'][0]['url']
+                count += 1
+
+            tracks.name = spotify_data['name']
+            tracks.uri = search
+            tracks.thumbnail = spotify_data['images'][0]['url']
+            tracks.tracks.extend(trackinfo)
+            return tracks
+
+    async def _get_track(self, command: Command, search: str, choice: str):
         if 'spotify' in search:
-            trackinfo = await spotify.SpotifyTrack.convert(command, search)
-            await self.spotify_info_process(search, trackinfo)
+            if 'track' in search:
+                searchtype = spotify.SpotifySearchType.track
+            elif 'album' in search:
+                searchtype = spotify.SpotifySearchType.album
+            else:
+                searchtype = spotify.SpotifySearchType.playlist
+            
+            if ('album' in search or 'artist' in search or 'playlist' in search):
+                self.ui_guild_info(command.guild.id).processing_msg = await self.ui.Search.SearchInProgress(command)
+
+            tracks = await spotify.SpotifyTrack.search(search, node=self.searchnode, type=searchtype, return_first=True)
+            
+            if tracks is None:
+                trackinfo = None
+            else:
+                trackinfo = await self.spotify_info_process(search, tracks, searchtype)
         else:
             extract = search.split('&')
             if choice == 'videoonly':
@@ -713,7 +769,7 @@ class MusicCog(Player, commands.Cog):
                 try:
                     # SearchableTrack.convert(ctx, query)
                     # ctx here actually useless
-                    trackinfo = await trackmethod.convert(command, url)
+                    trackinfo = await trackmethod.search(url, node=self.searchnode, return_first=True)
                 except Exception:
                     # When there is no result for provided method
                     # Then change to next method to search
@@ -723,7 +779,7 @@ class MusicCog(Player, commands.Cog):
                     break
         
         if trackinfo is None:
-            await self.ui.Search.SearchFailed(command, url)
+            await self.ui.Search.SearchFailed(command, search)
 
         if isinstance(trackinfo, wavelink.YouTubePlaylist):
             trackinfo.uri = url

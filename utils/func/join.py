@@ -22,69 +22,63 @@ class Join:
         await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
     
     async def JoinNormal(self, command: Command) -> None:
+        msg = f'''
+            **:inbox_tray: | 已加入語音頻道**
+            已成功加入 {command.author.voice.channel.name} 語音頻道'''
         try:
-            await command.send(f'''
-                **:inbox_tray: | 已加入語音頻道**
-                已成功加入 {command.author.voice.channel.name} 語音頻道
-                    ''')
+            if self.guild_info(command.guild.id).processing_msg is not None:
+                await self.guild_info(command.guild.id).processing_msg.delete()
+                self.guild_info(command.guild.id).processing_msg = None
+            await command.send(msg)
         except discord.InteractionResponded:
             channel = command.channel
-            await channel.send(f'''
-            **:inbox_tray: | 已加入語音頻道**
-            已成功加入 {command.author.voice.channel.name} 語音頻道
-                ''')
+            await channel.send(msg)
 
     async def JoinStage(self, command: Command, guild_id: int) -> None:
         channel = command.channel
         botitself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
+        errormsg = f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                -----------
+                *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
+                *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
+                *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
+                *此警告僅會出現一次*
+                        '''
+        msg = f'''
+                **:inbox_tray: | 已加入舞台頻道**
+                已成功加入 {command.author.voice.channel.name} 舞台頻道
+                    '''
         if botitself not in command.author.voice.channel.moderators and self.guild_info(guild_id).auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 try:
-                    await command.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-                已成功加入 {command.author.voice.channel.name} 舞台頻道
-                -----------
-                *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
-                *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
-                *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
-                *此警告僅會出現一次*
-                        ''')
+                    if self.guild_info(command.guild.id).processing_msg is not None:
+                        await self.guild_info(command.guild.id).processing_msg.delete()
+                        self.guild_info(command.guild.id).processing_msg = None
+                    await command.send(errormsg)
                 except discord.InteractionResponded:
-                    await channel.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-                已成功加入 {command.author.voice.channel.name} 舞台頻道
-                -----------
-                *已偵測到此機器人沒有* `管理頻道` *或* `管理員` *權限*
-                *亦非該語音頻道之* `舞台版主`*，自動化舞台音樂播放功能將受到限制*
-                *請啟用以上兩點其中一種權限(建議啟用 `舞台版主` 即可)以獲得最佳體驗*
-                *此警告僅會出現一次*
-                        ''')
+                    await channel.send(errormsg)
                 self.guild_info(guild_id).auto_stage_available = False
                 return
             else:
                 self.guild_info(guild_id).auto_stage_available = True
                 try:
-                    await command.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-                已成功加入 {command.author.voice.channel.name} 舞台頻道
-                    ''')
+                    if self.guild_info(command.guild.id).processing_msg is not None:
+                        await self.guild_info(command.guild.id).processing_msg.delete()
+                        self.guild_info(command.guild.id).processing_msg = None
+                    await command.send(msg)
                 except discord.InteractionResponded:
-                    await channel.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-                已成功加入 {command.author.voice.channel.name} 舞台頻道
-                    ''')
+                    await channel.send(msg)
                 return
         else:
             try:
-                await command.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-                已成功加入 {command.author.voice.channel.name} 舞台頻道
-                    ''')
+                if self.guild_info(command.guild.id).processing_msg is not None:
+                    await self.guild_info(command.guild.id).processing_msg.delete()
+                    self.guild_info(command.guild.id).processing_msg = None
+                await command.send(msg)
             except discord.InteractionResponded:
-                await channel.send(f'''
-                **:inbox_tray: | 已加入舞台頻道**
-                已成功加入 {command.author.voice.channel.name} 舞台頻道
-                    ''')
+                await channel.send(msg)
             self.guild_info(guild_id).auto_stage_available = True
             return
     

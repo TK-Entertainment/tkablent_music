@@ -83,6 +83,8 @@ class ExceptionHandler:
             if isinstance(message, Command) and message.command_type == "Interaction":
                 if message.is_response():
                     msg = await message.channel.send(content)
+                else:
+                    msg = await message.send(content)
             else:
                 msg = await message.send(content)
 

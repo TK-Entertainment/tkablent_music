@@ -12,6 +12,24 @@ INF = int(1e18)
 class SeekError(Exception): ...
 class OutOfBound(Exception): ...
 
+class SpotifyAlbum:
+    def __init__(self):
+        self.name: str = ""
+        self.uri: str = ""
+        self.artists: str = ""
+        self.requester: str = ""
+        self.thumbnail: str = ""
+        self.tracks: list = []
+
+class SpotifyPlaylist:
+    def __init__(self):
+        self.name: str = ""
+        self.uri: str = ""
+        self.artists: str = ""
+        self.requester: str = ""
+        self.thumbnail: str = ""
+        self.tracks: list = []
+
 class LoopState(Enum):
     NOTHING = auto()
     SINGLE = auto()
@@ -92,7 +110,7 @@ class Playlist:
         return self._guilds_info[guild_id]
 
     async def add_songs(self, guild_id, trackinfo: Union[wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist], requester):
-        if isinstance(trackinfo, wavelink.YouTubePlaylist):
+        if isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyAlbum, SpotifyPlaylist]):
             for track in trackinfo.tracks:
                 track.requester = requester
             self[guild_id].order.extend(trackinfo.tracks)

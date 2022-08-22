@@ -3,7 +3,7 @@ import discord
 import requests
 
 import wavelink
-from ..playlist import LoopState
+from ..playlist import LoopState, SpotifyAlbum
 
 class InfoGenerator:
     def __init__(self):
@@ -89,20 +89,29 @@ class InfoGenerator:
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed
 
-    def _PlaylistInfo(self, playlist: wavelink.YouTubePlaylist, requester: discord.User):
+    def _PlaylistInfo(self, playlist: Union[wavelink.YouTubePlaylist, SpotifyAlbum], requester: discord.User):
         # Generate Embed Body
+        if isinstance(playlist, wavelink.YouTubePlaylist):
+            source_icon = '<:youtube:1010812724009242745>'
+        else:
+            source_icon = '<:spotify:1010844746647883828>'
         color = discord.Colour.from_rgb(97, 219, 83)
-        embed = discord.Embed(title=playlist.name, url=playlist.uri, colour=color)
+        embed = discord.Embed(title=f"{source_icon} | {playlist.name}", url=playlist.uri, colour=color)
         embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
 
         pllist: str = ""
-        for i in range(2):
-            pllist += f"{i+1}. {playlist.tracks[i].title}\n"
+        for i, track in enumerate(playlist.tracks):
+            pllist += f"{i+1}. {track.title}\n"
+            if i == 1: 
+                break
         if len(playlist.tracks) > 2:
             pllist += f"...還有 {len(playlist.tracks)-2} 首歌"
         
         embed.add_field(name=f"歌曲清單 | 已新增 {len(playlist.tracks)} 首歌", value=pllist, inline=False)
-        embed.set_thumbnail(url=f'https://img.youtube.com/vi/{playlist.tracks[0].identifier}/0.jpg')
+        if isinstance(playlist, wavelink.YouTubePlaylist):
+            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{playlist.tracks[0].identifier}/0.jpg')
+        else:
+            embed.set_thumbnail(url=playlist.thumbnail)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 
         return embed
