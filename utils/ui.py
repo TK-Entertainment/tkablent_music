@@ -89,13 +89,13 @@ class UI(UIBase):
         # Stage #
         #########
         from .func.stage import Stage
-        self.Stage = Stage()
+        self.Stage = Stage(musicbot=musicbot, embed_opt=embed_opt)
 
         #########
         # Leave #
         #########
         from .func.leave import Leave
-        self.Leave = Leave(self.ExceptionHandler)
+        self.Leave = Leave(musicbot=musicbot, embed_opt=embed_opt)
     
         ##########
         # Search #

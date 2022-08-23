@@ -4,15 +4,9 @@ from discord.ext import commands
 from ..player import Command
 from .exception_handler import ExceptionHandler
 
-class Leave:
-    def __init__(self, exception_handler):
-        from ..ui import guild_info
-
-        self.guild_info = guild_info
-        self.exception_handler: ExceptionHandler = exception_handler
-
+class Leave(ExceptionHandler): # inherit ExceptionHandler and UIBase
     def reset_value(self, command: Command):
-        guild_info = self.guild_info(command.guild.id)
+        guild_info = self[command.guild.id]
 
         guild_info.auto_stage_available = True
         guild_info.stage_topic_checked = False
@@ -33,4 +27,4 @@ class Leave:
             ''')
     
     async def LeaveFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "LEAVEFAIL", exception)
+        await self._CommonExceptionHandler(command, "LEAVEFAIL", exception)
