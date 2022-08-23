@@ -28,26 +28,13 @@ def _sec_to_hms(seconds, format) -> str:
 
 from .player import MusicCog
 
-class GuildUIInfo:
-    def __init__(self, guild_id):
-        self.guild_id: int = guild_id
-        self.auto_stage_available: bool = True
-        self.stage_topic_exist: bool = False
-        self.stage_topic_checked: bool = False
-        self.skip: bool = False
-        self.mute: bool = False
-        self.search: bool = False
-        self.lasterrorinfo: dict = {}
-        self.playinfo: Coroutine[Any, Any, discord.Message] = None
-        self.playinfo_view: discord.ui.View = None
-        self.processing_msg: discord.Message = None
-
 bot_version: str = None
 musicbot: MusicCog = None
 bot: commands.Bot = None
 embed_opt = None
 _guild_ui_info = dict()
 
+from .func.base import UIBase, GuildUIInfo
 def guild_info(guild_id) -> GuildUIInfo:
     if _guild_ui_info.get(guild_id) is None:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
@@ -55,9 +42,6 @@ def guild_info(guild_id) -> GuildUIInfo:
 
 def auto_stage_available(guild_id: int):
     return guild_info(guild_id).auto_stage_available
-
-
-from .func.base import UIBase, GuildUIInfo
 class UI(UIBase):
     # _guild_ui_info: dict
     # def __getitem__(self, guild_id) -> GuildUIInfo:
