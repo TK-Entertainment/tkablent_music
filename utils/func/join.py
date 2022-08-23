@@ -5,9 +5,6 @@ from ..player import Command
 from .exception_handler import ExceptionHandler
 
 class Join(ExceptionHandler): # inherit ExceptionHandler and UIBase
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     async def RejoinNormal(self, command: Command) -> None:
         await command.send(f'''
             **:inbox_tray: | 已更換語音頻道**

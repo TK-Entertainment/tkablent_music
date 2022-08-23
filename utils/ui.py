@@ -101,7 +101,7 @@ class UI(UIBase):
         # Search #
         ##########
         from .func.search import Search
-        self.Search = Search(self.ExceptionHandler)
+        self.Search = Search(musicbot=musicbot, embed_opt=embed_opt)
 
         #########
         # Queue #

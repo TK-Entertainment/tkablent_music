@@ -1,10 +1,7 @@
 from ..player import Command
 from .exception_handler import ExceptionHandler
 
-class Search:
-    def __init__(self, exception_handler):
-        self.exception_handler: ExceptionHandler = exception_handler
-
+class Search(ExceptionHandler): # inherit ExceptionHandler and UIBase
     async def SearchInProgress(self, command: Command):
         if command.command_type == 'Interaction':
             notif = "\n            *你可以按下「刪除這些訊息」來關閉這個訊息*"
@@ -23,4 +20,4 @@ class Search:
             return await command.send(msg)
 
     async def SearchFailed(self, command: Command, url) -> None:
-        await self.exception_handler._MusicExceptionHandler(command, None, url)
+        await self._MusicExceptionHandler(command, None, url)
