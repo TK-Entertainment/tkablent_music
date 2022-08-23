@@ -3,9 +3,7 @@ import discord
 from discord.ext import commands
 
 class Help:
-    def __init__(self):
-        from ..ui import bot, embed_opt
-
+    def __init__(self, bot, embed_opt):
         self.bot: commands.Bot = bot
         self.embed_opt: dict = embed_opt
 

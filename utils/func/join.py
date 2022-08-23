@@ -4,31 +4,27 @@ import discord
 from ..player import Command
 from .exception_handler import ExceptionHandler
 
-class Join:
-    def __init__(self, exception_handler):
-        from ..ui import guild_info, bot
-        
-        self.exception_handler: ExceptionHandler = exception_handler
-        self.guild_info = guild_info
-        self.bot = bot
+class Join(ExceptionHandler): # inherit ExceptionHandler and UIBase
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     async def RejoinNormal(self, command: Command) -> None:
         await command.send(f'''
             **:inbox_tray: | 已更換語音頻道**
             已更換至 {command.author.voice.channel.name} 語音頻道
             ''')
-        self.guild_info(command.guild.id).playinfo_view.playorpause.disabled = False
-        self.guild_info(command.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
-        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        self[command.guild.id].playinfo_view.playorpause.disabled = False
+        self[command.guild.id].playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+        await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
     
     async def JoinNormal(self, command: Command) -> None:
         msg = f'''
             **:inbox_tray: | 已加入語音頻道**
             已成功加入 {command.author.voice.channel.name} 語音頻道'''
         try:
-            if self.guild_info(command.guild.id).processing_msg is not None:
-                await self.guild_info(command.guild.id).processing_msg.delete()
-                self.guild_info(command.guild.id).processing_msg = None
+            if self[command.guild.id].processing_msg is not None:
+                await self[command.guild.id].processing_msg.delete()
+                self[command.guild.id].processing_msg = None
             await command.send(msg)
         except discord.InteractionResponded:
             channel = command.channel
@@ -50,36 +46,36 @@ class Join:
                 **:inbox_tray: | 已加入舞台頻道**
                 已成功加入 {command.author.voice.channel.name} 舞台頻道
                     '''
-        if botitself not in command.author.voice.channel.moderators and self.guild_info(guild_id).auto_stage_available == True:
+        if botitself not in command.author.voice.channel.moderators and self[guild_id].auto_stage_available == True:
             if not botitself.guild_permissions.manage_channels or not botitself.guild_permissions.administrator:
                 try:
-                    if self.guild_info(command.guild.id).processing_msg is not None:
-                        await self.guild_info(command.guild.id).processing_msg.delete()
-                        self.guild_info(command.guild.id).processing_msg = None
+                    if self[command.guild.id].processing_msg is not None:
+                        await self[command.guild.id].processing_msg.delete()
+                        self[command.guild.id].processing_msg = None
                     await command.send(errormsg)
                 except discord.InteractionResponded:
                     await channel.send(errormsg)
-                self.guild_info(guild_id).auto_stage_available = False
+                self[guild_id].auto_stage_available = False
                 return
             else:
-                self.guild_info(guild_id).auto_stage_available = True
+                self[guild_id].auto_stage_available = True
                 try:
-                    if self.guild_info(command.guild.id).processing_msg is not None:
-                        await self.guild_info(command.guild.id).processing_msg.delete()
-                        self.guild_info(command.guild.id).processing_msg = None
+                    if self[command.guild.id].processing_msg is not None:
+                        await self[command.guild.id].processing_msg.delete()
+                        self[command.guild.id].processing_msg = None
                     await command.send(msg)
                 except discord.InteractionResponded:
                     await channel.send(msg)
                 return
         else:
             try:
-                if self.guild_info(command.guild.id).processing_msg is not None:
-                    await self.guild_info(command.guild.id).processing_msg.delete()
-                    self.guild_info(command.guild.id).processing_msg = None
+                if self[command.guild.id].processing_msg is not None:
+                    await self[command.guild.id].processing_msg.delete()
+                    self[command.guild.id].processing_msg = None
                 await command.send(msg)
             except discord.InteractionResponded:
                 await channel.send(msg)
-            self.guild_info(guild_id).auto_stage_available = True
+            self[guild_id].auto_stage_available = True
             return
     
     async def JoinAlready(self, command: Command) -> None:
@@ -93,5 +89,5 @@ class Join:
         return
     
     async def JoinFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "JOINFAIL", exception)
+        await self._CommonExceptionHandler(command, "JOINFAIL", exception)
         return

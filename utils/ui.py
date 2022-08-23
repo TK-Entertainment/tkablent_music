@@ -61,13 +61,6 @@ class UI(UIBase):
         from .func.misc import _generate_embed_option
         embed_opt = _generate_embed_option(bot, bot_version)
 
-        # embed_opt = {
-        #     'footer': {
-        #         'text': f"{bot.user.name} | 版本: {bot_version}\nCopyright @ {year} TK Entertainment",
-        #         'icon_url': "https://i.imgur.com/wApgX8J.png"
-        #     },
-        # }
-
         ########
         # Info #
         ########
@@ -84,13 +77,13 @@ class UI(UIBase):
         # Help #
         ########
         from .func.help import Help
-        self.Help = Help()
+        self.Help = Help(bot, embed_opt)
 
         ########
         # Join #
         ########
         from .func.join import Join
-        self.Join = Join(self.ExceptionHandler)
+        self.Join = Join(musicbot=musicbot, embed_opt=embed_opt)
     
         #########
         # Stage #

@@ -19,9 +19,10 @@ class GuildUIInfo:
         self.processing_msg: discord.Message = None
 
 class UIBase:
-    def __init__(self, bot: MusicCog):
+    def __init__(self, musicbot: MusicCog):
         self._guild_ui_info = dict()
-        self.bot = bot
+        self.musicbot = musicbot
+        self.bot = musicbot.bot
 
     def __getitem__(self, guild_id) -> GuildUIInfo:
         if self._guild_ui_info.get(guild_id) is None:
