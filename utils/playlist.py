@@ -67,11 +67,11 @@ class PlaylistBase:
     def rule(self):
         if len(self.order) == 0:
             return
-        if self.loop_state == LoopState.SINGLEINF:
+        if self.loop_state == LoopState.SINGLEINF and (not self.order[0].suggested):
             return
-        if self.loop_state == LoopState.SINGLE:
+        if self.loop_state == LoopState.SINGLE and (not self.order[0].suggested):
             self.times -= 1
-        elif self.loop_state == LoopState.PLAYLIST:
+        elif self.loop_state == LoopState.PLAYLIST and (not self.order[0].suggested):
             self.order.append(self.order.pop(0))
         else:
             self.order.pop(0)
@@ -110,6 +110,9 @@ class Playlist:
         return self._guilds_info[guild_id]
 
     async def add_songs(self, guild_id, trackinfo: Union[wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist], requester):
+        if (not trackinfo.suggested) and len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
+            self[guild_id].order.pop(1)
+
         if isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyAlbum, SpotifyPlaylist]):
             for track in trackinfo.tracks:
                 track.requester = requester

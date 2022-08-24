@@ -52,7 +52,10 @@ class InfoGenerator:
 
         embed = discord.Embed(title=f"{source_icon} | {song.title}", url=song.uri, colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
-        embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
+        if song.suggested:
+            embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
+        else:
+            embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
         
         if song.is_stream(): 
             embed._author['name'] += " | 🔴 直播"
@@ -66,15 +69,18 @@ class InfoGenerator:
         
         if loopstate != LoopState.NOTHING: 
             embed._author['name'] += f"{loopicon}"
-        
-        if len(playlist.order) > 1 and color_code != 'red':
-            queuelist: str = ""
-            queuelist += f"1." + playlist[1].title + "\n"
-            if len(playlist.order) > 2: 
-                queuelist += f"...還有 {len(playlist.order)-2} 首歌"
 
-            embed.add_field(name=f"待播清單 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
-        
+        queuelist: str = ""
+        if self.guild_info(guild_id).music_suggestion and len(playlist.order) == 2 and playlist[1].suggested and color_code != 'red':
+            queuelist += f"**【推薦】** {playlist[1].title}"
+            embed.add_field(name=f"即將播放", value=queuelist, inline=False)
+        elif len(playlist.order) > 1 and color_code != 'red':
+            queuelist += f"**>> {playlist[1].title}** \n"
+            if len(playlist.order) > 2: 
+                queuelist += f"*...還有 {len(playlist.order)-2} 首歌*"
+
+            embed.add_field(name=f"即將播放 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
+
         if 'youtube' in song.uri:
             embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
         elif 'spotify' in song.uri and (color != 'green' or color != 'red'):
@@ -85,6 +91,9 @@ class InfoGenerator:
 故此機器人是使用相對應的標題及其他資料
 在 Youtube 上找到最相近的音源
             ''', inline=False)
+
+        if self.guild_info(guild_id).music_suggestion and song.audio_source == 'soundcloud' and (color_code != 'red' or color_code != 'green'):
+            embed.add_field(name=f"自動歌曲推薦已暫時停用", value=f'此歌曲來源為 Soundcloud\n暫時不支援自動歌曲推薦\n請點播一首 Youtube/Spotify 的歌曲來重新啟用', inline=False)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed

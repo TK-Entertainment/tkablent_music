@@ -41,6 +41,8 @@ class GuildUIInfo:
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
+        self.music_suggestion: bool = False
+        self.previous_title: str = ''
 
 bot_version: str = None
 musicbot: MusicCog = None
@@ -148,7 +150,7 @@ class UI:
         # Loop #
         ########
         from .func.player_control import PlayerControl
-        self.PlayerControl = PlayerControl(self.ExceptionHandler, self._InfoGenerator, self.Stage, self.Queue)
+        self.PlayerControl = PlayerControl(self.ExceptionHandler, self._InfoGenerator, self.Stage, self.Queue, self.Leave)
 
         ##########
         # Volume # Deprecated for now (might be used in the future)
