@@ -5,25 +5,11 @@ import wavelink
 
 from ..player import Command
 from ..playlist import LoopState
-from .info import InfoGenerator
 from .stage import Stage
-from .exception_handler import ExceptionHandler
 from .queue import Queue
+from .misc import _sec_to_hms
 
-class PlayerControl:
-    def __init__(self, exception_handler, info_generator, stage, queue):
-        from ..ui import bot, musicbot, guild_info, auto_stage_available, _sec_to_hms
-
-        self.info_generator: InfoGenerator = info_generator
-        self.exception_handler: ExceptionHandler = exception_handler
-        self.bot = bot
-        self.stage: Stage = stage
-        self.queue: Queue = queue
-        self.musicbot = musicbot
-        self.guild_info = guild_info
-        self.auto_stage_available = auto_stage_available
-        self._sec_to_hms = _sec_to_hms
-
+class PlayerControl(Stage, Queue):
     ############################################################
     # Now Playing ##############################################
 
@@ -192,24 +178,22 @@ class PlayerControl:
 
     async def PlayingMsg(self, channel: Union[discord.TextChannel, Command]):
         playlist = self.musicbot._playlist[channel.guild.id]
-        if self.guild_info(channel.guild.id).playinfo_view is not None \
+        if self[channel.guild.id].playinfo_view is not None \
             and not (playlist.loop_state == LoopState.SINGLE \
                     or playlist.loop_state == LoopState.SINGLEINF):
-            self.guild_info(channel.guild.id).playinfo_view.clear_items()
-            await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
-            self.guild_info(channel.guild.id).playinfo_view.stop()
+            self[channel.guild.id].playinfo_view.clear_items()
+            await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
+            self[channel.guild.id].playinfo_view.stop()
         
         class PlaybackControl(discord.ui.View):
 
             bot = self.bot
             voice_client: wavelink.Player = channel.guild.voice_client
             musicbot = self.musicbot
-            info_generator = self.info_generator
-            queue = self.queue
-            guild_info = self.guild_info
 
-            def __init__(self, *, timeout=60):
+            def __init__(self, player_control, *, timeout=60):
                 super().__init__(timeout=None)
+                self.player_control: PlayerControl = player_control
                     
             @discord.ui.button(
                 label='⏸️' if not voice_client.is_paused() else '▶️', 
@@ -222,7 +206,7 @@ class PlayerControl:
                     await self.voice_client.pause()
                     button.label = '▶️'
 
-                await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                await self.player_control._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
             @discord.ui.button(label='⏹️', style=discord.ButtonStyle.blurple)
@@ -234,7 +218,7 @@ class PlayerControl:
             歌曲已由 {interaction.user.mention} 停止播放
             *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
             ''')
-                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                await self[channel.guild.id].playinfo.edit(view=view)
                 self.stop()
 
             @discord.ui.button(
@@ -244,7 +228,7 @@ class PlayerControl:
                 )
             async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.musicbot._skip(channel.guild)
-                self.guild_info(channel.guild.id).skip = True
+                self[channel.guild.id].skip = True
                 self.clear_items()
                 await interaction.response.edit_message(view=view)
                 self.stop()
@@ -268,14 +252,14 @@ class PlayerControl:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.NOTHING
                     button.label = '🔁'
                     button.style = discord.ButtonStyle.danger
-                await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                await self.player_control._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
             @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.gray)
             async def listqueue(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await self.queue.ShowQueue(interaction, 'button')
+                await self.player_control.ShowQueue(interaction, 'button')
 
-        if self.guild_info(channel.guild.id).skip:
+        if self[channel.guild.id].skip:
             if len(playlist.order) > 1:
                 msg = f'''
             **:fast_forward: | 跳過歌曲**
@@ -289,7 +273,7 @@ class PlayerControl:
             正在播放最後一首歌曲，資訊如下所示
             *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
                 '''
-            self.guild_info(channel.guild.id).skip = False
+            self[channel.guild.id].skip = False
 
             if playlist.loop_state != LoopState.SINGLEINF:
                 playlist.loop_state = LoopState.NOTHING
@@ -306,18 +290,18 @@ class PlayerControl:
         if not self.auto_stage_available(channel.guild.id):
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         
-        embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
+        embed = self._SongInfo(guild_id=channel.guild.id)
         view = PlaybackControl()
 
-        self.guild_info(channel.guild.id).playinfo_view = view
-        self.guild_info(channel.guild.id).playinfo = await channel.send(msg, embed=embed, view=view)
+        self[channel.guild.id].playinfo_view = view
+        self[channel.guild.id].playinfo = await channel.send(msg, embed=embed, view=view)
         try: 
-            await self.stage._UpdateStageTopic(channel.guild.id)
+            await self._UpdateStageTopic(channel.guild.id)
         except: 
             pass
 
     async def PlayingError(self, channel: discord.TextChannel, exception):
-        await self.exception_handler._MusicExceptionHandler(channel, exception, None)
+        await self._MusicExceptionHandler(channel, exception, None)
 
     async def DonePlaying(self, channel: discord.TextChannel) -> None:
         await channel.send(f'''
@@ -325,12 +309,12 @@ class PlayerControl:
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
-        self.guild_info(channel.guild.id).skip = False
-        self.guild_info(channel.guild.id).playinfo_view.clear_items()
-        await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
-        self.guild_info(channel.guild.id).playinfo_view.stop()
+        self[channel.guild.id].skip = False
+        self[channel.guild.id].playinfo_view.clear_items()
+        await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
+        self[channel.guild.id].playinfo_view.stop()
         try: 
-            await self.stage._UpdateStageTopic(channel.guild.id, 'done')
+            await self._UpdateStageTopic(channel.guild.id, 'done')
         except: 
             pass
 
@@ -343,10 +327,10 @@ class PlayerControl:
             歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
-        self.guild_info(command.guild.id).playinfo_view.playorpause.label = '▶️'
-        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        self[command.guild.id].playinfo_view.playorpause.label = '▶️'
+        await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
         try: 
-            await self.stage._UpdateStageTopic(guild_id, 'pause')
+            await self._UpdateStageTopic(guild_id, 'pause')
         except: 
             pass
     
@@ -356,17 +340,17 @@ class PlayerControl:
             所有人皆已退出語音頻道，歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
-        self.guild_info(channel.guild.id).playinfo_view.playorpause.label = '▶️'
-        self.guild_info(channel.guild.id).playinfo_view.playorpause.disabled = True
-        self.guild_info(channel.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
-        await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
+        self[channel.guild.id].playinfo_view.playorpause.label = '▶️'
+        self[channel.guild.id].playinfo_view.playorpause.disabled = True
+        self[channel.guild.id].playinfo_view.playorpause.style = discord.ButtonStyle.gray
+        await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
         try: 
-            await self.stage._UpdateStageTopic(guild_id, 'pause')
+            await self._UpdateStageTopic(guild_id, 'pause')
         except: 
             pass
     
     async def PauseFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "PAUSEFAIL", exception)
+        await self._CommonExceptionHandler(command, "PAUSEFAIL", exception)
 
     ############################################################
     # Resume ###################################################
@@ -377,24 +361,24 @@ class PlayerControl:
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
-        self.guild_info(command.guild.id).playinfo_view.playorpause.label = '⏸️'
-        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        self[command.guild.id].playinfo_view.playorpause.label = '⏸️'
+        await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
         try: 
-            await self.stage._UpdateStageTopic(guild_id, 'resume')
+            await self._UpdateStageTopic(guild_id, 'resume')
         except: 
             pass
     
     async def ResumeFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "RESUMEFAIL", exception)
+        await self._CommonExceptionHandler(command, "RESUMEFAIL", exception)
 
     ############################################################
     # Skip #####################################################
 
     def SkipProceed(self, guild_id: int):
-        self.guild_info(guild_id).skip = True
+        self[guild_id].skip = True
 
     async def SkipFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SKIPFAIL", exception)
+        await self._CommonExceptionHandler(command, "SKIPFAIL", exception)
 
     ############################################################
     # Stop #####################################################
@@ -407,7 +391,7 @@ class PlayerControl:
             ''')
     
     async def StopFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "STOPFAIL", exception)
+        await self._CommonExceptionHandler(command, "STOPFAIL", exception)
 
     ############################################################
     # Seek #####################################################
@@ -428,8 +412,8 @@ class PlayerControl:
         playlist = self.musicbot._playlist[command.guild.id]
         if timestamp >= playlist[0].length:
             return
-        seektime = self._sec_to_hms(timestamp, "symbol")
-        duration = self._sec_to_hms(playlist[0].length, "symbol")
+        seektime = _sec_to_hms(timestamp, "symbol")
+        duration = _sec_to_hms(playlist[0].length, "symbol")
         bar = self._ProgressBar(timestamp, playlist[0].length)
         await command.send(f'''
             **:timer: | 跳轉歌曲**
@@ -439,7 +423,7 @@ class PlayerControl:
         ''')
     
     async def SeekFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SEEKFAIL", exception)
+        await self._CommonExceptionHandler(command, "SEEKFAIL", exception)
 
     ############################################################
     # Replay ###################################################
@@ -452,13 +436,13 @@ class PlayerControl:
             ''')
     
     async def ReplayFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "REPLAYFAIL", exception)
+        await self._CommonExceptionHandler(command, "REPLAYFAIL", exception)
 
     ############################################################
     # Loop #####################################################
 
     async def LoopSucceed(self, command: Command) -> None:
-        if command.command_type == 'Interaction' or self.guild_info(command.guild.id).playinfo is None:
+        if command.command_type == 'Interaction' or self[command.guild.id].playinfo is None:
             loopstate = self.musicbot._playlist[command.guild.id].loop_state
             looptimes = self.musicbot._playlist[command.guild.id].times
             if loopstate == LoopState.SINGLEINF:
@@ -490,11 +474,11 @@ class PlayerControl:
                 icon = '🔁'
                 color = discord.ButtonStyle.danger
             await command.send(msg)
-        if self.guild_info(command.guild.id).playinfo is not None:
-            await self.info_generator._UpdateSongInfo(command.guild.id)
-            self.guild_info(command.guild.id).playinfo_view.loop_control.label = icon
-            self.guild_info(command.guild.id).playinfo_view.loop_control.style = color
-            await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        if self[command.guild.id].playinfo is not None:
+            await self._UpdateSongInfo(command.guild.id)
+            self[command.guild.id].playinfo_view.loop_control.label = icon
+            self[command.guild.id].playinfo_view.loop_control.style = color
+            await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
 
     async def SingleLoopFailed(self, command: Command) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "LOOPFAIL_SIG")
+        await self._CommonExceptionHandler(command, "LOOPFAIL_SIG")

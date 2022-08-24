@@ -224,10 +224,8 @@ class MusicCog(Player, commands.Cog):
         self.bot_version = bot_version
 
     async def resolve_ui(self):   
-        from .ui import UI, auto_stage_available, guild_info
+        from .ui import UI
         self.ui = UI(self, self.bot_version)
-        self.auto_stage_available = auto_stage_available
-        self.ui_guild_info = guild_info
         
     @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
     async def reportbug(self, interaction: discord.Interaction):
@@ -269,7 +267,7 @@ class MusicCog(Player, commands.Cog):
             return
 
         bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        auto_stage_vaildation = self.auto_stage_available(command.guild.id)
+        auto_stage_vaildation = self.ui[command.guild.id].auto_stage_available
         
         if command.author.voice.channel.instance is None:
             await self.ui.Stage.CreateStageInstance(command, command.guild.id)
@@ -742,7 +740,7 @@ class MusicCog(Player, commands.Cog):
                 searchtype = spotify.SpotifySearchType.playlist
             
             if ('album' in search or 'artist' in search or 'playlist' in search):
-                self.ui_guild_info(command.guild.id).processing_msg = await self.ui.Search.SearchInProgress(command)
+                self.ui[command.guild.id].processing_msg = await self.ui.Search.SearchInProgress(command)
 
             tracks = await spotify.SpotifyTrack.search(search, node=self.searchnode, type=searchtype, return_first=True)
             
@@ -848,12 +846,12 @@ class MusicCog(Player, commands.Cog):
                     await self.ui.PlayerControl.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
                     await self._pause(member.guild)
                 else:
-                    self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
-                    self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
-                    await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
-            elif len(voice_client.channel.members) > 1 and voice_client.is_paused() and member != self.bot.user and self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled:
-                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
-                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
-                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
+                    self.ui[member.guild.id].playinfo_view.playorpause.disabled = True
+                    self.ui[member.guild.id].playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                    await self.ui[member.guild.id].playinfo.edit(view=self.ui[member.guild.id].playinfo_view)
+            elif len(voice_client.channel.members) > 1 and voice_client.is_paused() and member != self.bot.user and self.ui[member.guild.id].playinfo_view.playorpause.disabled:
+                self.ui[member.guild.id].playinfo_view.playorpause.disabled = False
+                self.ui[member.guild.id].playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                await self.ui[member.guild.id].playinfo.edit(view=self.ui[member.guild.id].playinfo_view)
         except: 
             pass

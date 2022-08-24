@@ -2,22 +2,15 @@ from typing import *
 import discord
 import copy
 
+
 from ..player import Command, SpotifyAlbum
 from ..playlist import PlaylistBase, SpotifyPlaylist
 from .info import InfoGenerator
+from .misc import _sec_to_hms
 
 import wavelink
 
-class Queue:
-    def __init__(self, info_generator):
-        from ..ui import _sec_to_hms, embed_opt, musicbot, bot, guild_info
-        self._sec_to_hms = _sec_to_hms
-        self.embed_opt = embed_opt
-        self.musicbot = musicbot
-        self.bot = bot
-        self.guild_info = guild_info
-        self.info_generator: InfoGenerator = info_generator
-
+class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
     # Add to queue
     async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist], requester: Optional[discord.User]) -> None:
         # If queue has more than 2 songs, then show message when
@@ -35,7 +28,7 @@ class Queue:
                 以下{type_string}已加入待播清單中
                 '''
 
-                embed = self.info_generator._PlaylistInfo(trackinfo, requester)
+                embed = self._PlaylistInfo(trackinfo, requester)
             else:
                 index = len(playlist.order) - 1
 
@@ -44,19 +37,19 @@ class Queue:
                 以下歌曲已加入待播清單中，為第 **{len(playlist.order)-1}** 首歌
                 '''
 
-                embed = self.info_generator._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
+                embed = self._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
-            if self.guild_info(command.guild.id).playinfo is not None:
-                self.guild_info(command.guild.id).playinfo_view.skip.disabled = False
-                self.guild_info(command.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
-                await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+            if self[command.guild.id].playinfo is not None:
+                self[command.guild.id].playinfo_view.skip.disabled = False
+                self[command.guild.id].playinfo_view.skip.style = discord.ButtonStyle.blurple
+                await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
 
             if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
                 await command.send(msg, embed=embed)
             else:
-                if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(command.guild.id).processing_msg is not None:
-                    await self.guild_info(command.guild.id).processing_msg.delete()
-                    self.guild_info(command.guild.id).processing_msg = None
+                if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self[command.guild.id].processing_msg is not None:
+                    await self[command.guild.id].processing_msg.delete()
+                    self[command.guild.id].processing_msg = None
                 await command.channel.send(msg, embed=embed)
 
     # Queue Embed Generator
@@ -66,7 +59,7 @@ class Queue:
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist.order)): break
-            length = self._sec_to_hms(playlist[index].length, "symbol")
+            length = _sec_to_hms(playlist[index].length, "symbol")
             embed.add_field(
                 name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream() else "", playlist[index].requester),
                 value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream() else "", length if not playlist[index].is_stream() else ""),
@@ -99,7 +92,6 @@ class Queue:
             QueueEmbed = self._QueueEmbed
             embed_opt = self.embed_opt
             operation = op
-            guild_info = self.guild_info
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)

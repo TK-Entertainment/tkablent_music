@@ -5,22 +5,16 @@ from ..player import Command
 from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
 
-class QueueControl:
-    def __init__(self, exception_handler, info_generator):
-        from ..ui import musicbot
-        self.musicbot = musicbot
-        self.exception_handler: ExceptionHandler = exception_handler
-        self.info_generator: InfoGenerator = info_generator
-
+class QueueControl(ExceptionHandler): # inherit InfoGenerator and ExceptionHandler and UIBase
     # Remove an entity from queue
     async def RemoveSucceed(self, command: Command, idx: int) -> None:
         await command.send(f'''
             **:wastebasket: | 已刪除指定歌曲**
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
-            ''', embed=self.info_generator._SongInfo(command.guild.id, 'red', idx))
+            ''', embed=self._SongInfo(command.guild.id, 'red', idx))
     
     async def RemoveFailed(self, command: Command, exception):
-        await self.exception_handler._CommonExceptionHandler(command, "REMOVEFAIL", exception)
+        await self._CommonExceptionHandler(command, "REMOVEFAIL", exception)
     
     # Swap entities in queue
     async def Embed_SwapSucceed(self, command: Command, idx1: int, idx2: int) -> None:
@@ -44,7 +38,7 @@ class QueueControl:
         await command.send(embed=embed)
 
     async def SwapFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SWAPFAIL", exception)
+        await self._CommonExceptionHandler(command, "SWAPFAIL", exception)
     
     # Move entity to other place in queue
     async def MoveToSucceed(self, command: Command, origin: int, new: int) -> None:
@@ -61,4 +55,4 @@ class QueueControl:
         await command.send(embed=embed)
 
     async def MoveToFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "MOVEFAIL", exception)
+        await self._CommonExceptionHandler(command, "MOVEFAIL", exception)
