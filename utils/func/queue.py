@@ -73,7 +73,7 @@ class Queue:
                 index_text = ""
             else:
                 requester = f"{playlist[index].requester} 點歌"
-                index_text = "第 {} 順位\n"
+                index_text = f"第 {index} 順位\n"
             embed.add_field(
                 name="{}{}\n{}{}".format(index_text, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream() else "", requester),
                 value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream() else "", length if not playlist[index].is_stream() else ""),
