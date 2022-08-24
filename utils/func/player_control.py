@@ -7,9 +7,10 @@ from ..player import Command
 from ..playlist import LoopState
 from .stage import Stage
 from .queue import Queue
+from .leave import Leave
 from .misc import _sec_to_hms
 
-class PlayerControl(Stage, Queue):
+class PlayerControl(Stage, Queue, Leave):
     ############################################################
     # Now Playing ##############################################
 
@@ -179,8 +180,9 @@ class PlayerControl(Stage, Queue):
     async def PlayingMsg(self, channel: Union[discord.TextChannel, Command]):
         playlist = self.musicbot._playlist[channel.guild.id]
         if self[channel.guild.id].playinfo_view is not None \
-            and not (playlist.loop_state == LoopState.SINGLE \
-                    or playlist.loop_state == LoopState.SINGLEINF):
+            and not ((playlist.loop_state == LoopState.SINGLE \
+                    or playlist.loop_state == LoopState.SINGLEINF) \
+                        and not playlist.current().suggested):
             self[channel.guild.id].playinfo_view.clear_items()
             await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
             self[channel.guild.id].playinfo_view.stop()
@@ -194,7 +196,29 @@ class PlayerControl(Stage, Queue):
             def __init__(self, player_control, *, timeout=60):
                 super().__init__(timeout=None)
                 self.player_control: PlayerControl = player_control
-                    
+
+            async def suggestion_control(self, interaction, button):
+                if self.player_control[channel.guild.id].music_suggestion:
+                    button.label = '⬜ 💡 推薦音樂'
+                    button.style = discord.ButtonStyle.danger
+                    self.player_control[channel.guild.id].music_suggestion = False
+                    if len(self.musicbot._playlist[channel.guild.id].order) == 2 \
+                        and self.musicbot._playlist[channel.guild.id].order[1].suggested:
+                        self.musicbot._playlist[channel.guild.id].order.pop(1)
+                        self.player_control[channel.guild.id].playinfo_view.skip.style = discord.ButtonStyle.gray
+                        self.player_control[channel.guild.id].playinfo_view.skip.disabled = True
+                else:
+                    button.label = '✅ 💡 推薦音樂'
+                    button.style = discord.ButtonStyle.success
+                    self.player_control[channel.guild.id].music_suggestion = True
+                    await self.musicbot.process_suggestion(channel.guild)
+                    if len(self.musicbot._playlist[channel.guild.id].order) == 2 \
+                        and self.musicbot._playlist[channel.guild.id].order[1].suggested:
+                        self.player_control[channel.guild.id].playinfo_view.skip.style = discord.ButtonStyle.blurple
+                        self.player_control[channel.guild.id].playinfo_view.skip.disabled = False
+                await self.player_control._UpdateSongInfo(interaction.guild.id)
+                await interaction.response.edit_message(view=view)
+        
             @discord.ui.button(
                 label='⏸️' if not voice_client.is_paused() else '▶️', 
                 style=discord.ButtonStyle.blurple)
@@ -212,6 +236,7 @@ class PlayerControl(Stage, Queue):
             @discord.ui.button(label='⏹️', style=discord.ButtonStyle.blurple)
             async def stop_action(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.musicbot._stop(channel.guild)
+                self.player_control[channel.guild.id].music_suggestion = False
                 self.clear_items()
                 await interaction.response.send_message(f'''
             **:stop_button: | 停止播放**
@@ -255,9 +280,30 @@ class PlayerControl(Stage, Queue):
                 await self.player_control._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
+            @discord.ui.button(
+                label='⬜ 💡 推薦音樂' if not self[channel.guild.id].music_suggestion else "✅ 💡 推薦音樂", 
+                style=discord.ButtonStyle.gray if self.musicbot._playlist[channel.guild.id].current().audio_source == 'soundcloud' \
+                    else discord.ButtonStyle.danger if not self[channel.guild.id].music_suggestion \
+                        else discord.ButtonStyle.success,
+                disabled=self.musicbot._playlist[channel.guild.id].current().audio_source == 'soundcloud')
+            async def suggest(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.suggestion_control(interaction, button)
+
             @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.gray)
             async def listqueue(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.player_control.ShowQueue(interaction, 'button')
+
+            @discord.ui.button(label='📤 離開語音頻道', style=discord.ButtonStyle.gray)
+            async def leavech(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.musicbot._leave(channel.guild)
+                self.player_control.reset_value(channel.guild)
+                self.clear_items()
+                await channel.send(f'''
+            **:outbox_tray: | 已離開語音/舞台頻道**
+            {interaction.user.mention} 已讓我停止所有音樂並離開目前所在的語音/舞台頻道
+            ''')
+                await self.player_control[channel.guild.id].playinfo.edit(view=view)
+                self.stop()
 
         if self[channel.guild.id].skip:
             if len(playlist.order) > 1:
@@ -279,8 +325,9 @@ class PlayerControl(Stage, Queue):
                 playlist.loop_state = LoopState.NOTHING
                 playlist.times = 0
         else:
-            if playlist.loop_state == LoopState.SINGLE \
-                    or playlist.loop_state == LoopState.SINGLEINF:
+            if (playlist.loop_state == LoopState.SINGLE \
+                    or playlist.loop_state == LoopState.SINGLEINF) \
+                        and not playlist.current().suggested:
                 return
 
             msg = f'''
@@ -310,10 +357,11 @@ class PlayerControl(Stage, Queue):
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
         self[channel.guild.id].skip = False
-        self[channel.guild.id].playinfo_view.clear_items()
-        await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
-        self[channel.guild.id].playinfo_view.stop()
+        self[channel.guild.id].music_suggestion = False
         try: 
+            self[channel.guild.id].playinfo_view.clear_items()
+            await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
+            self[channel.guild.id].playinfo_view.stop()
             await self._UpdateStageTopic(channel.guild.id, 'done')
         except: 
             pass

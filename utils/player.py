@@ -1,4 +1,5 @@
 from http import client
+import random
 from typing import *
 import asyncio, json, os
 
@@ -8,6 +9,7 @@ from discord import VoiceClient, app_commands
 
 import wavelink
 import spotipy
+from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
 from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist
@@ -85,6 +87,7 @@ class Player:
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self.playnode: wavelink.Node = None
         self.searchnode: wavelink.Node = None
+        self.ytapi: YTMusic = YTMusic(requests_session=False)
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
@@ -555,6 +558,9 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         try:
+            if self._playlist[command.guild.id].order[idx].suggested:
+                await self.ui.QueueControl.RemoveFailed(command, '不能移除建議歌曲')
+                return
             await self.ui.QueueControl.RemoveSucceed(command, idx)
             self._playlist.pop(command.guild.id, idx)
         except (IndexError, TypeError) as e:
@@ -576,6 +582,9 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         try:
+            if self._playlist[command.guild.id].order[idx1].suggested or self._playlist[command.guild.id].order[idx2].suggested:
+                await self.ui.QueueControl.SwapFailed(command, '不能移動建議歌曲')
+                return
             self._playlist.swap(command.guild.id, idx1, idx2)
             await self.ui.QueueControl.Embed_SwapSucceed(command, idx1, idx2)
         except (IndexError, TypeError) as e:
@@ -596,6 +605,9 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         try:
+            if self._playlist[command.guild.id].order[origin].suggested or self._playlist[command.guild.id].order[new].suggested:
+                await self.ui.QueueControl.MoveToFailed(command, '不能移動建議歌曲')
+                return
             self._playlist.move_to(command.guild.id, origin, new)
             await self.ui.QueueControl.MoveToSucceed(command, origin, new)
         except (IndexError, TypeError) as e:
@@ -780,13 +792,42 @@ class MusicCog(Player, commands.Cog):
         
         if trackinfo is None:
             await self.ui.Search.SearchFailed(command, search)
+            return
 
         if isinstance(trackinfo, wavelink.YouTubePlaylist):
             trackinfo.uri = url
 
+        if 'youtube' in trackinfo.uri or 'spotify' in trackinfo.uri:
+            trackinfo.audio_source = 'youtube'
+        elif 'soundcloud' in trackinfo.uri:
+            trackinfo.audio_source = 'soundcloud'
+
+        trackinfo.suggested = False
+
         await self.play(command, trackinfo)
 
     ##############################
+
+    async def process_suggestion(self, guild: discord.Guild):
+        if self.ui[guild.id].music_suggestion \
+                and len(self._playlist[guild.id].order) == 1 \
+                and self._playlist[guild.id].current().audio_source == 'youtube':
+            indexlist = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+            index = random.choice(indexlist)
+            
+            suggestion = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=1)
+            suggested_track = await wavelink.YouTubeTrack.search(suggestion['tracks'][index]['videoId'], node=self.searchnode, return_first=True)
+            
+            while suggested_track.title == self.ui[guild.id].previous_title:
+                indexlist.pop(index)
+                index = random.choice(indexlist)
+                suggestion = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=1)
+                suggested_track = await wavelink.YouTubeTrack.search(suggestion['tracks'][index]['videoId'], node=self.searchnode, return_first=True)
+                await asyncio.sleep(0.02)
+
+            suggested_track.suggested = True
+            suggested_track.audio_source = 'youtube'
+            await self._playlist.add_songs(guild.id, suggested_track, '自動推薦歌曲')
 
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
@@ -795,6 +836,7 @@ class MusicCog(Player, commands.Cog):
             try:
                 try:
                     await voice_client.play(song)
+                    self.ui[guild.id].previous_title = song.title
                     await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
                 except Exception as e:
                     await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
@@ -805,6 +847,7 @@ class MusicCog(Player, commands.Cog):
                     await asyncio.sleep(0.1)
             finally:
                 self._playlist.rule(guild.id)
+                await self.process_suggestion(guild)
                 await asyncio.sleep(1)
         await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
@@ -822,9 +865,11 @@ class MusicCog(Player, commands.Cog):
     
 
     # Error handler
-    #@commands.Cog.listener()
+    @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):
         if isinstance(error, commands.CommandNotFound):
+            return
+        elif isinstance(error, commands.MissingRequiredArgument):
             return
         print(error)
         await ctx.send(f'''
@@ -834,7 +879,7 @@ class MusicCog(Player, commands.Cog):
             技術資訊:
             {error}
             --------
-            *若您覺得有Bug或錯誤，請參照上方資訊及代碼回報至 Github*
+            *若您覺得有Bug或錯誤，請參照上方資訊及代碼，並使用 /reportbug 回報*
         ''') 
 
     @commands.Cog.listener('on_voice_state_update')

@@ -17,6 +17,8 @@ class GuildUIInfo:
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
+        self.music_suggestion: bool = False
+        self.previous_title: str = ''
 
 class UIBase:
     def __init__(self, musicbot: MusicCog):

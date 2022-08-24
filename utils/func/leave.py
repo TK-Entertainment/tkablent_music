@@ -5,15 +5,17 @@ from ..player import Command
 from .exception_handler import ExceptionHandler
 
 class Leave(ExceptionHandler): # inherit ExceptionHandler and UIBase
-    def reset_value(self, command: Command):
-        guild_info = self[command.guild.id]
+    def reset_value(self, guild):
+        guild_info = self[guild.id]
 
         guild_info.auto_stage_available = True
         guild_info.stage_topic_checked = False
         guild_info.stage_topic_exist = False
+        guild_info.skip = False
+        guild_info.music_suggestion = False
 
     async def LeaveSucceed(self, command: Command) -> None:
-        self.reset_value(command)
+        self.reset_value(command.guild)
         await command.send(f'''
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道

@@ -51,6 +51,7 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
                     await self[command.guild.id].processing_msg.delete()
                     self[command.guild.id].processing_msg = None
                 await command.channel.send(msg, embed=embed)
+            await self._UpdateSongInfo(command.guild.id)
 
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0, op=None) -> discord.Embed:
@@ -60,8 +61,14 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
             index = page*3+i
             if (index == len(playlist.order)): break
             length = _sec_to_hms(playlist[index].length, "symbol")
+            if playlist[index].suggested:
+                requester = "💡推薦歌曲"
+                index_text = ""
+            else:
+                requester = f"{playlist[index].requester} 點歌"
+                index_text = "第 {} 順位\n"
             embed.add_field(
-                name="第 {} 順位\n{}\n{}{} 點歌".format(index, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream() else "", playlist[index].requester),
+                name="{}{}\n{}{}".format(index_text, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream() else "", requester),
                 value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream() else "", length if not playlist[index].is_stream() else ""),
                 inline=False,
             )
