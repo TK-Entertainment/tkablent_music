@@ -218,7 +218,7 @@ class PlayerControl(Stage, Queue):
             歌曲已由 {interaction.user.mention} 停止播放
             *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
             ''')
-                await self[channel.guild.id].playinfo.edit(view=view)
+                await self.player_control[channel.guild.id].playinfo.edit(view=view)
                 self.stop()
 
             @discord.ui.button(
@@ -228,7 +228,7 @@ class PlayerControl(Stage, Queue):
                 )
             async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.musicbot._skip(channel.guild)
-                self[channel.guild.id].skip = True
+                self.player_control[channel.guild.id].skip = True
                 self.clear_items()
                 await interaction.response.edit_message(view=view)
                 self.stop()
@@ -287,11 +287,11 @@ class PlayerControl(Stage, Queue):
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
             
-        if not self.auto_stage_available(channel.guild.id):
+        if not self[channel.guild.id].auto_stage_available:
             msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         
         embed = self._SongInfo(guild_id=channel.guild.id)
-        view = PlaybackControl()
+        view = PlaybackControl(self)
 
         self[channel.guild.id].playinfo_view = view
         self[channel.guild.id].playinfo = await channel.send(msg, embed=embed, view=view)

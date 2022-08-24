@@ -117,6 +117,8 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
             @property
             def total_pages(self) -> int:
                 total_pages = (len(playlist.order)-1) // 3  
+                if (len(playlist.order)-1) % 3 == 0:
+                    total_pages -= 1
                 return total_pages
 
             def update_button(self):
