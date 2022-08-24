@@ -758,25 +758,27 @@ class MusicCog(Player, commands.Cog):
                 url = f'https://www.youtube.com/playlist?{extract[1]}'
             else:
                 url = search
-
-            for trackmethod in [
-                                    wavelink.YouTubePlaylist,
-                                    wavelink.LocalTrack,
-                                    wavelink.YouTubeTrack,
-                                    wavelink.YouTubeMusicTrack,
-                                    wavelink.SoundCloudTrack,
-                                ]: 
-                try:
-                    # SearchableTrack.convert(ctx, query)
-                    # ctx here actually useless
-                    trackinfo = await trackmethod.search(url, node=self.searchnode, return_first=True)
-                except Exception:
-                    # When there is no result for provided method
-                    # Then change to next method to search
-                    trackinfo = None
-                    pass
-                if trackinfo is not None:
-                    break
+            if choice == 'playlist' or 'list' in search:
+                # SearchableTrack.convert(ctx, query)
+                # command here actually useless 
+                trackinfo = await wavelink.YouTubePlaylist.convert(command, url)
+            else:
+                for trackmethod in [
+                                        wavelink.LocalTrack,
+                                        wavelink.YouTubeTrack,
+                                        wavelink.YouTubeMusicTrack,
+                                        wavelink.SoundCloudTrack,
+                                    ]: 
+                    try:
+                        # SearchableTrack.search(query, node, return_first)
+                        trackinfo = await trackmethod.search(url, node=self.searchnode, return_first=True)
+                    except Exception:
+                        # When there is no result for provided method
+                        # Then change to next method to search
+                        trackinfo = None
+                        pass
+                    if trackinfo is not None:
+                        break
         
         if trackinfo is None:
             await self.ui.Search.SearchFailed(command, search)
