@@ -124,7 +124,21 @@ class InfoGenerator(UIBase):
         return embed
 
     async def _UpdateSongInfo(self, guild_id: int):
-        message = f'''
+        if self.guild_info(guild_id).lastskip and len(self.musicbot._playlist[guild_id].order) == 1:
+            message = f'''
+            **:fast_forward: | 跳過歌曲**
+            目前歌曲已成功跳過，候播清單已無歌曲
+            正在播放最後一首歌曲，資訊如下所示
+            *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
+                '''
+        elif self.guild_info(guild_id).lastskip and len(self.musicbot._playlist[guild_id].order) > 1:
+            message = f'''
+            **:fast_forward: | 跳過歌曲**
+            目前歌曲已成功跳過，正在播放下一首歌曲，資訊如下所示
+            *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
+                '''
+        else:
+            message = f'''
             **:arrow_forward: | 正在播放以下歌曲**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
         if not self[guild_id].auto_stage_available:

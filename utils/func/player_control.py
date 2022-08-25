@@ -385,6 +385,9 @@ class PlayerControl(Stage, Queue, Leave):
         ''')
         self[channel.guild.id].skip = False
         self[channel.guild.id].music_suggestion = False
+        self[channel.guild.id].previous_titles = []
+        self[channel.guild.id].processing_msg = None
+        self[channel.guild.id].suggestions = []
         try: 
             self[channel.guild.id].playinfo_view.clear_items()
             await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
@@ -402,7 +405,7 @@ class PlayerControl(Stage, Queue, Leave):
             歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
-        self[command.guild.id].playinfo_view.playorpause.label = '▶️'
+        self[command.guild.id].playinfo_view.playorpause.emoji = play_emoji
         await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
         try: 
             await self._UpdateStageTopic(guild_id, 'pause')
@@ -415,7 +418,7 @@ class PlayerControl(Stage, Queue, Leave):
             所有人皆已退出語音頻道，歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
-        self[channel.guild.id].playinfo_view.playorpause.label = '▶️'
+        self[channel.guild.id].playinfo_view.playorpause.emoji = play_emoji
         self[channel.guild.id].playinfo_view.playorpause.disabled = True
         self[channel.guild.id].playinfo_view.playorpause.style = discord.ButtonStyle.gray
         await self[channel.guild.id].playinfo.edit(view=self[channel.guild.id].playinfo_view)
@@ -436,7 +439,7 @@ class PlayerControl(Stage, Queue, Leave):
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
-        self[command.guild.id].playinfo_view.playorpause.label = '⏸️'
+        self[command.guild.id].playinfo_view.playorpause.emoji = pause_emoji
         await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
         try: 
             await self._UpdateStageTopic(guild_id, 'resume')
