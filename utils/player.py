@@ -902,9 +902,13 @@ class MusicCog(Player, commands.Cog):
             self.ui_guild_info(guild.id).previous_titles.append(self.ui_guild_info(guild.id).suggestions[0].title)
             print(f'[Suggestion] Suggested {self.ui_guild_info(guild.id).suggestions[0].title} for {guild.id} in next song, added to history storage')
             await self._playlist.add_songs(guild.id, self.ui_guild_info(guild.id).suggestions.pop(0), '自動推薦歌曲')
-            await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+            
+    async def _refresh_msg(self, guild):
+        await asyncio.sleep(3)
+        await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
 
     async def _mainloop(self, guild: discord.Guild):
+        task = None
         while len(self._playlist[guild.id].order):
             voice_client: wavelink.Player = guild.voice_client
             await asyncio.sleep(1.2)
@@ -914,6 +918,7 @@ class MusicCog(Player, commands.Cog):
                     await voice_client.play(song)
                     self.ui_guild_info(guild.id).previous_title = song.title
                     await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+                    task = self.bot.loop.create_task(self._refresh_msg(guild))
                 except Exception as e:
                     await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
@@ -922,6 +927,8 @@ class MusicCog(Player, commands.Cog):
             finally:
                 self._playlist.rule(guild.id)
                 self.bot.loop.create_task(self.process_suggestion(guild))
+                task.cancel()
+                task = None
         await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')
