@@ -180,7 +180,7 @@ class Player:
             return
         coro = self._mainloop(guild)
         self[guild.id]._task = self.bot.loop.create_task(coro)
-        self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
+        await self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
     
     async def _mainloop(self, guild: discord.Guild):
         # implement in musicbot class for ui support
