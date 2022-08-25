@@ -823,16 +823,16 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(guild.id).suggestions.pop(0)
                 for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                     try:
-                        suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=self.searchnode, return_first=True)
+                        suggested_track = await trackmethod.search(suggestion['tracks']['index']['videoId'], node=self.searchnode, return_first=True)
                     except:
                         suggested_track = None
                         pass
                     if suggested_track is not None:
+                        suggested_track.suggested = True
+                        suggested_track.audio_source = 'youtube'
+                        self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+                        suggestion['index'] += 1
                         break
-                suggested_track.suggested = True
-                suggested_track.audio_source = 'youtube'
-                self.ui_guild_info(guild.id).suggestions.append(suggested_track)
-                suggestion['index'] += 1
 
         # wait for rest of suggestions to be processed, and check them
         await asyncio.sleep(7)
@@ -842,16 +842,16 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(guild.id).suggestions.pop(i)
                 for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                     try:
-                        suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=self.searchnode, return_first=True)
+                        suggested_track = await trackmethod.search(suggestion['tracks']['index']['videoId'], node=self.searchnode, return_first=True)
                     except:
                         suggested_track = None
                         pass
                     if suggested_track is not None:
+                        suggested_track.suggested = True
+                        suggested_track.audio_source = 'youtube'
+                        self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+                        suggestion['index'] += 1
                         break
-                suggested_track.suggested = True
-                suggested_track.audio_source = 'youtube'
-                self.ui_guild_info(guild.id).suggestions.append(suggested_track)
-                suggestion['index'] += 1
 
     async def _search_for_suggestion(self, guild, suggestion):
         indexlist = [2, 3, 4, 5, 6]
@@ -863,10 +863,9 @@ class MusicCog(Player, commands.Cog):
                     suggested_track = None
                     pass
                 if suggested_track is not None:
-                    break
-            suggested_track.suggested = True
-            suggested_track.audio_source = 'youtube'
-            self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+                    suggested_track.suggested = True
+                    suggested_track.audio_source = 'youtube'
+                    self.ui_guild_info(guild.id).suggestions.append(suggested_track)
 
     async def process_suggestion(self, guild: discord.Guild):
         if self.ui_guild_info(guild.id).music_suggestion \
@@ -875,22 +874,27 @@ class MusicCog(Player, commands.Cog):
             if self._playlist[guild.id].current().title not in self.ui_guild_info(guild.id).previous_titles:
                 self.ui_guild_info(guild.id).previous_titles.append(self._playlist[guild.id].current().title)
             if len(self.ui_guild_info(guild.id).suggestions) == 0:
-                suggestion = self.ui_guild_info(guild.id).suggestions_source = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=1)
-                self.ui_guild_info(guild.id).suggestions_source['index'] = 7
-                for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
-                    try:
-                        suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=self.searchnode, return_first=True)
-                    except:
-                        suggested_track = None
-                        pass
-                    if suggested_track is not None:
-                        break
-                suggested_track.suggested = True
-                suggested_track.audio_source = 'youtube'
-                self.ui_guild_info(guild.id).suggestions.append(suggested_track)
-                self.bot.loop.create_task(self._search_for_suggestion(guild, suggestion))
-                print(f'[Suggestion] Started to fetch 6 suggestions for {guild.id}')
-            
+                index = 1
+                while suggested_track is None:
+                    suggestion = self.ui_guild_info(guild.id).suggestions_source = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=5)
+                    print(suggestion)
+                    self.ui_guild_info(guild.id).suggestions_source['index'] = 7
+                    for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
+                        try:
+                            suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=self.searchnode, return_first=True)
+                        except:
+                            suggested_track = None
+                            pass
+                        if suggested_track is not None:
+                            suggested_track.suggested = True
+                            suggested_track.audio_source = 'youtube'
+                            self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+                            self.bot.loop.create_task(self._search_for_suggestion(guild, suggestion))
+                            print(f'[Suggestion] Started to fetch 6 suggestions for {guild.id}')
+                            break
+                    if suggested_track is None:
+                        index += 1
+
             self.bot.loop.create_task(self._process_resuggestion(guild, self.ui_guild_info(guild.id).suggestions_source))
 
             if len(self.ui_guild_info(guild.id).previous_titles) > 64:
