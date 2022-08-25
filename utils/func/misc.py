@@ -1,11 +1,27 @@
 from typing import *
 import datetime
+import discord
 
 from discord.ext import commands
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
 year = cdt.strftime("%Y")
+
+firstpage_emoji = discord.PartialEmoji.from_str('⏪')
+prevpage_emoji = discord.PartialEmoji.from_str('⬅️')
+nextpage_emoji = discord.PartialEmoji.from_str('➡️')
+skip_emoji = lastpage_emoji = discord.PartialEmoji.from_str('⏩')
+pause_emoji = discord.PartialEmoji.from_str('⏸️')
+play_emoji = discord.PartialEmoji.from_str('▶️')
+stop_emoji = discord.PartialEmoji.from_str('⏹️')
+skip_emoji = discord.PartialEmoji.from_str('⏩')
+repeat_emoji = discord.PartialEmoji.from_str('🔁')
+repeat_sing_emoji = discord.PartialEmoji.from_str('🔂')
+bulb_emoji = discord.PartialEmoji.from_str('💡')
+queue_emoji = discord.PartialEmoji.from_str('🗒️')
+leave_emoji = discord.PartialEmoji.from_str("📤")
+end_emoji = discord.PartialEmoji.from_str('❎')
 
 def _generate_embed_option(bot: commands.Bot, bot_version):
     return {

@@ -2,11 +2,10 @@ from typing import *
 import discord
 import copy
 
-
 from ..player import Command, SpotifyAlbum
 from ..playlist import PlaylistBase, SpotifyPlaylist
 from .info import InfoGenerator
-from .misc import _sec_to_hms
+from .misc import _sec_to_hms, firstpage_emoji, prevpage_emoji, nextpage_emoji, lastpage_emoji, end_emoji
 
 import wavelink
 
@@ -40,6 +39,7 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
                 embed = self._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
             if self[command.guild.id].playinfo is not None:
+                self[command.guild.id].playinfo_view.skip.emoji = lastpage_emoji
                 self[command.guild.id].playinfo_view.skip.disabled = False
                 self[command.guild.id].playinfo_view.skip.style = discord.ButtonStyle.blurple
                 await self[command.guild.id].playinfo.edit(view=self[command.guild.id].playinfo_view)
@@ -142,14 +142,14 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
                     self.right_button.disabled = self.last_page_button.disabled = False
                     self.right_button.style = self.last_page_button.style = discord.ButtonStyle.blurple
 
-            @discord.ui.button(label='⏪', style=discord.ButtonStyle.gray, disabled=True)
+            @discord.ui.button(emoji=firstpage_emoji, style=discord.ButtonStyle.gray, disabled=True)
             async def firstpage(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.page = 0
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='⬅️', style=discord.ButtonStyle.gray, disabled=True)
+            @discord.ui.button(emoji=prevpage_emoji, style=discord.ButtonStyle.gray, disabled=True)
             async def prevpage(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.page -= 1
                 if self.page < 0:
@@ -158,7 +158,7 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='➡️', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=nextpage_emoji, style=discord.ButtonStyle.blurple)
             async def nextpage(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 self.page += 1
                 if self.page > self.total_pages:
@@ -167,14 +167,14 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='⏩', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=lastpage_emoji, style=discord.ButtonStyle.blurple)
             async def lastpage(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 self.page = self.total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.message.delete()
                 await interaction.response.pong()
@@ -183,7 +183,7 @@ class Queue(InfoGenerator): # inherit InfoGenerator and UIBase:
             async def on_timeout(self):
                 if self.operation == 'button':
                     try:
-                        await command.edit_original_message(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
+                        await command.edit_original_response(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
                     except:
                         pass
                 else:

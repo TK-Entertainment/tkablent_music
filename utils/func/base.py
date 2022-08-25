@@ -18,7 +18,8 @@ class GuildUIInfo:
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
         self.music_suggestion: bool = False
-        self.previous_title: str = ''
+        self.previous_titles: list[str] = []
+        self.suggestions: list = []
 
 class UIBase:
     def __init__(self, musicbot: MusicCog):
