@@ -434,7 +434,7 @@ class PlayerControl:
             所有人皆已退出語音頻道，歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
-        self.guild_info(channel.guild.id).playinfo_view.playorpause.label = '▶️'
+        self.guild_info(channel.guild.id).playinfo_view.playorpause.emoji = play_emoji
         self.guild_info(channel.guild.id).playinfo_view.playorpause.disabled = True
         self.guild_info(channel.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
         await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
@@ -455,7 +455,7 @@ class PlayerControl:
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
-        self.guild_info(command.guild.id).playinfo_view.playorpause.label = '⏸️'
+        self.guild_info(command.guild.id).playinfo_view.playorpause.emoji = pause_emoji
         await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'resume')
