@@ -736,6 +736,7 @@ class MusicCog(Player, commands.Cog):
                     track.uri = spotify_data['tracks']['items'][count]['track']['external_urls']['spotify']
                     track.author = spotify_data['tracks']['items'][count]['track']['artists'][0]['name']
                     track.cover = spotify_data['tracks']['items'][count]['track']['album']['images'][0]['url']
+                track.suggested = False
                 count += 1
 
             tracks.name = spotify_data['name']
@@ -814,7 +815,7 @@ class MusicCog(Player, commands.Cog):
         if self.ui_guild_info(guild.id).music_suggestion \
                 and len(self._playlist[guild.id].order) == 1 \
                 and self._playlist[guild.id].current().audio_source == 'youtube':
-            indexlist = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+            indexlist = [0, 1, 2, 3, 4, 5]
             index = random.choice(indexlist)
             
             suggestion = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=1)
