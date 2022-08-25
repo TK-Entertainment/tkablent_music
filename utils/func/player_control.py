@@ -5,7 +5,7 @@ import wavelink
 import threading
 import asyncio
 
-from ..player import Command
+from ..command import Command
 from ..playlist import LoopState
 from .stage import Stage
 from .queue import Queue

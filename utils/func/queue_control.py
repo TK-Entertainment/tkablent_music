@@ -1,7 +1,7 @@
 from typing import *
 import discord
 
-from ..player import Command
+from ..command import Command
 from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
 

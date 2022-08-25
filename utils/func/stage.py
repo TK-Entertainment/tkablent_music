@@ -2,7 +2,7 @@ from typing import *
 import discord
 from discord.ext import commands
 
-from ..player import Command
+from ..command import Command
 from .exception_handler import ExceptionHandler
 
 class Stage(ExceptionHandler): # inherit ExceptionHandler and UIBase

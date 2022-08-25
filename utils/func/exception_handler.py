@@ -2,7 +2,7 @@ from typing import *
 import discord
 import datetime
 
-from ..player import Command
+from ..command import Command
 from ..github import GithubIssue
 from .info import InfoGenerator
 

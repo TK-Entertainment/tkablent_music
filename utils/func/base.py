@@ -2,7 +2,7 @@ from typing import *
 
 import discord
 
-from utils.player import MusicCog
+from utils.music_cog import MusicCog
 
 class GuildUIInfo:
     def __init__(self, guild_id):

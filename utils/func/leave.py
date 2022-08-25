@@ -1,7 +1,7 @@
 from typing import *
 from discord.ext import commands
 
-from ..player import Command
+from ..command import Command
 from .exception_handler import ExceptionHandler
 
 class Leave(ExceptionHandler): # inherit ExceptionHandler and UIBase

@@ -2,8 +2,8 @@ from typing import *
 import discord
 import copy
 
-from ..player import Command, SpotifyAlbum
-from ..playlist import PlaylistBase, SpotifyPlaylist
+from ..command import Command
+from ..playlist import PlaylistBase, SpotifyAlbum, SpotifyPlaylist
 from .info import InfoGenerator
 from .misc import _sec_to_hms, firstpage_emoji, prevpage_emoji, nextpage_emoji, lastpage_emoji, end_emoji
 

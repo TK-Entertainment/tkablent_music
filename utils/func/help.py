@@ -5,7 +5,7 @@ from ..command import Command
 from .misc import end_emoji
 
 class Help:
-    def __init__(self, bot, embed_opt):
+    def __init__(self, bot, embed_opt, **kwargs):
         self.bot: commands.Bot = bot
         self.embed_opt: dict = embed_opt
 

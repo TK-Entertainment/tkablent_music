@@ -1,4 +1,4 @@
-from ..player import Command
+from ..command import Command
 from .exception_handler import ExceptionHandler
 
 class Search(ExceptionHandler): # inherit ExceptionHandler and UIBase
