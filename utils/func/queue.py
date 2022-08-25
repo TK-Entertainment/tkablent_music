@@ -227,4 +227,4 @@ class Queue:
                 if op == 'button':
                     await command.response.send_message(embed=embed, ephemeral=True)
                 else:
-                    await command.send(embed=embed)
+                    msg = await command.send(embed=embed)
