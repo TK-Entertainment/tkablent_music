@@ -11,7 +11,7 @@
 測試版(Cutting Edge): *20220825.2-ce*  
 源碼(Source Code): *01d6dfd (20220825)*
   
-**最新更新日誌**
+**最新更新日誌**  
 如需觀看更詳細的更新日誌，請點下方連結  
 [6511239...01d6dfd](https://github.com/TK-Entertainment/tkablent/compare/6511239...01d6dfd)
 
