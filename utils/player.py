@@ -26,6 +26,9 @@ class GuildInfo:
         self._multitype_remembered: bool = None
         self._multitype_choice: str = None
         self._task: asyncio.Task = None
+        self._resuggest_task: asyncio.Task = None
+        self._suggest_search_task: asyncio.Task = None
+        self._refresh_msg_task: asyncio.Task = None
         self._timer: asyncio.Task = None
     
     @property
@@ -889,13 +892,19 @@ class MusicCog(Player, commands.Cog):
                             suggested_track.suggested = True
                             suggested_track.audio_source = 'youtube'
                             self.ui_guild_info(guild.id).suggestions.append(suggested_track)
-                            self.bot.loop.create_task(self._search_for_suggestion(guild, suggestion))
+                            if self[guild.id]._refresh_msg_task is not None:
+                                self[guild.id]._refresh_msg_task.cancel()
+                                self[guild.id]._refresh_msg_task = None
+                            self[guild.id]._suggest_search_task = self.bot.loop.create_task(self._search_for_suggestion(guild, suggestion))
                             print(f'[Suggestion] Started to fetch 6 suggestions for {guild.id}')
                             break
                     if suggested_track is None:
                         index += 1
 
-            self.bot.loop.create_task(self._process_resuggestion(guild, self.ui_guild_info(guild.id).suggestions_source))
+            if self[guild.id]._resuggest_task is not None:
+                self[guild.id]._resuggest_task.cancel()
+                self[guild.id]._resuggest_task = None
+            self[guild.id]._resuggest_task = self.bot.loop.create_task(self._process_resuggestion(guild, self.ui_guild_info(guild.id).suggestions_source))
 
             if len(self.ui_guild_info(guild.id).previous_titles) > 64:
                 self.ui_guild_info(guild.id).previous_titles.pop(0)
@@ -912,7 +921,6 @@ class MusicCog(Player, commands.Cog):
         await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
 
     async def _mainloop(self, guild: discord.Guild):
-        task = None
         while len(self._playlist[guild.id].order):
             voice_client: wavelink.Player = guild.voice_client
             await asyncio.sleep(1.2)
@@ -922,7 +930,7 @@ class MusicCog(Player, commands.Cog):
                     await voice_client.play(song)
                     self.ui_guild_info(guild.id).previous_title = song.title
                     await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-                    task = self.bot.loop.create_task(self._refresh_msg(guild))
+                    self[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
                 except Exception as e:
                     await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
@@ -931,8 +939,8 @@ class MusicCog(Player, commands.Cog):
             finally:
                 self._playlist.rule(guild.id)
                 self.bot.loop.create_task(self.process_suggestion(guild))
-                task.cancel()
-                task = None
+                self[guild.id]._refresh_msg_task.cancel()
+                self[guild.id]._refresh_msg_task = None
         await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')

@@ -408,10 +408,18 @@ class PlayerControl:
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         ''')
+
+        # reset values
         self.guild_info(channel.guild.id).skip = False
         self.guild_info(channel.guild.id).music_suggestion = False
         self.guild_info(channel.guild.id).processing_msg = None
         self.guild_info(channel.guild.id).suggestions = []
+        if self.musicbot[channel.guild.id]._resuggest_task is not None:
+            self.musicbot[channel.guild.id]._resuggest_task.cancel()
+            self.musicbot[channel.guild.id]._resuggest_task = None
+        if self.musicbot[channel.guild.id]._suggest_search_task is not None:
+            self.musicbot[channel.guild.id]._suggest_search_task.cancel()
+            self.musicbot[channel.guild.id]._suggest_search_task = None
         try: 
             self.guild_info(channel.guild.id).playinfo_view.clear_items()
             await self.guild_info(channel.guild.id).playinfo.edit(view=self.guild_info(channel.guild.id).playinfo_view)
