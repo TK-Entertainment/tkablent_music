@@ -42,13 +42,29 @@ class GuildUIInfo:
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
         self.music_suggestion: bool = False
-        self.previous_title: str = ''
+        self.previous_titles: list[str] = []
+        self.suggestions: list = []
 
 bot_version: str = None
 musicbot: MusicCog = None
 bot: commands.Bot = None
 embed_opt = None
 _guild_ui_info = dict()
+
+firstpage_emoji = discord.PartialEmoji.from_str('⏪')
+prevpage_emoji = discord.PartialEmoji.from_str('⬅️')
+nextpage_emoji = discord.PartialEmoji.from_str('➡️')
+skip_emoji = lastpage_emoji = discord.PartialEmoji.from_str('⏩')
+pause_emoji = discord.PartialEmoji.from_str('⏸️')
+play_emoji = discord.PartialEmoji.from_str('▶️')
+stop_emoji = discord.PartialEmoji.from_str('⏹️')
+skip_emoji = discord.PartialEmoji.from_str('⏩')
+repeat_emoji = discord.PartialEmoji.from_str('🔁')
+repeat_sing_emoji = discord.PartialEmoji.from_str('🔂')
+bulb_emoji = discord.PartialEmoji.from_str('💡')
+queue_emoji = discord.PartialEmoji.from_str('🗒️')
+leave_emoji = discord.PartialEmoji.from_str("📤")
+end_emoji = discord.PartialEmoji.from_str('❎')
 
 @staticmethod
 def guild_info(guild_id) -> GuildUIInfo:

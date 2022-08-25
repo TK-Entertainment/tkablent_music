@@ -2,6 +2,8 @@ from typing import *
 import discord
 import random
 import wavelink
+import threading
+import asyncio
 
 from ..player import Command
 from ..playlist import LoopState
@@ -10,6 +12,8 @@ from .stage import Stage
 from .exception_handler import ExceptionHandler
 from .queue import Queue
 from .leave import Leave
+from ..ui import pause_emoji, play_emoji, stop_emoji, skip_emoji, leave_emoji \
+            , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji
 
 class PlayerControl:
     def __init__(self, exception_handler, info_generator, stage, queue, leave):
@@ -99,7 +103,7 @@ class PlayerControl:
             async def clear(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.toggle(interaction, button, 'clear_remember')
 
-            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.pong()
                 await interaction.message.delete()
@@ -112,6 +116,8 @@ class PlayerControl:
 
         view = MultiType()
         msg = await command.send(content, view=view)
+        if command.command_type == 'Interaction':
+            msg = await command.original_response()
 
     async def MultiTypeNotify(self, command: Command, search):
         content = f'''
@@ -172,7 +178,7 @@ class PlayerControl:
             async def remember(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.toggle(interaction, button, 'remember_choice')
 
-            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 if self.musicbot[command.guild.id].multitype_remembered and \
                     self.musicbot[command.guild.id].multitype_choice == "":
@@ -191,6 +197,8 @@ class PlayerControl:
 
         view = MultiType()
         msg = await command.send(content, view=view)
+        if command.command_type == 'Interaction':
+            msg = await command.original_response()
 
     async def PlayingMsg(self, channel: Union[discord.TextChannel, Command]):
         playlist = self.musicbot._playlist[channel.guild.id]
@@ -214,44 +222,54 @@ class PlayerControl:
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=None)
-                    
+                
+            async def restore_skip(self):
+                await asyncio.sleep(6)
+                self.skip.emoji = skip_emoji
+                if len(self.musicbot._playlist[channel.guild.id].order) != 1:
+                    self.skip.disabled = False
+                    self.skip.style = discord.ButtonStyle.blurple
+                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+
             async def suggestion_control(self, interaction, button):
                 if self.guild_info(channel.guild.id).music_suggestion:
-                    button.label = '⬜ 💡 推薦音樂'
+                    button.label = '⬜ 推薦音樂'
                     button.style = discord.ButtonStyle.danger
                     self.guild_info(channel.guild.id).music_suggestion = False
                     if len(self.musicbot._playlist[channel.guild.id].order) == 2 \
                         and self.musicbot._playlist[channel.guild.id].order[1].suggested:
                         self.musicbot._playlist[channel.guild.id].order.pop(1)
+                        self.guild_info(channel.guild.id).playinfo_view.skip.emoji = skip_emoji
                         self.guild_info(channel.guild.id).playinfo_view.skip.style = discord.ButtonStyle.gray
                         self.guild_info(channel.guild.id).playinfo_view.skip.disabled = True
                 else:
-                    button.label = '✅ 💡 推薦音樂'
+                    button.label = '✅ 推薦音樂'
                     button.style = discord.ButtonStyle.success
                     self.guild_info(channel.guild.id).music_suggestion = True
                     await self.musicbot.process_suggestion(channel.guild)
                     if len(self.musicbot._playlist[channel.guild.id].order) == 2 \
                         and self.musicbot._playlist[channel.guild.id].order[1].suggested:
+                        self.guild_info(channel.guild.id).playinfo_view.skip.emoji = skip_emoji
                         self.guild_info(channel.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
                         self.guild_info(channel.guild.id).playinfo_view.skip.disabled = False
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
             @discord.ui.button(
-                label='⏸️' if not voice_client.is_paused() else '▶️', 
+                emoji=pause_emoji if not voice_client.is_paused() else play_emoji, 
                 style=discord.ButtonStyle.blurple)
             async def playorpause(self, interaction: discord.Interaction, button: discord.ui.Button):
                 if self.voice_client.is_paused():
                     await self.voice_client.resume()
-                    button.label = '⏸️'
+                    button.emoji = pause_emoji
                 else:
                     await self.voice_client.pause()
-                    button.label = '▶️'
+                    button.emoji = play_emoji
 
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
-            @discord.ui.button(label='⏹️', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=stop_emoji, style=discord.ButtonStyle.blurple)
             async def stop_action(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.musicbot._stop(channel.guild)
                 self.guild_info(channel.guild.id).music_suggestion = False
@@ -265,7 +283,7 @@ class PlayerControl:
                 self.stop()
 
             @discord.ui.button(
-                label='⏩', 
+                emoji=skip_emoji, 
                 style=discord.ButtonStyle.gray if len(musicbot._playlist[channel.guild.id].order) == 1 else discord.ButtonStyle.blurple,
                 disabled=len(musicbot._playlist[channel.guild.id].order) == 1
                 )
@@ -277,41 +295,46 @@ class PlayerControl:
                 self.stop()
 
             @discord.ui.button(
-                label='🔁' if musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST \
+                emoji=repeat_emoji if musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST \
                                 or musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
-                                else '🔂ₛ', 
+                                else repeat_sing_emoji,
+                label='ₛ' if musicbot._playlist[channel.guild.id].loop_state == LoopState.SINGLEINF else '',
                 style=discord.ButtonStyle.danger if musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
                                                     else discord.ButtonStyle.success)
             async def loop_control(self, interaction: discord.Interaction, button: discord.ui.Button):
                 if self.musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.PLAYLIST
-                    button.label = '🔁'
+                    button.emoji = repeat_emoji
+                    button.label = ''
                     button.style = discord.ButtonStyle.success
                 elif self.musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.SINGLEINF
-                    button.label = '🔂ₛ'
+                    button.emoji = repeat_sing_emoji
+                    button.label = 'ₛ'
                     button.style = discord.ButtonStyle.success
                 else:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.NOTHING
-                    button.label = '🔁'
+                    button.emoji = repeat_emoji
+                    button.label = ''
                     button.style = discord.ButtonStyle.danger
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
             @discord.ui.button(
-                label='⬜ 💡 推薦音樂' if not self.guild_info(channel.guild.id).music_suggestion else "✅ 💡 推薦音樂", 
+                label='⬜ 推薦音樂' if not self.guild_info(channel.guild.id).music_suggestion else "✅ 推薦音樂", 
                 style=discord.ButtonStyle.gray if self.musicbot._playlist[channel.guild.id].current().audio_source == 'soundcloud' \
                     else discord.ButtonStyle.danger if not self.guild_info(channel.guild.id).music_suggestion \
                         else discord.ButtonStyle.success,
-                disabled=self.musicbot._playlist[channel.guild.id].current().audio_source == 'soundcloud')
+                disabled=self.musicbot._playlist[channel.guild.id].current().audio_source == 'soundcloud',
+                emoji=bulb_emoji)
             async def suggest(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.suggestion_control(interaction, button)
 
-            @discord.ui.button(label='📝 列出候播清單', style=discord.ButtonStyle.gray)
+            @discord.ui.button(label='列出候播清單', emoji=queue_emoji, style=discord.ButtonStyle.gray)
             async def listqueue(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.queue.ShowQueue(interaction, 'button')
 
-            @discord.ui.button(label='📤 離開語音頻道', style=discord.ButtonStyle.gray)
+            @discord.ui.button(label='離開語音頻道', emoji=leave_emoji, style=discord.ButtonStyle.gray)
             async def leavech(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await self.musicbot._leave(channel.guild)
                 self.leave.reset_value(channel.guild)
@@ -357,6 +380,11 @@ class PlayerControl:
         
         embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
         view = PlaybackControl()
+
+        view.skip.emoji = discord.PartialEmoji.from_str('<a:loading:696701361504387212>')
+        view.skip.disabled = True
+        view.skip.style = discord.ButtonStyle.gray
+        self.bot.loop.create_task(view.restore_skip())
 
         self.guild_info(channel.guild.id).playinfo_view = view
         self.guild_info(channel.guild.id).playinfo = await channel.send(msg, embed=embed, view=view)

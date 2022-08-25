@@ -5,6 +5,7 @@ import copy
 from ..player import Command, SpotifyAlbum
 from ..playlist import PlaylistBase, SpotifyPlaylist
 from .info import InfoGenerator
+from ..ui import firstpage_emoji, prevpage_emoji, nextpage_emoji, lastpage_emoji, end_emoji
 
 import wavelink
 
@@ -47,6 +48,7 @@ class Queue:
                 embed = self.info_generator._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
 
             if self.guild_info(command.guild.id).playinfo is not None:
+                self.guild_info(command.guild.id).playinfo_view.skip.emoji = lastpage_emoji
                 self.guild_info(command.guild.id).playinfo_view.skip.disabled = False
                 self.guild_info(command.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
                 await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
@@ -107,7 +109,7 @@ class Queue:
             embed_opt = self.embed_opt
             operation = op
             guild_info = self.guild_info
-
+            
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=timeout)
                 self.last: discord.ui.Button = self.children[0]
@@ -132,6 +134,8 @@ class Queue:
             @property
             def total_pages(self) -> int:
                 total_pages = (len(playlist.order)-1) // 3  
+                if (len(playlist.order)-1) % 3 == 0:
+                    total_pages -= 1
                 return total_pages
 
             def update_button(self):
@@ -148,14 +152,14 @@ class Queue:
                     self.right_button.disabled = self.last_page_button.disabled = False
                     self.right_button.style = self.last_page_button.style = discord.ButtonStyle.blurple
 
-            @discord.ui.button(label='⏪', style=discord.ButtonStyle.gray, disabled=True)
+            @discord.ui.button(emoji=firstpage_emoji, style=discord.ButtonStyle.gray, disabled=True)
             async def firstpage(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.page = 0
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='⬅️', style=discord.ButtonStyle.gray, disabled=True)
+            @discord.ui.button(emoji=prevpage_emoji, style=discord.ButtonStyle.gray, disabled=True)
             async def prevpage(self, interaction: discord.Interaction, button: discord.ui.Button):
                 self.page -= 1
                 if self.page < 0:
@@ -164,7 +168,7 @@ class Queue:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='➡️', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=nextpage_emoji, style=discord.ButtonStyle.blurple)
             async def nextpage(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 self.page += 1
                 if self.page > self.total_pages:
@@ -173,14 +177,14 @@ class Queue:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='⏩', style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=lastpage_emoji, style=discord.ButtonStyle.blurple)
             async def lastpage(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 self.page = self.total_pages
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.message.delete()
                 await interaction.response.pong()
@@ -189,7 +193,7 @@ class Queue:
             async def on_timeout(self):
                 if self.operation == 'button':
                     try:
-                        await command.edit_original_message(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
+                        await command.edit_original_response(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
                     except:
                         pass
                 else:

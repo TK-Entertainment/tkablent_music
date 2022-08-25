@@ -101,3 +101,10 @@ class Command:
             return None
         if isinstance(self._command, discord.Interaction):
             return self._command.response.pong
+
+    @property
+    def original_response(self):
+        if isinstance(self._command, commands.Context):
+            return None
+        if isinstance(self._command, discord.Interaction):
+            return self._command.original_response

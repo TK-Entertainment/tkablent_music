@@ -2,6 +2,9 @@ from typing import *
 import discord
 from discord.ext import commands
 
+from utils.command import Command
+from ..ui import end_emoji
+
 class Help:
     def __init__(self):
         from ..ui import bot, embed_opt
@@ -36,7 +39,7 @@ class Help:
         {self.bot.command_prefix}move [原順位數] [目標順位數] | 移動指定待播歌曲至指定順序
         ''', colour=0xF2F3EE)
 
-    async def Help(self, command: Union[commands.Context, discord.Interaction]) -> None:
+    async def Help(self, command: Command) -> None:
 
         class Help(discord.ui.View):
 
@@ -77,7 +80,7 @@ class Help:
                 embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(label='❎', style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.pong()
                 await interaction.message.delete()
@@ -92,3 +95,5 @@ class Help:
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         view = Help()
         msg = await command.send(embed=embed, view=view)
+        if command.command_type == 'Interaction':
+            msg = await command.original_response()
