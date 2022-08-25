@@ -180,7 +180,7 @@ class Player:
             return
         coro = self._mainloop(guild)
         self[guild.id]._task = self.bot.loop.create_task(coro)
-        await self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
+        self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
     
     async def _mainloop(self, guild: discord.Guild):
         # implement in musicbot class for ui support
@@ -841,9 +841,7 @@ class MusicCog(Player, commands.Cog):
             
             self.ui_guild_info(guild.id).previous_titles.append(self.ui_guild_info(guild.id).suggestions[0].title)
             await self._playlist.add_songs(guild.id, self.ui_guild_info(guild.id).suggestions.pop(0), '自動推薦歌曲')
-            print(self.ui_guild_info(guild.id).suggestions)
-            print(self.ui_guild_info(guild.id).previous_titles)
-
+            
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
             voice_client: wavelink.Player = guild.voice_client
