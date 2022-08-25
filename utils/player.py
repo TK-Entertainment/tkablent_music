@@ -9,6 +9,7 @@ from discord import VoiceClient, app_commands
 
 import wavelink
 import spotipy
+import logging
 from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
@@ -774,12 +775,15 @@ class MusicCog(Player, commands.Cog):
             if choice == 'playlist' or 'list' in search:
                 # SearchableTrack.convert(ctx, query)
                 # command here actually useless 
-                trackinfo = await wavelink.YouTubePlaylist.convert(command, url)
+                try:
+                    trackinfo = await wavelink.YouTubePlaylist.convert(command, url)
+                except Exception:
+                    trackinfo = None
             else:
                 for trackmethod in [
+                                        wavelink.YouTubeMusicTrack,
                                         wavelink.LocalTrack,
                                         wavelink.YouTubeTrack,
-                                        wavelink.YouTubeMusicTrack,
                                         wavelink.SoundCloudTrack,
                                     ]: 
                     try:
@@ -811,40 +815,99 @@ class MusicCog(Player, commands.Cog):
 
     ##############################
 
+    async def _process_resuggestion(self, guild, suggestion):
+        if len(self.ui_guild_info(guild.id).suggestions) != 0:
+            # check first one first
+            if self.ui_guild_info(guild.id).suggestions[0].title in self.ui_guild_info(guild.id).previous_titles:
+                print(f'[Suggestion] {self.ui_guild_info(guild.id).suggestions[0].title} has played before in {guild.id}, resuggested')
+                self.ui_guild_info(guild.id).suggestions.pop(0)
+                for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
+                    try:
+                        suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=self.searchnode, return_first=True)
+                    except:
+                        suggested_track = None
+                        pass
+                    if suggested_track is not None:
+                        break
+                suggested_track.suggested = True
+                suggested_track.audio_source = 'youtube'
+                self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+                suggestion['index'] += 1
+
+        # wait for rest of suggestions to be processed, and check them
+        await asyncio.sleep(7)
+        for i, track in enumerate(self.ui_guild_info(guild.id).suggestions):
+            if track.title in self.ui_guild_info(guild.id).previous_titles:
+                print(f'[Suggestion] {track.title} has played before in {guild.id}, resuggested')
+                self.ui_guild_info(guild.id).suggestions.pop(i)
+                for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
+                    try:
+                        suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=self.searchnode, return_first=True)
+                    except:
+                        suggested_track = None
+                        pass
+                    if suggested_track is not None:
+                        break
+                suggested_track.suggested = True
+                suggested_track.audio_source = 'youtube'
+                self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+                suggestion['index'] += 1
+
+    async def _search_for_suggestion(self, guild, suggestion):
+        indexlist = [2, 3, 4, 5, 6]
+        for index in indexlist:
+            for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
+                try:
+                    suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=self.searchnode, return_first=True)
+                except:
+                    suggested_track = None
+                    pass
+                if suggested_track is not None:
+                    break
+            suggested_track.suggested = True
+            suggested_track.audio_source = 'youtube'
+            self.ui_guild_info(guild.id).suggestions.append(suggested_track)
+
     async def process_suggestion(self, guild: discord.Guild):
         if self.ui_guild_info(guild.id).music_suggestion \
                 and len(self._playlist[guild.id].order) == 1 \
                 and self._playlist[guild.id].current().audio_source == 'youtube':
+            if self._playlist[guild.id].current().title not in self.ui_guild_info(guild.id).previous_titles:
+                self.ui_guild_info(guild.id).previous_titles.append(self._playlist[guild.id].current().title)
             if len(self.ui_guild_info(guild.id).suggestions) == 0:
-                indexlist = [1, 2, 3,]
-                index = 4
-                suggestion = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=1)
-                
-                for index in indexlist:
-                    suggested_track = await wavelink.YouTubeTrack.search(suggestion['tracks'][index]['videoId'], node=self.searchnode, return_first=True)
-                    suggested_track.suggested = True
-                    suggested_track.audio_source = 'youtube'
-                    self.ui_guild_info(guild.id).suggestions.append(suggested_track)
-                    await asyncio.sleep(0.02)
-
-            while self.ui_guild_info(guild.id).suggestions[0].title in self.ui_guild_info(guild.id).previous_titles:
-                print(f'Same title, resuggested')
-                self.ui_guild_info(guild.id).suggestions.pop(0)
-                suggested_track = await wavelink.YouTubeTrack.search(suggestion['tracks'][index]['videoId'], node=self.searchnode, return_first=True)
+                suggestion = self.ui_guild_info(guild.id).suggestions_source = self.ytapi.get_watch_playlist(videoId=self._playlist[guild.id].current().identifier, limit=1)
+                self.ui_guild_info(guild.id).suggestions_source['index'] = 7
+                for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
+                    try:
+                        suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=self.searchnode, return_first=True)
+                    except:
+                        suggested_track = None
+                        pass
+                    if suggested_track is not None:
+                        break
                 suggested_track.suggested = True
                 suggested_track.audio_source = 'youtube'
                 self.ui_guild_info(guild.id).suggestions.append(suggested_track)
-                index += 1
+                self.bot.loop.create_task(self._search_for_suggestion(guild, suggestion))
+                print(f'[Suggestion] Started to fetch 6 suggestions for {guild.id}')
+            
+            self.bot.loop.create_task(self._process_resuggestion(guild, self.ui_guild_info(guild.id).suggestions_source))
 
-            if len(self.ui_guild_info(guild.id).previous_titles) > 8:
+            if len(self.ui_guild_info(guild.id).previous_titles) > 64:
                 self.ui_guild_info(guild.id).previous_titles.pop(0)
+                print(f'[Suggestion] The history storage of {guild.id} was full, removed the first item')
             
+            await asyncio.sleep(0.7)
+
             self.ui_guild_info(guild.id).previous_titles.append(self.ui_guild_info(guild.id).suggestions[0].title)
+            print(f'[Suggestion] Suggested {self.ui_guild_info(guild.id).suggestions[0].title} for {guild.id} in next song, added to history storage')
             await self._playlist.add_songs(guild.id, self.ui_guild_info(guild.id).suggestions.pop(0), '自動推薦歌曲')
-            
+            await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
             voice_client: wavelink.Player = guild.voice_client
+            await asyncio.sleep(1.2)
             song = self._playlist[guild.id].current()
             try:
                 try:
@@ -854,14 +917,11 @@ class MusicCog(Player, commands.Cog):
                 except Exception as e:
                     await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
-                await asyncio.sleep(1)
-
                 while voice_client.is_playing() or voice_client.is_paused():
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.01)
             finally:
                 self._playlist.rule(guild.id)
-                await self.process_suggestion(guild)
-                await asyncio.sleep(1)
+                self.bot.loop.create_task(self.process_suggestion(guild))
         await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')

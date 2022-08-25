@@ -35,6 +35,7 @@ class GuildUIInfo:
         self.stage_topic_exist: bool = False
         self.stage_topic_checked: bool = False
         self.skip: bool = False
+        self.lastskip: bool = False
         self.mute: bool = False
         self.search: bool = False
         self.lasterrorinfo: dict = {}
@@ -42,6 +43,7 @@ class GuildUIInfo:
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
         self.music_suggestion: bool = False
+        self.suggestions_source = None
         self.previous_titles: list[str] = []
         self.suggestions: list = []
 
