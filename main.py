@@ -17,12 +17,12 @@ if production:
     prefix = '$'
     status = discord.Status.online
     production_status = 'ce' # ce for cutting edge, s for stable
-    bot_version = f'20220825.3-{production_status}'
+    bot_version = f'm.20220825.3-{production_status}'
 else:
     prefix = '%'
     status = discord.Status.dnd
     branch = 'master'
-    bot_version = f'LOCAL DEVELOPMENT / {branch} Branch'
+    bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
@@ -33,9 +33,9 @@ PASSWORD = os.getenv('WAVELINK_PWD')
 SPOTIFY_ID = os.getenv('SPOTIFY_ID')
 SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
-presence = discord.Game(name='播放音樂 | $play')
-intents = discord.Intents.all()
-bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, activity=presence, status=status)
+intents = discord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, status=status)
 
 from utils import *
 
