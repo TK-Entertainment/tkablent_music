@@ -14,6 +14,9 @@ from .misc import _sec_to_hms, pause_emoji, play_emoji, stop_emoji, skip_emoji, 
             , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji
 
 class PlayerControl(Stage, Queue, Leave):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     ############################################################
     # Now Playing ##############################################
 

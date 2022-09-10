@@ -24,6 +24,7 @@ class MusicCog(Player, commands.Cog):
 
     async def resolve_ui(self):   
         from .ui import UI
+        print(UI.mro())
         self.ui = UI(self, self.bot_version)
         
     @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")

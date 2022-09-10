@@ -6,6 +6,9 @@ from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
 
 class QueueControl(ExceptionHandler): # inherit InfoGenerator and ExceptionHandler and UIBase
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
     # Remove an entity from queue
     async def RemoveSucceed(self, command: Command, idx: int) -> None:
         await command.send(f'''

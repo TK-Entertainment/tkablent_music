@@ -8,9 +8,9 @@ from .base import UIBase
 from .misc import _sec_to_hms
 
 class InfoGenerator(UIBase):
-    def __init__(self, musicbot, embed_opt):
+    def __init__(self, musicbot, embed_opt, **kwargs):
         super().__init__(musicbot)
-        from ..player import MusicCog
+        from ..music_cog import MusicCog
         self.musicbot: MusicCog = musicbot # MusicCog
         self.bot = self.musicbot.bot
         self.embed_opt = embed_opt

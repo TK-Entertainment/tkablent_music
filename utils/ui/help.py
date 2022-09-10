@@ -8,6 +8,8 @@ class Help:
     def __init__(self, bot, embed_opt, **kwargs):
         self.bot: commands.Bot = bot
         self.embed_opt: dict = embed_opt
+        super().__init__(embed_opt=embed_opt, **kwargs)
+        print("早安3")
 
     def _HelpEmbedBasic(self) -> discord.Embed:
         return discord.Embed(title=":regional_indicator_q: | 指令說明 | 基本指令", description=f'''

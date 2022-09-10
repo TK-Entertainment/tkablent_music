@@ -34,7 +34,8 @@ SPOTIFY_ID = os.getenv('SPOTIFY_ID')
 SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
 presence = discord.Game(name='播放音樂 | $play')
-intents = discord.Intents.all()
+intents = discord.Intents.default()
+intents.message_content = True
 bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, activity=presence, status=status)
 
 from utils import *
