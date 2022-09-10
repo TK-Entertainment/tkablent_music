@@ -64,20 +64,20 @@ class PlaylistBase:
     def move_to(self, origin: int, new: int):
         self.order.insert(new, self.order.pop(origin))
     
-    def rule(self):
+    def rule(self, is_skipped: bool):
         if len(self.order) == 0:
             return
         if self.loop_state == LoopState.SINGLEINF and (not self.order[0].suggested):
             return
         if self.loop_state == LoopState.SINGLE and (not self.order[0].suggested):
             self.times -= 1
-        elif self.loop_state == LoopState.PLAYLIST and (not self.order[0].suggested):
+        elif self.loop_state == LoopState.PLAYLIST and (not self.order[0].suggested) and not is_skipped:
             self.order.append(self.order.pop(0))
         else:
             self.order.pop(0)
 
         if self.loop_state == LoopState.SINGLE and self.times == 0:
-            self.loop_state =  LoopState.NOTHING
+            self.loop_state = LoopState.NOTHING
             
     def single_loop(self, times: int = INF):
         if self.loop_state != LoopState.SINGLE and self.loop_state != LoopState.SINGLEINF:
@@ -136,8 +136,8 @@ class Playlist:
     def pop(self, guild_id: int, idx: int):
         self[guild_id].order.pop(idx)
 
-    def rule(self, guild_id: int):
-        self[guild_id].rule()
+    def rule(self, guild_id: int, is_skipped: bool):
+        self[guild_id].rule(is_skipped)
             
     def single_loop(self, guild_id: int, times: int = INF):
         self[guild_id].single_loop(times)

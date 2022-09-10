@@ -67,6 +67,11 @@ bulb_emoji = discord.PartialEmoji.from_str('💡')
 queue_emoji = discord.PartialEmoji.from_str('🗒️')
 leave_emoji = discord.PartialEmoji.from_str("📤")
 end_emoji = discord.PartialEmoji.from_str('❎')
+loading_emoji = discord.PartialEmoji.from_str('<a:loading:696701361504387212>')
+caution_emoji = discord.PartialEmoji.from_str('⚠️')
+youtube_emoji = discord.PartialEmoji.from_str('<:youtube:1010812724009242745>')
+soundcloud_emoji = discord.PartialEmoji.from_str('<:soundcloud:1010812662155837511>')
+spotify_emoji = discord.PartialEmoji.from_str('<:spotify:1010844746647883828>')
 
 @staticmethod
 def guild_info(guild_id) -> GuildUIInfo:

@@ -54,12 +54,17 @@ class Queue:
                 await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
 
             if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
-                await command.send(msg, embed=embed)
+                await command.send(msg, embed=embed, ephemeral=True)
             else:
                 if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(command.guild.id).processing_msg is not None:
-                    await self.guild_info(command.guild.id).processing_msg.delete()
+                    if command.command_type == 'Interaction':
+                        await command.edit_response(content=msg, embed=embed)
+                    else:
+                        await self.guild_info(command.guild.id).processing_msg.edit(content=msg, embed=embed)
+                    del self.guild_info(command.guild.id).processing_msg
                     self.guild_info(command.guild.id).processing_msg = None
-                await command.channel.send(msg, embed=embed)
+                else:
+                    await command.channel.send(msg, embed=embed)
             await self.info_generator._UpdateSongInfo(command.guild.id)
 
     # Queue Embed Generator

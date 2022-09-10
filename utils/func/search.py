@@ -18,7 +18,7 @@ class Search:
                 '''
         if command.command_type == 'Interaction':
             await command.send(msg, ephemeral=True)
-            return None
+            return command.original_response()
         else:
             return await command.send(msg)
 

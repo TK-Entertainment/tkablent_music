@@ -17,7 +17,7 @@ if production:
     prefix = '$'
     status = discord.Status.online
     production_status = 'ce' # ce for cutting edge, s for stable
-    bot_version = f'm.20220825.3-{production_status}'
+    bot_version = f'm.20220911-{production_status}'
 else:
     prefix = '%'
     status = discord.Status.dnd

@@ -13,7 +13,7 @@ import logging
 from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
-from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist
+from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
 from .command import Command
 
 INF = int(1e18)
@@ -149,7 +149,9 @@ class Player:
             if voice_client.is_paused():
                 await voice_client.resume()
             await voice_client.stop()
-        self._playlist[guild].times = 0
+            self._playlist[guild.id].times = 0
+            if self._playlist[guild.id].loop_state == LoopState.SINGLEINF:
+                self._playlist[guild.id].loop_state = LoopState.NOTHING
     
     async def _stop(self, guild: discord.Guild):
         self._playlist[guild.id].clear()
@@ -948,6 +950,7 @@ class MusicCog(Player, commands.Cog):
 
     async def _mainloop(self, guild: discord.Guild):
         while len(self._playlist[guild.id].order):
+            await asyncio.sleep(0.2)
             await asyncio.wait_for(self.process_suggestion(guild), None)
             voice_client: wavelink.Player = guild.voice_client
             song = self._playlist[guild.id].current()
@@ -963,7 +966,8 @@ class MusicCog(Player, commands.Cog):
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(0.1)
             finally:
-                self._playlist.rule(guild.id)
+                self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
+                await asyncio.sleep(0.2)
                 if self[guild.id]._refresh_msg_task is not None:
                     self[guild.id]._refresh_msg_task.cancel()
                     self[guild.id]._refresh_msg_task = None

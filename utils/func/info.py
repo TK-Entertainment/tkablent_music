@@ -4,6 +4,7 @@ import requests
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum
+from ..ui import caution_emoji, youtube_emoji, spotify_emoji, soundcloud_emoji
 
 class InfoGenerator:
     def __init__(self):
@@ -19,6 +20,10 @@ class InfoGenerator:
 
     def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0):
         playlist = self.musicbot._playlist[guild_id]
+
+        if len(playlist.order) == 0:
+            return None
+
         song = playlist[index]
 
         if color_code == "green": # Green means adding to queue
@@ -44,11 +49,11 @@ class InfoGenerator:
 
         # Generate Embed Body
         if 'youtube' in song.uri:
-            source_icon = '<:youtube:1010812724009242745>'
+            source_icon = youtube_emoji
         elif 'soundcloud' in song.uri:
-            source_icon = '<:soundcloud:1010812662155837511>'
+            source_icon = soundcloud_emoji
         elif 'spotify' in song.uri:
-            source_icon = '<:spotify:1010844746647883828>'
+            source_icon = spotify_emoji
 
         embed = discord.Embed(title=f"{source_icon} | {song.title}", url=song.uri, colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
@@ -71,21 +76,30 @@ class InfoGenerator:
             embed._author['name'] += f"{loopicon}"
 
         queuelist: str = ""
-        if self.guild_info(guild_id).music_suggestion and len(playlist.order) == 2 and playlist[1].suggested and color_code != 'red':
-            queuelist += f"**【推薦】** {playlist[1].title}"
-            embed.add_field(name=f"即將播放", value=queuelist, inline=False)
-        elif len(playlist.order) > 1 and color_code != 'red':
-            queuelist += f"**>> {playlist[1].title}** \n"
-            if len(playlist.order) > 2: 
-                queuelist += f"*...還有 {len(playlist.order)-2} 首歌*"
 
-            embed.add_field(name=f"即將播放 | {len(playlist.order)-1} 首歌待播中", value=queuelist, inline=False)
+        if self.guild_info(guild_id).skip: # If song is skipped, update songinfo for next song state
+            offset = 1
+        else:
+            offset = 0
+
+        if self.guild_info(guild_id).music_suggestion and len(playlist.order) == 2 and playlist[1].suggested and color_code != 'red':
+            if self.guild_info(guild_id).skip:
+                queuelist += f"**推薦歌曲載入中**"
+            else:
+                queuelist += f"**【推薦】** {playlist[1].title}"
+            embed.add_field(name="{} 即將播放".format(f":hourglass: |" if self.guild_info(guild_id).skip else ""), value=queuelist, inline=False)
+        elif len(playlist.order)-offset > 1 and color_code != 'red':
+            queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].requester}*\n"
+            if len(playlist.order) > 2: 
+                queuelist += f"*...還有 {len(playlist.order)-2-offset} 首歌*"
+
+            embed.add_field(name=f"即將播放 | {len(playlist.order)-1-offset} 首歌待播中", value=queuelist, inline=False)
 
         if 'youtube' in song.uri:
-            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/0.jpg')
+            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/maxresdefault.jpg')
         elif 'spotify' in song.uri and (color != 'green' or color != 'red'):
             embed.set_thumbnail(url=song.cover)
-            embed.add_field(name=f"<:youtube:1010812724009242745> | 音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
+            embed.add_field(name=f"{youtube_emoji} | 音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
             embed.add_field(name=f"為何有這個？", value=f'''
 因 Spotify 平台的特殊性 (無法取得其音源)
 故此機器人是使用相對應的標題及其他資料
@@ -93,7 +107,7 @@ class InfoGenerator:
             ''', inline=False)
 
         if self.guild_info(guild_id).music_suggestion and song.audio_source == 'soundcloud' and (color_code != 'red' or color_code != 'green'):
-            embed.add_field(name=f"自動歌曲推薦已暫時停用", value=f'此歌曲來源為 Soundcloud\n暫時不支援自動歌曲推薦\n請點播一首 Youtube/Spotify 的歌曲來重新啟用', inline=False)
+            embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲來源為 Soundcloud\n暫時不支援自動歌曲推薦\n請點播一首 Youtube/Spotify 的歌曲來重新啟用', inline=False)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed
@@ -101,9 +115,9 @@ class InfoGenerator:
     def _PlaylistInfo(self, playlist: Union[wavelink.YouTubePlaylist, SpotifyAlbum], requester: discord.User):
         # Generate Embed Body
         if isinstance(playlist, wavelink.YouTubePlaylist):
-            source_icon = '<:youtube:1010812724009242745>'
+            source_icon = youtube_emoji
         else:
-            source_icon = '<:spotify:1010844746647883828>'
+            source_icon = spotify_emoji
         color = discord.Colour.from_rgb(97, 219, 83)
         embed = discord.Embed(title=f"{source_icon} | {playlist.name}", url=playlist.uri, colour=color)
         embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
@@ -139,6 +153,12 @@ class InfoGenerator:
             目前歌曲已成功跳過，正在播放下一首歌曲，資訊如下所示
             *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
                 '''
+        elif len(self.musicbot._playlist[guild_id].order) == 0:
+            message = f'''
+            **:clock4: | 播放完畢，等待播放動作**
+            候播清單已全數播放完畢，等待使用者送出播放指令
+            *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
+        '''
         else:
             message = f'''
             **:arrow_forward: | 正在播放以下歌曲**
