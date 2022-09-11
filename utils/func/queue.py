@@ -65,7 +65,10 @@ class Queue:
                     self.guild_info(command.guild.id).processing_msg = None
                 else:
                     await command.channel.send(msg, embed=embed)
-            await self.info_generator._UpdateSongInfo(command.guild.id)
+            try:
+                await self.info_generator._UpdateSongInfo(command.guild.id)
+            except:
+                pass
 
     # Queue Embed Generator
     def _QueueEmbed(self, playlist: PlaylistBase, page: int=0, op=None) -> discord.Embed:

@@ -116,6 +116,8 @@ class Playlist:
         if isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyAlbum, SpotifyPlaylist]):
             for track in trackinfo.tracks:
                 track.requester = requester
+                track.audio_source = 'youtube'
+                track.suggested = False
             self[guild_id].order.extend(trackinfo.tracks)
         else:
             trackinfo.requester = requester

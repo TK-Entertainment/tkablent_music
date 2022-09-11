@@ -96,7 +96,7 @@ class InfoGenerator:
             embed.add_field(name=f"即將播放 | {len(playlist.order)-1-offset} 首歌待播中", value=queuelist, inline=False)
 
         if 'youtube' in song.uri:
-            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/maxresdefault.jpg')
+            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/hqdefault.jpg')
         elif 'spotify' in song.uri and (color != 'green' or color != 'red'):
             embed.set_thumbnail(url=song.cover)
             embed.add_field(name=f"{youtube_emoji} | 音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
@@ -132,7 +132,7 @@ class InfoGenerator:
         
         embed.add_field(name=f"歌曲清單 | 已新增 {len(playlist.tracks)} 首歌", value=pllist, inline=False)
         if isinstance(playlist, wavelink.YouTubePlaylist):
-            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{playlist.tracks[0].identifier}/0.jpg')
+            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{playlist.tracks[0].identifier}/hqdefault.jpg')
         else:
             embed.set_thumbnail(url=playlist.thumbnail)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
