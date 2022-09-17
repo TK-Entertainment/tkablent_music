@@ -34,6 +34,7 @@ class Help:
     def _HelpEmbedQueue(self) -> discord.Embed:
         return discord.Embed(title=":regional_indicator_q: | 指令說明 | 待播清單相關指令", description=f'''
         {self.bot.command_prefix}queue | 顯示待播歌曲列表
+        {self.bot.command_prefix}shuffle | 隨機排列待播歌曲列表
         {self.bot.command_prefix}remove [順位數] | 移除指定待播歌曲
         {self.bot.command_prefix}swap [順位數1] [順位數2] | 交換指定待播歌曲順序
         {self.bot.command_prefix}move [原順位數] [目標順位數] | 移動指定待播歌曲至指定順序
