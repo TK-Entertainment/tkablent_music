@@ -531,6 +531,23 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
+    async def shuffle(self, command):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
+        if len(self._playlist[command.guild.id]) < 2:
+            await self.ui.PlayerControl.ShuffleFailed(command)
+        self._playlist[command.guild.id].shuffle()
+
+    @commands.command(name='shuffle')
+    async def _c_shuffle(self, ctx: commands.Context):
+        await self.shuffle(ctx)
+
+    @app_commands.command(name='shuffle', description='🔀 | 隨機排序目前的待播清單')
+    async def _i_shuffle(self, interaction: discord.Interaction):
+        await self.shuffle(interaction)
+
+    ##############################################
+
     async def playlist_loop(self, command):
         if not isinstance(command, Command):
             command: Command = Command(command)

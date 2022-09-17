@@ -49,8 +49,8 @@ class Queue:
 
             if self.guild_info(command.guild.id).playinfo is not None:
                 self.guild_info(command.guild.id).playinfo_view.skip.emoji = lastpage_emoji
-                self.guild_info(command.guild.id).playinfo_view.skip.disabled = False
-                self.guild_info(command.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+                self.guild_info(command.guild.id).playinfo_view.skip.disabled = self.guild_info(command.guild.id).playinfo_view.shuffle.disabled = False
+                self.guild_info(command.guild.id).playinfo_view.skip.style = self.guild_info(command.guild.id).playinfo_view.shuffle.style = discord.ButtonStyle.blurple
                 await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
 
             if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        

@@ -29,6 +29,7 @@ class ExceptionHandler:
             "REMOVEFAIL": ["無法刪除指定歌曲，請確認您輸入的順位數有效", "remove [順位數]", "來刪除待播歌曲"],
             "SWAPFAIL": ["無法交換指定歌曲，請確認您輸入的順位數有效", "swap [順位數1] [順位數2]", "來交換待播歌曲"],
             "MOVEFAIL": ["無法移動指定歌曲，請確認您輸入的目標順位數有效", "move [原順位數] [目標順位數]", "來移動待播歌曲"],
+            "SHUFFLEFAIL": ["無法隨機排列待播歌曲，請確認待播列表有歌曲可供排列", "shuffle", "來隨機排列待播歌曲"],
         }
 
     async def _MusicExceptionHandler(self, message, exception=None, url=None):

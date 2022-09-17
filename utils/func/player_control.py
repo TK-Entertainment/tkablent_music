@@ -1,3 +1,4 @@
+from turtle import done
 from typing import *
 import discord
 import random
@@ -13,7 +14,8 @@ from .exception_handler import ExceptionHandler
 from .queue import Queue
 from .leave import Leave
 from ..ui import pause_emoji, play_emoji, stop_emoji, skip_emoji, leave_emoji \
-            , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji, loading_emoji
+            , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji\
+            , loading_emoji, shuffle_emoji, done_emoji
 
 class PlayerControl:
     def __init__(self, exception_handler, info_generator, stage, queue, leave):
@@ -39,6 +41,7 @@ class PlayerControl:
         self.guild_info(command.guild.id).playinfo_view.clear_items()
         await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
         self.guild_info(command.guild.id).playinfo_view.stop()
+        self.guild_info(command.guild.id).playinfo = None
         await self.PlayingMsg(command.channel)
 
     ############################################################
@@ -239,6 +242,13 @@ class PlayerControl:
                     self.skip.style = discord.ButtonStyle.blurple
                 await self.guild_info(channel.guild.id).playinfo.edit(view=view)
 
+            async def restore_shuffle(self):
+                await asyncio.sleep(3)
+                self.shuffle.emoji = shuffle_emoji
+                self.shuffle.disabled = False
+                self.shuffle.style = discord.ButtonStyle.blurple
+                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+
             async def suggestion_control(self, interaction, button):
                 if self.guild_info(channel.guild.id).music_suggestion:
                     button.label = '⬜ 推薦音樂'
@@ -312,6 +322,20 @@ class PlayerControl:
                     view = None
 
                 await interaction.response.edit_message(embed=embed, view=view)
+
+            @discord.ui.button(
+                emoji=shuffle_emoji, 
+                disabled=len(musicbot._playlist[channel.guild.id].order) < 3,
+                style=discord.ButtonStyle.gray if len(musicbot._playlist[channel.guild.id].order) < 3 else discord.ButtonStyle.blurple,
+                )
+            async def shuffle(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                self.musicbot._playlist[channel.guild.id].shuffle()
+                self.shuffle.emoji = done_emoji
+                self.shuffle.disabled = True
+                self.shuffle.style = discord.ButtonStyle.success
+                await interaction.response.edit_message(view=view)
+                await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                self.bot.loop.create_task(self.restore_shuffle())
 
             @discord.ui.button(
                 emoji=repeat_emoji if musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST \
@@ -605,3 +629,19 @@ class PlayerControl:
 
     async def SingleLoopFailed(self, command: Command) -> None:
         await self.exception_handler._CommonExceptionHandler(command, "LOOPFAIL_SIG")
+
+    ###############################################################
+    # Shuffle #####################################################
+
+    async def ShuffleSucceed(self, command: Command) -> None:
+        msg = f'''
+            **:twisted_rightwards_arrows: | 隨機排列待播清單**
+            待播清單已成功隨機排列
+            '''
+        if command.command_type == 'Interaction':
+            await command.send(msg, ephemeral=True)
+        else:
+            await command.send(msg)
+
+    async def ShuffleFailed(self, command: Command) -> None:
+        await self.exception_handler._CommonExceptionHandler(command, "SHUFFLEFAIL")

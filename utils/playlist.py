@@ -1,3 +1,4 @@
+import random
 from typing import *
 from enum import Enum, auto
 
@@ -94,6 +95,11 @@ class PlaylistBase:
             self.loop_state = LoopState.NOTHING
         else:
             self.loop_state = LoopState.PLAYLIST
+
+    def shuffle(self):
+        for i in range(1, len(self.order) - 1):
+            idx = random.randrange(i + 1, len(self.order))
+            self.swap(i, idx)
 
 class Playlist:
     def __init__(self):
