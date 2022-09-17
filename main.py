@@ -4,7 +4,6 @@ import os, dotenv, sys
 import discord
 from discord.ext import commands
 import wavelink
-import atexit
 
 print(f'''
 Current Version
@@ -39,14 +38,6 @@ bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, st
 
 from utils import *
 
-def on_exit():
-    cog: MusicCog = bot.cogs['MusicCog']
-
-    node: wavelink.Node = cog.playnode
-    for player in node.players:
-        player.disconnect()
-    node.disconnect()
-
 @bot.event
 async def on_ready():
     await bot.add_cog(MusicCog(bot, bot_version))
@@ -60,7 +51,6 @@ async def on_ready():
     cog.playnode = node
     cog.searchnode = searchnode
 
-    atexit.register(on_exit)
     print(f'''
         =========================================
         Codename TKablent | Version Alpha
