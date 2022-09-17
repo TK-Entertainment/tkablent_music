@@ -186,3 +186,15 @@ pyproject.toml
 poetry.lock
 application.yml
 Lavalink.jar
+tkablent-3.9/pyvenv.cfg
+tkablent-3.9/Scripts/activate
+tkablent-3.9/Scripts/activate.bat
+tkablent-3.9/Scripts/Activate.ps1
+tkablent-3.9/Scripts/deactivate.bat
+tkablent-3.9/Scripts/dotenv.exe
+tkablent-3.9/Scripts/normalizer.exe
+tkablent-3.9/Scripts/pip.exe
+tkablent-3.9/Scripts/pip3.9.exe
+tkablent-3.9/Scripts/pip3.exe
+tkablent-3.9/Scripts/python.exe
+tkablent-3.9/Scripts/pythonw.exe
