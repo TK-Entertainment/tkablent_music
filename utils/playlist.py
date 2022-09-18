@@ -278,12 +278,24 @@ class Playlist:
         
     async def process_suggestion(self, guild: discord.Guild, ui_guild_info: GuildUIInfo):
         if (ui_guild_info.music_suggestion) and self[guild.id].current().audio_source == 'youtube' and len(self[guild.id].order) <= 2:
-            if (self[guild.id].loop_state == LoopState.SINGLE or self[guild.id].loop_state == LoopState.SINGLEINF) \
-                    or (self[guild.id].loop_state == LoopState.PLAYLIST and not self[guild.id].current().suggested):
-                if len(self[guild.id].order) == 2 and self[guild.id].order[-1].suggested:
-                    ui_guild_info.previous_titles.remove(self[guild.id].order[-1].title)
-                    self.pop(guild.id, -1)
+            if len(self[guild.id].order) == 2 and not self[guild.id].order[-1].suggested:
                 return
+
+            if (self[guild.id].loop_state != LoopState.NOTHING):
+                if self[guild.id].loop_state != LoopState.PLAYLIST:
+                    if len(self[guild.id].order) == 2 and (self[guild.id].order[-1].suggested):
+                        ui_guild_info.previous_titles.remove(self[guild.id].order[-1].title)
+                        self.pop(guild.id, -1)
+                    return
+                else:
+                    if self[guild.id].current().suggested:
+                        if len(self[guild.id].order) == 2 and (self[guild.id].order[-1].suggested):
+                            return
+                    else:
+                        if len(self[guild.id].order) == 2 and (self[guild.id].order[-1].suggested):
+                            ui_guild_info.previous_titles.remove(self[guild.id].order[-1].title)
+                            self.pop(guild.id, -1)
+                            return
             suggested_track = None
 
             if self[guild.id].current().title not in ui_guild_info.previous_titles:
