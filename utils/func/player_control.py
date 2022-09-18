@@ -233,7 +233,7 @@ class PlayerControl:
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=None)
-                
+
             async def restore_skip(self):
                 await asyncio.sleep(6)
                 self.skip.emoji = skip_emoji
@@ -266,7 +266,7 @@ class PlayerControl:
                     button.style = discord.ButtonStyle.success
                     print(f'[Suggestion] {channel.guild.id} enabled auto suggestion')
                     self.guild_info(channel.guild.id).music_suggestion = True
-                    await self.musicbot.process_suggestion(channel.guild)
+                    await self.musicbot._playlist.process_suggestion(channel.guild, self.guild_info(channel.guild.id))
                     if len(self.musicbot._playlist[channel.guild.id].order) == 2 \
                         and self.musicbot._playlist[channel.guild.id].order[1].suggested:
                         self.guild_info(channel.guild.id).playinfo_view.skip.emoji = skip_emoji
@@ -360,6 +360,9 @@ class PlayerControl:
                     button.emoji = repeat_emoji
                     button.label = ''
                     button.style = discord.ButtonStyle.danger
+
+                await self.musicbot._playlist.process_suggestion(channel.guild, self.guild_info(channel.guild.id))
+
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
 
@@ -452,12 +455,12 @@ class PlayerControl:
         self.guild_info(channel.guild.id).music_suggestion = False
         self.guild_info(channel.guild.id).processing_msg = None
         self.guild_info(channel.guild.id).suggestions = []
-        if self.musicbot[channel.guild.id]._resuggest_task is not None:
-            self.musicbot[channel.guild.id]._resuggest_task.cancel()
-            self.musicbot[channel.guild.id]._resuggest_task = None
-        if self.musicbot[channel.guild.id]._suggest_search_task is not None:
-            self.musicbot[channel.guild.id]._suggest_search_task.cancel()
-            self.musicbot[channel.guild.id]._suggest_search_task = None
+        if self.musicbot._playlist[channel.guild.id]._resuggest_task is not None:
+            self.musicbot._playlist[channel.guild.id]._resuggest_task.cancel()
+            self.musicbot._playlist[channel.guild.id]._resuggest_task = None
+        if self.musicbot._playlist[channel.guild.id]._suggest_search_task is not None:
+            self.musicbot._playlist[channel.guild.id]._suggest_search_task.cancel()
+            self.musicbot._playlist[channel.guild.id]._suggest_search_task = None
         self.guild_info(channel.guild.id).playinfo_view = None
         self.guild_info(channel.guild.id).playinfo = None
         try: 

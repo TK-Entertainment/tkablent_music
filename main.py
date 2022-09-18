@@ -16,7 +16,7 @@ if production:
     prefix = '$'
     status = discord.Status.online
     production_status = 'ce' # ce for cutting edge, s for stable
-    bot_version = f'm.20220911-{production_status}'
+    bot_version = f'm.20220918.1-{production_status}'
 else:
     prefix = '%'
     status = discord.Status.dnd
@@ -49,7 +49,7 @@ async def on_ready():
     node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
     searchnode: wavelink.Node = await cog._start_search_daemon(bot, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
     cog.playnode = node
-    cog.searchnode = searchnode
+    cog.searchnode = cog._playlist.searchnode = searchnode
 
     print(f'''
         =========================================

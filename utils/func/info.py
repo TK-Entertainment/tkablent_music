@@ -4,7 +4,7 @@ import requests
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum
-from ..ui import caution_emoji, youtube_emoji, spotify_emoji, soundcloud_emoji
+from ..ui import caution_emoji, youtube_emoji, spotify_emoji, soundcloud_emoji, skip_emoji
 
 class InfoGenerator:
     def __init__(self):
@@ -88,6 +88,10 @@ class InfoGenerator:
             else:
                 queuelist += f"**【推薦】** {playlist[1].title}"
             embed.add_field(name="{} 即將播放".format(f":hourglass: |" if self.guild_info(guild_id).skip else ""), value=queuelist, inline=False)
+        
+        elif len(playlist.order) == 1 and playlist.loop_state == LoopState.PLAYLIST:
+            embed.add_field(name="即將播放", value="*無下一首，將重複播放此歌曲*", inline=False)
+        
         elif len(playlist.order)-offset > 1 and color_code != 'red':
             queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].requester}*\n"
             if len(playlist.order) > 2: 
@@ -166,4 +170,13 @@ class InfoGenerator:
             
         if not self.auto_stage_available(guild_id):
             message += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
+
+        self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
+        if len(self.musicbot._playlist[guild_id].order) == 1:
+            self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.gray
+            self.guild_info(guild_id).playinfo_view.skip.disabled = True
+        else:
+            self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+            self.guild_info(guild_id).playinfo_view.skip.disabled = False
+
         await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
