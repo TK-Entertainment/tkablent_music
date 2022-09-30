@@ -5,7 +5,7 @@ import copy
 from ..player import Command, SpotifyAlbum
 from ..playlist import PlaylistBase, SpotifyPlaylist
 from .info import InfoGenerator
-from ..ui import firstpage_emoji, prevpage_emoji, nextpage_emoji, lastpage_emoji, end_emoji
+from ..ui import firstpage_emoji, prevpage_emoji, nextpage_emoji, lastpage_emoji, join_emoji, end_emoji
 
 import wavelink
 
@@ -111,6 +111,25 @@ class Queue:
     async def ShowQueue(self, command: Union[Command, discord.Interaction], op=None) -> None:
         playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
 
+        class NewSongModal(discord.ui.Modal):
+            musicbot = self.musicbot
+
+            def __init__(self, requester):
+                self.url_or_name = discord.ui.TextInput(
+                    custom_id="song_url",
+                    label="歌曲網址或關鍵字 (支援 YouTube, Spotify, SoundCloud)",
+                    placeholder=f"此歌曲由 {requester} 點播"
+                )
+                super().__init__(
+                    title = "🎶 | 新增音樂至候播清單",
+                    timeout=120
+                )
+
+                self.add_item(self.url_or_name)
+
+            async def on_submit(self, interaction: discord.Interaction) -> None:
+                await self.musicbot._i_play(interaction, self.url_or_name.value)
+
         class QueueListing(discord.ui.View):
 
             QueueEmbed = self._QueueEmbed
@@ -138,6 +157,10 @@ class Queue:
             @property
             def last_page_button(self) -> discord.ui.Button:
                 return self.children[3]
+            
+            @property
+            def new_song_button(self) -> discord.ui.Button:
+                return self.children[4]
 
             @property
             def total_pages(self) -> int:
@@ -191,6 +214,10 @@ class Queue:
                 self.update_button()
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
+
+            @discord.ui.button(emoji=join_emoji, label="新增歌曲", style=discord.ButtonStyle.blurple)
+            async def new_song(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await interaction.response.send_modal(NewSongModal(interaction.user))
 
             @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
