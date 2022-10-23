@@ -5,6 +5,7 @@ import datetime
 from ..player import Command
 from ..github import GithubIssue
 from .info import InfoGenerator
+from ..ui import groupbutton
 
 class ExceptionHandler:
     def __init__(self, info_generator):
@@ -45,7 +46,7 @@ class ExceptionHandler:
 
         content = f'''
             {part_content}
-            *若您覺得有Bug或錯誤，請輸入 /reportbug 來回報錯誤*
+            *若您覺得有Bug或錯誤，請到我們的群組來回報錯誤*
         '''
 
         await self._BugReportingMsg(message, content, done_content, errorcode="SEARCH_OR_PLAYING_FAILED", exception=exception, video_url=url)
@@ -65,7 +66,7 @@ class ExceptionHandler:
             --------
             *請在確認排除以上可能問題後*
             *再次嘗試使用 **{self.bot.command_prefix}{self.errorcode_to_msg[errorcode][1]}** {self.errorcode_to_msg[errorcode][2]}*
-            *若您覺得有Bug或錯誤，請輸入 /reportbug 來回報錯誤*
+            *若您覺得有Bug或錯誤，請到我們的群組來回報錯誤*
             '''
 
         await self._BugReportingMsg(message, content, done_content, errorcode, exception)
@@ -77,17 +78,17 @@ class ExceptionHandler:
         if errorcode == "SEARCH_FAILED":
             embed = self.info_generator._SongInfo(guild_id=message.guild.id, color_code='red')
             if isinstance(message, Command) and message.is_response():
-                msg = await message.channel.send(content, embed=embed)
+                msg = await message.channel.send(content, embed=embed, view=groupbutton)
             else:
-                msg = await message.send(content, embed=embed)
+                msg = await message.send(content, embed=embed, view=groupbutton)
         else:
             if isinstance(message, Command) and message.command_type == "Interaction":
                 if message.is_response():
-                    msg = await message.channel.send(content)
+                    msg = await message.channel.send(content, view=groupbutton)
                 else:
-                    msg = await message.send(content)
+                    msg = await message.send(content, view=groupbutton)
             else:
-                msg = await message.send(content)
+                msg = await message.send(content, view=groupbutton)
 
         self.guild_info(message.guild.id).lasterrorinfo = {
             "errortime": errortime,
@@ -98,108 +99,108 @@ class ExceptionHandler:
             "video_url": video_url
         }
 
-    async def Interaction_BugReportingModal(self, interaction: discord.Interaction, guild: discord.Guild):
+    # async def Interaction_BugReportingModal(self, interaction: discord.Interaction, guild: discord.Guild):
 
-        class BugReportingModal(discord.ui.Modal):
-            lasterror = self.guild_info(guild.id).lasterrorinfo
-            github = self.github
-            guildinfo = guild
-            bot = self.bot
+    #     class BugReportingModal(discord.ui.Modal):
+    #         lasterror = self.guild_info(guild.id).lasterrorinfo
+    #         github = self.github
+    #         guildinfo = guild
+    #         bot = self.bot
 
-            if "errorcode" not in lasterror.keys():
-                error_code = ""
-            else:
-                error_code = lasterror["errorcode"]
+    #         if "errorcode" not in lasterror.keys():
+    #             error_code = ""
+    #         else:
+    #             error_code = lasterror["errorcode"]
 
-            if "errortime" not in lasterror.keys():
-                error_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-            else:
-                error_time = lasterror["errortime"]
+    #         if "errortime" not in lasterror.keys():
+    #             error_time = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+    #         else:
+    #             error_time = lasterror["errortime"]
 
-            embed_opt = self.embed_opt
+    #         embed_opt = self.embed_opt
 
-            def __init__(self):
-                self.bot_name = discord.ui.TextInput(
-                    custom_id="bot_name",
-                    label="機器人名稱 (已自動填入，不需更改)",
-                    default=f"{self.bot.user.name}#{self.bot.user.discriminator}"
-                )
+    #         def __init__(self):
+    #             self.bot_name = discord.ui.TextInput(
+    #                 custom_id="bot_name",
+    #                 label="機器人名稱 (已自動填入，不需更改)",
+    #                 default=f"{self.bot.user.name}#{self.bot.user.discriminator}"
+    #             )
 
-                self.guild = discord.ui.TextInput(
-                    custom_id="guild",
-                    label="伺服器名稱 (已自動填入，不需更改)",
-                    default=f"{self.guildinfo.name} ({self.guildinfo.id})"
-                )
+    #             self.guild = discord.ui.TextInput(
+    #                 custom_id="guild",
+    #                 label="伺服器名稱 (已自動填入，不需更改)",
+    #                 default=f"{self.guildinfo.name} ({self.guildinfo.id})"
+    #             )
 
-                self.error_code_text = discord.ui.TextInput(
-                    custom_id="error_code",
-                    label="錯誤代碼 (由上一次錯誤填入，可修改)",
-                    default=self.error_code
-                )
+    #             self.error_code_text = discord.ui.TextInput(
+    #                 custom_id="error_code",
+    #                 label="錯誤代碼 (由上一次錯誤填入，可修改)",
+    #                 default=self.error_code
+    #             )
 
-                self.modaltime_text = discord.ui.TextInput(
-                    custom_id="submit_time",
-                    label="錯誤發生時間 (已自動填入，不需更改)",
-                    default=self.error_time
-                )
+    #             self.modaltime_text = discord.ui.TextInput(
+    #                 custom_id="submit_time",
+    #                 label="錯誤發生時間 (已自動填入，不需更改)",
+    #                 default=self.error_time
+    #             )
 
-                self.description = discord.ui.TextInput(
-                    custom_id="error_description",
-                    label="請簡述錯誤是如何產生的",
-                    placeholder="簡述如何重新產生該錯誤，或該錯誤是怎麼產生的。\n如果隨意填寫或更改上方資料，將可能遭到忽略",
-                    style=discord.TextStyle.paragraph
-                )
-                super().__init__(
-                    title = "🐛 | 回報蟲蟲",
-                    timeout=120
-                )
+    #             self.description = discord.ui.TextInput(
+    #                 custom_id="error_description",
+    #                 label="請簡述錯誤是如何產生的",
+    #                 placeholder="簡述如何重新產生該錯誤，或該錯誤是怎麼產生的。\n如果隨意填寫或更改上方資料，將可能遭到忽略",
+    #                 style=discord.TextStyle.paragraph
+    #             )
+    #             super().__init__(
+    #                 title = "🐛 | 回報蟲蟲",
+    #                 timeout=120
+    #             )
 
-                for item in [
-                        self.bot_name,
-                        self.guild,
-                        self.error_code_text,
-                        self.modaltime_text,
-                        self.description
-                    ]:
-                    self.add_item(item)
+    #             for item in [
+    #                     self.bot_name,
+    #                     self.guild,
+    #                     self.error_code_text,
+    #                     self.modaltime_text,
+    #                     self.description
+    #                 ]:
+    #                 self.add_item(item)
 
 
-            def result_embed(self, results: dict):
-                embed = discord.Embed(title="🐛 | 錯誤回報簡表 (點我到 Github Issue)", url=self.github.issue_user_url, description="")
-                embed.add_field(name="錯誤代碼", value="{}".format(results["errorcode"]))
-                embed.add_field(name="錯誤回報時間", value="{}".format(results["timestamp"]))
-                embed.add_field(name="造成錯誤之影片連結", value="{}".format(results["video_url"]))
-                embed.add_field(name="使用者回報之簡述", value="{}".format(results["description"]))
-                embed.add_field(name="參考錯誤代碼", value="{}".format(results["exception"]))
-                embed.add_field(name="👏 感謝你的回報", value="⠀")
-                embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
-                return embed
+    #         def result_embed(self, results: dict):
+    #             embed = discord.Embed(title="🐛 | 錯誤回報簡表 (點我到 Github Issue)", url=self.github.issue_user_url, description="")
+    #             embed.add_field(name="錯誤代碼", value="{}".format(results["errorcode"]))
+    #             embed.add_field(name="錯誤回報時間", value="{}".format(results["timestamp"]))
+    #             embed.add_field(name="造成錯誤之影片連結", value="{}".format(results["video_url"]))
+    #             embed.add_field(name="使用者回報之簡述", value="{}".format(results["description"]))
+    #             embed.add_field(name="參考錯誤代碼", value="{}".format(results["exception"]))
+    #             embed.add_field(name="👏 感謝你的回報", value="⠀")
+    #             embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+    #             return embed
 
-            async def on_submit(self, interaction: discord.Interaction):
-                if self.error_code_text.value != self.error_code:
-                    exception = "無可參考之錯誤回報，或錯誤代碼被更改"
-                    video_url = None
-                else:
-                    exception = self.lasterror["exception"]
-                    video_url = self.lasterror["video_url"]
-                submission = self.github.submit_bug(
-                    self.bot_name.value,
-                    self.guild.value,
-                    self.error_code_text.value,
-                    self.modaltime_text.value,
-                    self.description.value,
-                    exception,
-                    video_url,
-                )
-                await interaction.response.send_message(embed=self.result_embed(submission))
+    #         async def on_submit(self, interaction: discord.Interaction):
+    #             if self.error_code_text.value != self.error_code:
+    #                 exception = "無可參考之錯誤回報，或錯誤代碼被更改"
+    #                 video_url = None
+    #             else:
+    #                 exception = self.lasterror["exception"]
+    #                 video_url = self.lasterror["video_url"]
+    #             submission = self.github.submit_bug(
+    #                 self.bot_name.value,
+    #                 self.guild.value,
+    #                 self.error_code_text.value,
+    #                 self.modaltime_text.value,
+    #                 self.description.value,
+    #                 exception,
+    #                 video_url,
+    #             )
+    #             await interaction.response.send_message(embed=self.result_embed(submission))
 
-                try:
-                    await self.lasterror["msg"].edit(content=self.lasterror["done_content"])
-                except:
-                    pass
+    #             try:
+    #                 await self.lasterror["msg"].edit(content=self.lasterror["done_content"])
+    #             except:
+    #                 pass
 
-            async def on_timeout(self):
-                pass
+    #         async def on_timeout(self):
+    #             pass
 
-        modal = BugReportingModal()
-        await interaction.response.send_modal(modal)
+    #     modal = BugReportingModal()
+    #     await interaction.response.send_modal(modal)

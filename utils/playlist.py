@@ -139,15 +139,24 @@ class Playlist:
         self.spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=spotify_id, client_secret=spotify_secret))
 
     async def add_songs(self, guild_id, trackinfo: Union[wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist], requester):
-        if (not trackinfo.suggested) and len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
-            self[guild_id].order.pop(1)
+        if len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
+            if isinstance(trackinfo, list):
+                self[guild_id].order.pop(1)
+            elif (not trackinfo.suggested):
+                self[guild_id].order.pop(1)
 
-        if isinstance(trackinfo, Union[wavelink.YouTubePlaylist, SpotifyAlbum, SpotifyPlaylist]):
-            for track in trackinfo.tracks:
-                track.requester = requester
-                track.audio_source = 'youtube'
-                track.suggested = False
-            self[guild_id].order.extend(trackinfo.tracks)
+        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, list]):
+            if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]):
+                for track in trackinfo.tracks:
+                    track.requester = requester
+                    track.audio_source = 'youtube'
+                    track.suggested = False
+                self[guild_id].order.extend(trackinfo.tracks)
+            else:
+                for track in trackinfo:
+                    track.requester = requester
+                self[guild_id].order.extend(trackinfo)
+            
         else:
             trackinfo.requester = requester
             self[guild_id].order.append(trackinfo)

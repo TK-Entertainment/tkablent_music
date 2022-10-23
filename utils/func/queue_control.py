@@ -13,11 +13,18 @@ class QueueControl:
         self.info_generator: InfoGenerator = info_generator
 
     # Remove an entity from queue
-    async def RemoveSucceed(self, command: Command, idx: int) -> None:
+    async def RemoveSucceed(self, command: Command, removed, idx) -> None:
         await command.send(f'''
             **:wastebasket: | 已刪除指定歌曲**
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
-            ''', embed=self.info_generator._SongInfo(command.guild.id, 'red', idx))
+            ''', embed=self.info_generator._SongInfo(command.guild.id, 'red', removed=removed))
+        if len(self.musicbot._playlist[command.guild.id].order) == 1:
+            await self.musicbot._playlist.process_suggestion(command.guild, self.musicbot.ui_guild_info(command.guild.id))
+        try:
+            await self.info_generator._UpdateSongInfo(command.guild.id)
+        except:
+            pass
+
     
     async def RemoveFailed(self, command: Command, exception):
         await self.exception_handler._CommonExceptionHandler(command, "REMOVEFAIL", exception)

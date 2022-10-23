@@ -234,24 +234,26 @@ class MusicCog(Player, commands.Cog):
         self.ui = UI(self, self.bot_version)
         self.auto_stage_available = auto_stage_available
         self.ui_guild_info = guild_info
+        from .ui import groupbutton
+        self.groupbutton = groupbutton
         
-    @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
-    async def reportbug(self, interaction: discord.Interaction):
-        await self.ui.ExceptionHandler.Interaction_BugReportingModal(interaction, interaction.guild)
+    # @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
+    # async def reportbug(self, interaction: discord.Interaction):
+    #     await self.ui.ExceptionHandler.Interaction_BugReportingModal(interaction, interaction.guild)
 
     ##############################################
 
-    async def mtsetup(self, command: Union[commands.Context, discord.Interaction]):
-        command: Command = Command(command)
-        await self.ui.PlayerControl.MultiTypeSetup(command)
+    # async def mtsetup(self, command: Union[commands.Context, discord.Interaction]):
+    #     command: Command = Command(command)
+    #     await self.ui.PlayerControl.MultiTypeSetup(command)
 
-    @commands.command(name='playwith')
-    async def _c_mtsetup(self, ctx: commands.Context):
-        await self.mtsetup(ctx)
+    # @commands.command(name='playwith')
+    # async def _c_mtsetup(self, ctx: commands.Context):
+    #     await self.mtsetup(ctx)
 
-    @app_commands.command(name='playwith', description="⚙️ | 設定對於混合連結的預設動作")
-    async def _i_mtsetup(self, interaction: discord.Interaction):
-        await self.mtsetup(interaction)
+    # @app_commands.command(name='playwith', description="⚙️ | 設定對於混合連結的預設動作")
+    # async def _i_mtsetup(self, interaction: discord.Interaction):
+    #     await self.mtsetup(interaction)
     ##############################################
 
     async def help(self, command: Union[commands.Context, discord.Interaction]):
@@ -583,8 +585,9 @@ class MusicCog(Player, commands.Cog):
             if self._playlist[command.guild.id].order[idx].suggested:
                 await self.ui.QueueControl.RemoveFailed(command, '不能移除建議歌曲')
                 return
-            await self.ui.QueueControl.RemoveSucceed(command, idx)
+            removed = self._playlist[command.guild.id].order[idx]
             self._playlist.pop(command.guild.id, idx)
+            await self.ui.QueueControl.RemoveSucceed(command, removed, idx)
         except (IndexError, TypeError) as e:
             await self.ui.QueueControl.RemoveFailed(command, e)
 
@@ -657,22 +660,29 @@ class MusicCog(Player, commands.Cog):
 
         # Call search function
         try: 
+            if isinstance(trackinfo, list):
+                is_search = trackinfo[-1] == 'Search'
+                trackinfo.pop(-1)
+            else:
+                is_search = False
             await self._search(command.guild, trackinfo, requester=command.author)
         except Exception as e:
             # If search failed, sent to handler
             await self.ui.Search.SearchFailed(command, e)
             return
         # If queue has more than 1 songs, then show the UI
-        await self.ui.Queue.Embed_AddedToQueue(command, trackinfo, requester=command.author)
+        await self.ui.Queue.Embed_AddedToQueue(command, trackinfo, requester=command.author, is_search=is_search)
     
     async def play(self, command, trackinfo: Union[
-                                wavelink.YouTubeTrack,
-                                wavelink.YouTubeMusicTrack,
+                                wavelink.LocalTrack,
                                 wavelink.SoundCloudTrack,
-                                wavelink.YouTubePlaylist,
-                                
                             ]):
+        if not isinstance(command, Command):
+            command: Command = Command(command)
         # Try to make bot join author's channel
+        if isinstance(trackinfo, list):
+            if trackinfo[-1] != 'Search':
+                trackinfo.pop(-1)
         if command.command_type == 'Context':
             await command.channel.typing()
         voice_client: wavelink.Player = command.guild.voice_client
@@ -692,39 +702,33 @@ class MusicCog(Player, commands.Cog):
 
     @commands.command(name='play', aliases=['p', 'P'])
     async def _c_play(self, ctx: commands.Context, *, search):
-        command: Command = Command(ctx)
-        if "list" in search \
-                and "watch" in search \
-                and "http" in search \
-                and "//" in search:
-            if self[command.guild.id].multitype_remembered:
-                tracks = await self._get_track(command, search, self[command.guild.id].multitype_choice)   
-            else:
-                await self.ui.PlayerControl.MultiTypeNotify(command, search)
+        command: Command = Command(ctx)  
+        if "youtube" in search or 'youtu.be' in search:
+            await self.ui.Search.YoutubeFuckedUp(command)
+            return
+        tracks = await self._get_track(command, search) 
+        if isinstance(tracks, Union[SpotifyAlbum, SpotifyPlaylist]):
+            await self.play(command, tracks)
         else:
-            tracks = await self._get_track(command, search, 'normal')       
-        
-        await self.play(command, tracks)
+            await self.ui.PlayerControl.SearchResultSelection(command, tracks)     
 
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
-    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 Youtube / SoundCloud / Spotify)')
+    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 SoundCloud / Spotify)')
     @app_commands.rename(search='影片網址或關鍵字')
     async def _i_play(self, interaction: discord.Interaction, search: str):
         command: Command = Command(interaction)
-        if "list" in search \
-                and "watch" in search \
-                and "http" in search \
-                and "//" in search:
-            if self[command.guild.id].multitype_remembered:
-                tracks = await self._get_track(command, search, self[command.guild.id].multitype_choice)   
-            else:
-                await self.ui.PlayerControl.MultiTypeNotify(command, search)
+        if "youtube" in search or 'youtu.be' in search:
+            await self.ui.Search.YoutubeFuckedUp(command)
+            return
+        tracks = await self._get_track(command, search)
+        if isinstance(tracks, Union[SpotifyAlbum, SpotifyPlaylist]):
+            await self.play(command, tracks)
         else:
-            tracks = await self._get_track(command, search, 'normal')       
-        
-        await self.play(command, tracks)
+            await self.ui.PlayerControl.SearchResultSelection(command, tracks)
 
-    async def _get_track(self, command: Command, search: str, choice: str):
+    async def _get_track(self, command: Command, search: str):
+        if command.command_type == 'Interaction':
+            await command.defer(ephemeral=True ,thinking=True)
         if 'spotify' in search:
             if 'track' in search:
                 searchtype = spotify.SpotifySearchType.track
@@ -737,57 +741,46 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(command.guild.id).processing_msg = await self.ui.Search.SearchInProgress(command)
 
             tracks = await spotify.SpotifyTrack.search(search, node=self.searchnode, type=searchtype, return_first=True)
-            
+
             if tracks is None:
                 trackinfo = None
             else:
-                trackinfo = await self.spotify_info_process(search, tracks, searchtype)
+                trackinfo = self._playlist.spotify_info_process(search, tracks, searchtype)
         else:
-            extract = search.split('&')
-            if choice == 'videoonly':
-                url = extract[0]
-            elif choice == 'playlist':
-                url = f'https://www.youtube.com/playlist?{extract[1]}'
-            else:
-                url = search
-            if choice == 'playlist' or 'list' in search:
-                # SearchableTrack.convert(ctx, query)
-                # command here actually useless 
+            trackinfo = []
+            for trackmethod in [wavelink.YouTubeTrack, wavelink.SoundCloudTrack]:
                 try:
-                    trackinfo = await wavelink.YouTubePlaylist.convert(command, url)
+                    # SearchableTrack.search(query, node, return_first)
+                    data = await trackmethod.search(search, node=self.searchnode)
+                    if data is not None:
+                        trackinfo.extend(data)
                 except Exception:
-                    trackinfo = None
-            else:
-                for trackmethod in [
-                                        wavelink.YouTubeMusicTrack,
-                                        wavelink.LocalTrack,
-                                        wavelink.YouTubeTrack,
-                                        wavelink.SoundCloudTrack,
-                                    ]: 
-                    try:
-                        # SearchableTrack.search(query, node, return_first)
-                        trackinfo = await trackmethod.search(url, node=self.searchnode, return_first=True)
-                    except Exception:
-                        # When there is no result for provided method
-                        # Then change to next method to search
-                        trackinfo = None
-                        pass
-                    if trackinfo is not None:
-                        break
+                    # When there is no result for provided method
+                    # Then change to next method to search
+                    pass
         
         if trackinfo is None:
             await self.ui.Search.SearchFailed(command, search)
-            return
+            return None
+        elif not isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]):
+            if len(trackinfo) == 0:
+                await self.ui.Search.SearchFailed(command, search)
+                return None
 
-        if isinstance(trackinfo, wavelink.YouTubePlaylist):
-            trackinfo.uri = url
-        
-        if 'youtube' in trackinfo.uri or 'spotify' in trackinfo.uri:
-            trackinfo.audio_source = 'youtube'
-        elif 'soundcloud' in trackinfo.uri:
-            trackinfo.audio_source = 'soundcloud'
+        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]):
+            tracklist = trackinfo.tracks
+        else:
+            tracklist = trackinfo
+            trackinfo.append('YTorSC')
 
-        trackinfo.suggested = False
+        for track in tracklist:
+            if track == "YTorSC":
+                break
+            track.suggested = False
+            if isinstance(track, wavelink.YouTubeTrack):
+                track.audio_source = "youtube"
+            else:
+                track.audio_source = "soundcloud"
 
         return trackinfo
 
@@ -857,8 +850,8 @@ class MusicCog(Player, commands.Cog):
             技術資訊:
             {error}
             --------
-            *若您覺得有Bug或錯誤，請參照上方資訊及代碼，並使用 /reportbug 回報*
-        ''') 
+            *若您覺得有Bug或錯誤，請參照上方資訊及代碼，並到我們的群組回報*
+        ''', view=self.groupbutton) 
 
     @commands.Cog.listener('on_voice_state_update')
     async def _pause_on_being_alone(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):

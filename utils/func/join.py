@@ -26,9 +26,6 @@ class Join:
             **:inbox_tray: | 已加入語音頻道**
             已成功加入 {command.author.voice.channel.name} 語音頻道'''
         try:
-            if self.guild_info(command.guild.id).processing_msg is not None:
-                await self.guild_info(command.guild.id).processing_msg.delete()
-                self.guild_info(command.guild.id).processing_msg = None
             await command.send(msg)
         except discord.InteractionResponded:
             channel = command.channel

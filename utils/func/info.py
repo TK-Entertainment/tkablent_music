@@ -3,8 +3,8 @@ import discord
 import requests
 
 import wavelink
-from ..playlist import LoopState, SpotifyAlbum
-from ..ui import caution_emoji, youtube_emoji, spotify_emoji, soundcloud_emoji, skip_emoji
+from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
+from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji
 
 class InfoGenerator:
     def __init__(self):
@@ -18,13 +18,17 @@ class InfoGenerator:
         self.auto_stage_available = auto_stage_available
         self.guild_info = guild_info
 
-    def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0):
+    def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0, removed = None):
         playlist = self.musicbot._playlist[guild_id]
 
         if len(playlist.order) == 0:
             return None
 
-        song = playlist[index]
+        if color_code == "red":
+            song = removed
+        else:
+            song = playlist[index]
+        
 
         if color_code == "green": # Green means adding to queue
             color = discord.Colour.from_rgb(97, 219, 83)
@@ -48,14 +52,7 @@ class InfoGenerator:
             loopicon = ''
 
         # Generate Embed Body
-        if 'youtube' in song.uri:
-            source_icon = youtube_emoji
-        elif 'soundcloud' in song.uri:
-            source_icon = soundcloud_emoji
-        elif 'spotify' in song.uri:
-            source_icon = spotify_emoji
-
-        embed = discord.Embed(title=f"{source_icon} | {song.title}", url=song.uri, colour=color)
+        embed = discord.Embed(title=f"{song.title}", colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
         if song.suggested:
             embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
@@ -99,45 +96,42 @@ class InfoGenerator:
 
             embed.add_field(name=f"即將播放 | {len(playlist.order)-1-offset} 首歌待播中", value=queuelist, inline=False)
 
-        if 'youtube' in song.uri:
-            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{song.identifier}/hqdefault.jpg')
-        elif 'spotify' in song.uri and (color != 'green' or color != 'red'):
+        if 'spotify' in song.uri and (color != 'green' or color != 'red'):
             embed.set_thumbnail(url=song.cover)
-            embed.add_field(name=f"{youtube_emoji} | 音樂來源", value=f'[{song.yt_title}]({song.yt_url})', inline=False)
-            embed.add_field(name=f"為何有這個？", value=f'''
-因 Spotify 平台的特殊性 (無法取得其音源)
-故此機器人是使用相對應的標題及其他資料
-在 Youtube 上找到最相近的音源
-            ''', inline=False)
 
-        if self.guild_info(guild_id).music_suggestion and song.audio_source == 'soundcloud' and (color_code != 'red' or color_code != 'green'):
-            embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲來源為 Soundcloud\n暫時不支援自動歌曲推薦\n請點播一首 Youtube/Spotify 的歌曲來重新啟用', inline=False)
+        if song.audio_source == 'soundcloud' and (color_code != 'red' or color_code != 'green'):
+            embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能', inline=False)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         return embed
 
-    def _PlaylistInfo(self, playlist: Union[wavelink.YouTubePlaylist, SpotifyAlbum], requester: discord.User):
+    def _PlaylistInfo(self, playlist: SpotifyAlbum, requester: discord.User):
         # Generate Embed Body
-        if isinstance(playlist, wavelink.YouTubePlaylist):
-            source_icon = youtube_emoji
+        if isinstance(playlist, list):
+            title = f"{search_emoji} | 選取的搜尋歌曲"
+            url = None
         else:
-            source_icon = spotify_emoji
+            title = f"{spotify_emoji} | {playlist.name}"
+            url = playlist.uri
+
         color = discord.Colour.from_rgb(97, 219, 83)
-        embed = discord.Embed(title=f"{source_icon} | {playlist.name}", url=playlist.uri, colour=color)
+        embed = discord.Embed(title=title, url=url, colour=color)
         embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
 
         pllist: str = ""
-        for i, track in enumerate(playlist.tracks):
+        if isinstance(playlist, list):
+            tracklist = playlist
+        else:
+            tracklist = playlist.tracks
+        for i, track in enumerate(tracklist):
             pllist += f"{i+1}. {track.title}\n"
             if i == 1: 
                 break
-        if len(playlist.tracks) > 2:
-            pllist += f"...還有 {len(playlist.tracks)-2} 首歌"
+        if len(tracklist) > 2:
+            pllist += f"...還有 {len(tracklist)-2} 首歌"
         
-        embed.add_field(name=f"歌曲清單 | 已新增 {len(playlist.tracks)} 首歌", value=pllist, inline=False)
-        if isinstance(playlist, wavelink.YouTubePlaylist):
-            embed.set_thumbnail(url=f'https://img.youtube.com/vi/{playlist.tracks[0].identifier}/hqdefault.jpg')
-        else:
+        embed.add_field(name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False)
+        if isinstance(playlist, Union[SpotifyPlaylist, SpotifyAlbum]):
             embed.set_thumbnail(url=playlist.thumbnail)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 

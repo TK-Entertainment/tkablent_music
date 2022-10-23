@@ -67,7 +67,7 @@ shuffle_emoji = discord.PartialEmoji.from_str('🔀')
 bulb_emoji = discord.PartialEmoji.from_str('💡')
 queue_emoji = discord.PartialEmoji.from_str('🗒️')
 leave_emoji = discord.PartialEmoji.from_str("📤")
-join_emoji = discord.PartialEmoji.from_str("📥")
+search_emoji = discord.PartialEmoji.from_str("🔎")
 end_emoji = discord.PartialEmoji.from_str('❎')
 done_emoji = discord.PartialEmoji.from_str('✅')
 loading_emoji = discord.PartialEmoji.from_str('<a:loading:696701361504387212>')
@@ -75,6 +75,7 @@ caution_emoji = discord.PartialEmoji.from_str('⚠️')
 youtube_emoji = discord.PartialEmoji.from_str('<:youtube:1010812724009242745>')
 soundcloud_emoji = discord.PartialEmoji.from_str('<:soundcloud:1010812662155837511>')
 spotify_emoji = discord.PartialEmoji.from_str('<:spotify:1010844746647883828>')
+rescue_emoji = discord.PartialEmoji.from_str('🛟')
 
 @staticmethod
 def guild_info(guild_id) -> GuildUIInfo:
@@ -85,13 +86,21 @@ def guild_info(guild_id) -> GuildUIInfo:
 def auto_stage_available(guild_id: int):
     return guild_info(guild_id).auto_stage_available
 
+class GroupButton(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+        Button = discord.ui.Button(emoji=rescue_emoji, style=discord.ButtonStyle.link, url="https://discord.gg/9qrpGh4e7V", label="支援群組")
+        self.add_item(Button)
+
 class UI:
     def __init__(self, music_bot, botversion):
-        global bot_version, musicbot, bot, embed_opt
+        global bot_version, musicbot, bot, embed_opt, groupbutton
         bot_version = botversion
 
         musicbot = music_bot
         bot = musicbot.bot
+
+        groupbutton = GroupButton()
 
         embed_opt = {
             'footer': {
