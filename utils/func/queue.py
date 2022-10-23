@@ -24,7 +24,9 @@ class Queue:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
-        if len(playlist.order) > 1 or (isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])) or is_search:
+        if len(playlist.order) == 1:
+            return
+        if (len(playlist.order) > 1 and is_search) or (isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])):
             if is_search:
                 msg = f'''
             **:white_check_mark: | 搜尋成功**

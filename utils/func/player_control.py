@@ -51,7 +51,7 @@ class PlayerControl:
             musicbot = self.musicbot
 
             def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]]):
-                super().__init__(placeholder='請選擇一個結果...', min_values=1, max_values=24, row=0)
+                super().__init__(placeholder='請選擇一個或多個結果...', min_values=1, max_values=24, row=0)
                 self.interaction = None
                 for i in range(len(result)):
                     if i > 24:
