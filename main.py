@@ -1,5 +1,5 @@
 from typing import *
-import os, dotenv, sys
+import os, dotenv, sys, asyncio
 
 import discord
 from discord.ext import commands
@@ -38,8 +38,23 @@ bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, st
 
 from utils import *
 
+precenses = [
+    discord.Game(f'需要幫助? | {bot.command_prefix}help'),
+    discord.Game(f'來點音樂? | {bot.command_prefix}play'),
+    discord.Game(f'迷因、幹話、美好的事物'),
+    discord.Game(f'為平淡的生活增添更多色彩'),
+    discord.Game(f'TKablent | {bot_version}'),
+]
+
+async def precense_update():
+    while True:
+        for precense in precenses:
+            await bot.change_presence(activity=precense)
+            await asyncio.sleep(10)
+
 @bot.event
 async def on_ready():
+    bot.loop.create_task(precense_update())
     await bot.add_cog(MusicCog(bot, bot_version))
     await bot.add_cog(HelperCog(bot))
     await bot.tree.sync()
