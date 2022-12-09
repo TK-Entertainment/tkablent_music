@@ -16,7 +16,7 @@ if production:
     prefix = '$'
     status = discord.Status.online
     production_status = 'ce' # ce for cutting edge, s for stable
-    bot_version = f'm.20220918.1-{production_status}'
+    bot_version = f'm.20221209.1-{production_status}'
 else:
     prefix = '%'
     status = discord.Status.dnd
@@ -41,8 +41,8 @@ from utils import *
 precenses = [
     discord.Game(f'需要幫助? | {bot.command_prefix}help'),
     discord.Game(f'來點音樂? | {bot.command_prefix}play'),
-    discord.Game(f'迷因、幹話、美好的事物'),
-    discord.Game(f'為平淡的生活增添更多色彩'),
+    discord.Game('迷因、幹話、美好的事物'),
+    discord.Game('為平淡的生活增添更多色彩'),
     discord.Game(f'TKablent | {bot_version}'),
 ]
 

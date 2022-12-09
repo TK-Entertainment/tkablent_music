@@ -236,33 +236,10 @@ class MusicCog(Player, commands.Cog):
         self.ui_guild_info = guild_info
         from .ui import groupbutton
         self.groupbutton = groupbutton
-        
-    # @app_commands.command(name="reportbug", description="🐛 | 在這裡回報你遇到的錯誤吧！")
-    # async def reportbug(self, interaction: discord.Interaction):
-    #     await self.ui.ExceptionHandler.Interaction_BugReportingModal(interaction, interaction.guild)
-
-    ##############################################
-
-    # async def mtsetup(self, command: Union[commands.Context, discord.Interaction]):
-    #     command: Command = Command(command)
-    #     await self.ui.PlayerControl.MultiTypeSetup(command)
-
-    # @commands.command(name='playwith')
-    # async def _c_mtsetup(self, ctx: commands.Context):
-    #     await self.mtsetup(ctx)
-
-    # @app_commands.command(name='playwith', description="⚙️ | 設定對於混合連結的預設動作")
-    # async def _i_mtsetup(self, interaction: discord.Interaction):
-    #     await self.mtsetup(interaction)
-    ##############################################
 
     async def help(self, command: Union[commands.Context, discord.Interaction]):
         command: Command = Command(command)
         await self.ui.Help.Help(command)
-
-    @commands.command(name='help')
-    async def _c_help(self, ctx: commands.Context):
-        await self.help(ctx)
 
     @app_commands.command(name='help', description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def _i_help(self, interaction: discord.Interaction):
@@ -334,10 +311,6 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.Join.JoinNormal(command)
         except Exception as e:
             await self.ui.Join.JoinFailed(command, e)
-
-    @commands.command(name='join')
-    async def _c_join(self, ctx: commands.Context):
-        await self.join(ctx)
     
     @app_commands.command(name='join', description='📥 | 將我加入目前您所在的頻道')
     async def _i_join(self, interaction: discord.Interaction):
@@ -359,10 +332,6 @@ class MusicCog(Player, commands.Cog):
         except Exception as e:
             await self.ui.Leave.LeaveFailed(command, e)
 
-    @commands.command(name='leave', aliases=['quit'])
-    async def _c_leave(self, ctx: commands.Context):
-        await self.leave(ctx)
-
     @app_commands.command(name='leave', description='📤 | 讓我從目前您所在的頻道離開')
     async def _i_leave(self, interaction: discord.Interaction):
         await self.leave(interaction)
@@ -377,10 +346,6 @@ class MusicCog(Player, commands.Cog):
             await self.ui.PlayerControl.PauseSucceed(command, command.guild.id)
         except Exception as e:
             await self.ui.PlayerControl.PauseFailed(command, e)
-
-    @commands.command(name='pause')
-    async def _c_pause(self, ctx: commands.Context):
-        await self.pause(ctx)
 
     @app_commands.command(name='pause', description='⏸️ | 暫停目前播放的音樂')
     async def _i_pause(self, interaction: discord.Interaction):
@@ -399,10 +364,6 @@ class MusicCog(Player, commands.Cog):
         except Exception as e:
             await self.ui.PlayerControl.ResumeFailed(command, e)
 
-    @commands.command(name='resume')
-    async def _c_resume(self, ctx: commands.Context):
-        await self.resume(ctx)
-
     @app_commands.command(name='resume', description='▶️ | 繼續播放目前暫停的歌曲')
     async def _i_resume(self, interaction: discord.Interaction):
         await self.resume(interaction)
@@ -419,10 +380,6 @@ class MusicCog(Player, commands.Cog):
                 await command.send("⠀")
         except Exception as e:
             await self.ui.PlayerControl.SkipFailed(command, e)
-
-    @commands.command(name='skip')
-    async def _c_skip(self, ctx: commands.Context):
-        await self.skip(ctx)
     
     @app_commands.command(name='skip', description='⏩ | 跳過目前播放的歌曲')
     async def _i_skip(self, interaction: discord.Interaction):
@@ -434,10 +391,6 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         await self.ui.PlayerControl.NowPlaying(command)
-
-    @commands.command(name='np')
-    async def _c_nowplaying(self, ctx: commands.Context):
-        await self.nowplaying(ctx)
 
     @app_commands.command(name='np', description='▶️ | 查看現在在播放什麼!')
     async def _i_nowplaying(self, interaction: discord.Interaction):
@@ -453,10 +406,6 @@ class MusicCog(Player, commands.Cog):
             await self.ui.PlayerControl.StopSucceed(command)
         except Exception as e:
             await self.ui.PlayerControl.StopFailed(command, e)
-
-    @commands.command(name='stop')
-    async def _c_stop(self, ctx: commands.Context):
-        await self.stop(ctx)
 
     @app_commands.command(name='stop', description='⏹️ | 停止音樂並清除待播清單')
     async def _i_stop(self, interaction: discord.Interaction):
@@ -479,10 +428,6 @@ class MusicCog(Player, commands.Cog):
             await self.ui.PlayerControl.SeekFailed(command, e)
             return
 
-    @commands.command(name='seek')
-    async def _c_seek(self, ctx: commands.Context, timestamp: Union[float, str]):
-        await self.seek(ctx, timestamp)
-
     @app_commands.command(name='seek', description='⏲️ | 跳轉你想要聽的地方')
     @app_commands.describe(timestamp='目標時間 (時間戳格式 0:20) 或 (秒數 20)')
     @app_commands.rename(timestamp='目標時間')
@@ -500,10 +445,6 @@ class MusicCog(Player, commands.Cog):
         except Exception as e:
             await self.ui.PlayerControl.ReplayFailed(command, e)
 
-    @commands.command(name='restart', aliases=['replay'])
-    async def _c_restart(self, ctx: commands.Context):
-        await self.restart(ctx)
-
     @app_commands.command(name='restart', description='🔁 | 重頭開始播放目前的歌曲')
     async def _i_restart(self, interaction: discord.Interaction):
         await self.restart(interaction)
@@ -517,10 +458,6 @@ class MusicCog(Player, commands.Cog):
             return await self.ui.PlayerControl.SingleLoopFailed(command)
         self._playlist.single_loop(command.guild.id, times)
         await self.ui.PlayerControl.LoopSucceed(command)
-
-    @commands.command(name='loop', aliases=['songloop'])
-    async def _c_single_loop(self, ctx: commands.Context, times: Union[int, str]=INF):
-        await self.single_loop(ctx, times)
 
     @app_commands.command(name='loop', description='🔂 | 循環播放目前的歌曲')
     @app_commands.describe(times='重複播放次數 (不填寫次數以啟動無限次數循環)')
@@ -537,10 +474,6 @@ class MusicCog(Player, commands.Cog):
             await self.ui.PlayerControl.ShuffleFailed(command)
         self._playlist[command.guild.id].shuffle()
 
-    @commands.command(name='shuffle')
-    async def _c_shuffle(self, ctx: commands.Context):
-        await self.shuffle(ctx)
-
     @app_commands.command(name='shuffle', description='🔀 | 隨機排序目前的待播清單')
     async def _i_shuffle(self, interaction: discord.Interaction):
         await self.shuffle(interaction)
@@ -553,10 +486,6 @@ class MusicCog(Player, commands.Cog):
         self._playlist.playlist_loop(command.guild.id)
         await self.ui.PlayerControl.LoopSucceed(command)
 
-    @commands.command(name='playlistloop', aliases=['queueloop', 'qloop', 'all_loop'])
-    async def _c_playlist_loop(self, ctx: commands.Context):
-        await self.playlist_loop(ctx)
-
     @app_commands.command(name='queueloop', description='🔁 | 循環播放目前的待播清單')
     async def _i_playlist_loop(self, interaction: discord.Interaction):
         await self.playlist_loop(interaction)
@@ -567,10 +496,6 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Command = Command(command)
         await self.ui.Queue.ShowQueue(command)
-
-    @commands.command(name='show_queue', aliases=['queuelist', 'queue', 'show'])
-    async def _c_show_queue(self, ctx: commands.Context):
-        await self.show_queue(ctx)
 
     @app_commands.command(name='queue', description='ℹ️ | 列出目前的待播清單')
     async def _i_show_queue(self, interaction: discord.Interaction):
@@ -590,10 +515,6 @@ class MusicCog(Player, commands.Cog):
             await self.ui.QueueControl.RemoveSucceed(command, removed, idx)
         except (IndexError, TypeError) as e:
             await self.ui.QueueControl.RemoveFailed(command, e)
-
-    @commands.command(name='remove', aliases=['queuedel'])
-    async def _c_remove(self, ctx: commands.Context, idx: Union[int, str]):
-        await self.remove(ctx, idx)
 
     @app_commands.command(name='remove', description='🗑️ | 刪除待播清單中的一首歌')
     @app_commands.describe(idx='欲刪除歌曲之位置 (可用 %queue 或 /queue 得知位置代號)')
@@ -615,10 +536,6 @@ class MusicCog(Player, commands.Cog):
         except (IndexError, TypeError) as e:
             await self.ui.QueueControl.SwapFailed(command, e)
 
-    @commands.command(name='swap')
-    async def _c_swap(self, ctx: commands.Context, idx1: Union[int, str], idx2: Union[int, str]):
-        await self.swap(ctx, idx1, idx2)
-
     @app_commands.command(name='swap', description='🔄 | 交換待播清單中兩首歌的位置')
     @app_commands.describe(idx1='歌曲1 位置 (可用 %queue 或 /queue 得知位置代號)', idx2='歌曲2 位置 (可用 %queue 或 /queue 得知位置代號)')
     @app_commands.rename(idx1='歌曲1位置', idx2='歌曲2位置')
@@ -637,10 +554,6 @@ class MusicCog(Player, commands.Cog):
             await self.ui.QueueControl.MoveToSucceed(command, origin, new)
         except (IndexError, TypeError) as e:
             await self.ui.QueueControl.MoveToFailed(command, e)
-
-    @commands.command(name='move_to', aliases=['insert_to', 'move'])
-    async def _c_move_to(self, ctx: commands.Context, origin: Union[int, str], new: Union[int, str]):
-        await self.move_to(ctx, origin, new)
 
     @app_commands.command(name='move', description='🔄 | 移動待播清單中一首歌的位置')
     @app_commands.describe(origin='原位置 (可用 %queue 或 /queue 得知位置代號)', new='目標位置 (可用 %queue 或 /queue 得知位置代號)')
@@ -686,7 +599,10 @@ class MusicCog(Player, commands.Cog):
         if command.command_type == 'Context':
             await command.channel.typing()
         voice_client: wavelink.Player = command.guild.voice_client
-        if not isinstance(voice_client, wavelink.Player) or \
+        if isinstance(voice_client, wavelink.Player) and \
+            command.author.voice is None:
+            pass
+        elif not isinstance(voice_client, wavelink.Player) or \
                 voice_client.channel != command.author.voice.channel:
             await self.join(command)
             voice_client = command.guild.voice_client
@@ -698,19 +614,7 @@ class MusicCog(Player, commands.Cog):
 
         await self._play(command.guild, command.channel)
         if command.command_type == 'Interaction' and command.is_response is not None and not command.is_response():
-            await command.send("⠀")
-
-    @commands.command(name='play', aliases=['p', 'P'])
-    async def _c_play(self, ctx: commands.Context, *, search):
-        command: Command = Command(ctx)  
-        if "youtube" in search or 'youtu.be' in search:
-            await self.ui.Search.YoutubeFuckedUp(command)
-            return
-        tracks = await self._get_track(command, search) 
-        if isinstance(tracks, Union[SpotifyAlbum, SpotifyPlaylist]):
-            await self.play(command, tracks)
-        else:
-            await self.ui.PlayerControl.SearchResultSelection(command, tracks)     
+            await command.send("⠀")    
 
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
     @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 SoundCloud / Spotify)')
