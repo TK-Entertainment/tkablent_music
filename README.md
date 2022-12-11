@@ -6,14 +6,16 @@
 
 20220813 Alpha -> Cutting Edge | 20220813-ce
 
+20221211 Cutting Edge -> Stable | m.20221211-s
+
 ## 目前版本
-正式版(Stable): *N/A*  
-測試版(Cutting Edge): *20220825.2-ce*  
-源碼(Source Code): *01d6dfd (20220825)*
+正式版(Stable): *m.20221211.1-s*  
+測試版(Cutting Edge): *m.20221023-ce*  
+源碼(Source Code): *e0d8994 (20221211)*
   
 **最新更新日誌**  
 如需觀看更詳細的更新日誌，請點下方連結  
-[6511239...01d6dfd](https://github.com/TK-Entertainment/tkablent/compare/6511239...01d6dfd)
+[cbe8ffb...e0d8994](https://github.com/TK-Entertainment/tkablent/compare/cbe8ffb...e0d8994)
 
 ```diff
 =========================================
@@ -21,21 +23,18 @@ Codename TKablent | Version Cutting Edge
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
-# Version 20220825.2-ce (01d6dfd)
-+ 新增了 自動推薦歌曲 功能
-# 註1: 目前不支援 Soundcloud 來源的音樂，需要另外點 Youtube/Spotify的音樂才能使用
-# 註2: 推薦的歌曲不受到重複播放開關的影響，機器人不會重複播放推薦歌曲
-# 註3: 不可以刪除/移動/交換推薦歌曲，且推薦歌曲會在手動播放歌曲後刪除，直到僅剩一首歌時會再自動推薦
-+ 新增了 離開語音頻道 的按鈕
-+ 跳過按鈕會在音樂播放最初的 5 秒暫時停用，以防止按太快當掉的問題
-# 如果還是當掉了，點一首歌來讓它醒來
+# Version m.20221211.1-s (e0d8994, 緊急修復更新)
++【新增功能】新增了搜尋功能中可以翻頁的功能
+# 以前機器人只能顯示出 24 個搜尋結果，現在可以透過翻頁來看更多的結果呦
+!【修復】修復了你把搜尋結果餵給機器人，機器人會永久思考人生的問題
+# 機器人會好好工作啦，不會再思考人生了ww
+! 其餘更新接續 m.20221211-s，如下所示
 
-! 修復了有時顯示待播列表時，頁數會超過的問題
-! 更新了正在播放介面的部分顯示方式
-! 重新設計建議歌曲演算法，以解決建議偏掉的問題
-! 修復了播放 Spotify 時，會把候播清單及正在播放介面搞壞的問題
-! 增進了播放介面及其他有按鈕的介面之圖案大小
-! 抓了一些小蟲子
+# Version m.20221211-s (9f15b80)
+!【修復】修復了使用者不在語音頻道時，無法對已經在頻道內的機器人點歌的問題
+# [Solved] 在頻道外的用戶無法正常點歌 | (ErrorFeedback-2022102401) by TKE (Discord 回報)
+-【移除】移除了對傳統指令的支援
+# 為使功能更加多元，以及使維護較為容易，我們正式將傳統指令從程式碼中移除，還請各位多多見諒
 ```  
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權
