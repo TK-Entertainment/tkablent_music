@@ -2,11 +2,19 @@
 用 Python 製作的 Discord 音樂機器人
 
 ## 開發狀態
-20220410 Confidential -> Alpha | [Build 20220410-2](https://github.com/TK-Entertainment/tkablent/commit/9117b15dde26c1f8e9b4c7337f0493a61e09d4d8)
+穩定版 (Stable, s)
+*正在提供更新，更新周期較慢*  
+*目前更新到 m.20221211.1-s*  
 
-20220813 Alpha -> Cutting Edge | 20220813-ce
+開發版 (Cutting Edge, ce)  
+*仍舊提供更新，供嘗鮮用戶使用*  
+*目前更新到 m.20221023-ce*  
 
-20221211 Cutting Edge -> Stable | m.20221211-s
+前期開發版 (Alpha)  
+*已於 20220813 停止更新，由 Cutting Edge 代替*  
+
+內部開發版 (Confidential)  
+*已於 20220410 停止更新，由 Alpha 代替*
 
 ## 目前版本
 正式版(Stable): *m.20221211.1-s*  
