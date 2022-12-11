@@ -21,7 +21,7 @@ Shared under CC-NC-SS-4.0 license
 #=> 為使功能更加多元，以及使維護較為容易，我們正式將傳統指令從程式碼中移除，還請各位多多見諒
 ```
 ## October 2022
-```
+```diff
 =========================================
 Codename TKablent | Version Cutting Edge
 Copyright 2022-present @ TK Entertainment
@@ -43,16 +43,20 @@ Shared under CC-NC-SS-4.0 license
 - 【移除】移除對於混合連結的支援
 #=> 同 /mtsetup 移除原因
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Version m.20221010-ce (緊急修復更新)
 ! 【緊急修正】修正 Spotify 單曲/播放清單 無法播放的問題
 #=> [Solved] 没有办法播放... (ErrorFeedback-2022101001) by @Yanayo Shizuon (Discord 回報)
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Version m.20221009-ce (緊急修復更新)
 ! 【緊急修正】修正當使用混合連結時，選擇影片選項會跳出錯誤，選擇播放清單則會沒反映的問題 (簡單說就是沒辦法正常播放)
 
 ```
 ## September 2022
-```
+```diff
 # Version m.20220918.1-ce (ce1b846)
 ! 【改進】重新設計了重複播放模式與推薦歌曲的機制
 #=> 若目前播放的歌曲為自行播放的 (非系統推薦):
@@ -70,6 +74,8 @@ Shared under CC-NC-SS-4.0 license
 !【維護】暫時停用獨立搜尋伺服器，回滾為單伺服器處理模式
 #=> 因搜尋伺服器需進行例行性的維護，將暫時停用獨立搜尋伺服器，使用單一伺服器處理
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Version m.20220911-ce (743e9db)
 +【新增】成功加入待播清單的訊息將以點歌者才能看到的形式傳出 (僅限斜線指令可使用)
 #=> 未來會將這個功能擴展到其他指令上，請踴躍使用新的斜線指令呦~
@@ -86,7 +92,7 @@ Shared under CC-NC-SS-4.0 license
 #=> 因應未來規畫而更改
 ```
 ## August 2022
-```
+```diff
 # Version 20220825.3-ce
 ! 修正了建議歌曲演算法，將來源更換為 Youtube Music
 
@@ -106,6 +112,8 @@ Shared under CC-NC-SS-4.0 license
 ! 增進了播放介面及其他有按鈕的介面之圖案大小
 ! 抓了一些小蟲子
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Version 20220822-ce (6511239)
 + [Core][UI] 新增對於 Spotify 播放清單及專輯的播放支援
 # 注意，Spotify 歌曲尋找將會較 Youtube 緩慢
@@ -114,6 +122,8 @@ Shared under CC-NC-SS-4.0 license
 ! [Core] 將搜尋伺服器獨立於播放伺服器，提供更穩定的播放體驗
 ! [UI] 跳過按鈕將會在只剩一首歌時，無法按下
 ! [Core][UI] 抓了一些小蟲子
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Version 20220813-ce (f5b7e68)
 # Rebranded Alpha to Cutting Edge
@@ -141,13 +151,12 @@ Shared under CC-NC-SS-4.0 license
 - [Core] Removed volume function
 ```
 ## April 2022
-```
+```diff
 =========================================
 Codename TKablent | Version Alpha
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================  
-
 # Alpha 20220424 Update
 + [Core] Added timeout leaving function (after 10 minutes)
 + [Core] Added pause when nobody is in the voice channel
@@ -160,6 +169,8 @@ Shared under CC-NC-SS-4.0 license
 ! [UI] Updated sec_to_hms(Second to HourMinuteSecond) function to handle when video length is longer than 1 day
 ! [Github] Updated .gitignore file to prevent virtualenv directory from uploading
 - [Core] Removed debugging message when exceptions were raised
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Alpha 20220417 Update 2
 + [UI] Added indicator when bot is searching for music source (typing indicator)
@@ -179,10 +190,14 @@ Shared under CC-NC-SS-4.0 license
 ! Fixed SongInfo color conditions
 ! Fixed various problem
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Alpha 20220415 Update
 ! Made "Skip/Stop/Volume/Mute" UI standalone
 # UI.SkipSucceed / UI.SkipFailed / UI.StopSucceed / UI.StopFailed / UI.VolumeAdjust / UI.VolumeAdjustFailed/ UI.MuteorUnmute
 ! This is not tested yet
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Alpha 20220415 Update
 ! Made "Resume" UI standalone
@@ -193,6 +208,8 @@ Shared under CC-NC-SS-4.0 license
 Known Issue:
 ! main.py has 1 problem
 # on line 211 embed_op is not defined
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Alpha 20220410-2
 + 在 "正在播放" 及 "新增隊列" 訊息中加入 "待播清單"
@@ -237,6 +254,8 @@ Known Issue:
 Known Issue:
 ! Queue related commands are not available yet
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Build 20220409-2
 + 新增 "Song.info" 提示訊息
 ! 修復了部分的錯誤
@@ -246,16 +265,24 @@ Known Issue:
 # 以上錯誤將會在核心以 Lavalink 重寫後，可能會得到解決
 ! 暫時不支援多個伺服器同時播放音樂
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Build 20220409-1
 ! Added play.Embed message for test
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 # Build 20220408-1
 + Added "Stop" "Replay" messages
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Build 20220402-1
 ! 修正部分介面表示方式
 + 新增 "Search" "Resume" "Pause" 的介面提示及錯誤訊息
 + 新增 TOKEN 啟動條件不足時，提示使用者進行更正的訊息
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # Build 20220401-2
 ! 修正部分英文文法及語法問題
