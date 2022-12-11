@@ -16,7 +16,7 @@ prefix = '/'
 if production:
     status = discord.Status.online
     production_status = 's' # ce for cutting edge, s for stable
-    bot_version = f'm.20221211-{production_status}'
+    bot_version = f'm.20221211.1-{production_status}'
 else:
     status = discord.Status.dnd
     branch = 'master'

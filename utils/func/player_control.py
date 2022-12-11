@@ -14,7 +14,7 @@ from .queue import Queue
 from .leave import Leave
 from ..ui import _sec_to_hms, pause_emoji, play_emoji, stop_emoji, skip_emoji, leave_emoji \
             , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji\
-            , loading_emoji, shuffle_emoji, search_emoji, done_emoji
+            , loading_emoji, shuffle_emoji, search_emoji, done_emoji, prevpage_emoji, nextpage_emoji
 
 class PlayerControl:
     def __init__(self, exception_handler, info_generator, stage, queue, leave):
@@ -50,14 +50,22 @@ class PlayerControl:
         class SelectUI(discord.ui.Select):
             musicbot = self.musicbot
 
-            def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]]):
-                super().__init__(placeholder='請選擇一個或多個結果...', min_values=1, max_values=24, row=0)
+            def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]], page: int=1):
+                super().__init__(placeholder='請選擇一個或多個結果...', min_values=1, row=0)
                 self.interaction = None
                 for i in range(len(result)):
+                    currentindex = i + 24*(page-1)
+                    if currentindex + 1 > len(result):
+                        break
+
+                    if isinstance(result[currentindex], str):
+                        result.pop(currentindex)
+                        continue
+
                     if i > 24:
                         break
-                    length = _sec_to_hms(seconds=result[i].length, format="symbol")
-                    self.add_option(label=result[i].title, value=i, description=f"{result[i].author} / {length}")
+                    length = _sec_to_hms(seconds=result[currentindex].length, format="symbol")
+                    self.add_option(label=result[currentindex].title, value=currentindex, description=f"{result[currentindex].author} / {length}")
 
             async def callback(self, interaction: discord.Interaction):
                 if command.command_type == 'Interaction':
@@ -80,7 +88,58 @@ class PlayerControl:
             def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]]):
                 super().__init__(timeout=180)
                 self.select_ui = SelectUI(result)
+                self.page = 1
                 self.add_item(self.select_ui)
+
+            @discord.ui.button(emoji=prevpage_emoji, style=discord.ButtonStyle.blurple, row=1)
+            async def prevpage(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.page -= 1
+                content = f'''
+        **:mag_right: | 搜尋結果**
+        請選擇一個您欲播放的歌曲：
+        第 {self.page} 頁 / 共 {(len(result) // 24) + 1} 頁
+        '''
+                self.remove_item(self.select_ui)
+                self.select_ui = SelectUI(result, self.page)
+                self.add_item(self.select_ui)
+
+                if self.page != 1:
+                    self.prevpage.disabled = False
+                    self.prevpage.style = discord.ButtonStyle.blurple
+                else:
+                    self.prevpage.disabled = True
+                    self.prevpage.style = discord.ButtonStyle.gray
+
+                if self.page < (len(result) // 24) + 1:
+                    self.nextpage.disabled = False
+                    self.nextpage.style = discord.ButtonStyle.blurple
+
+                await interaction.response.edit_message(content=content, view=view)
+
+            @discord.ui.button(emoji=nextpage_emoji, style=discord.ButtonStyle.blurple, row=1)
+            async def nextpage(self, interaction: discord.Interaction, button: discord.ui.Button):
+                self.page += 1
+                content = f'''
+        **:mag_right: | 搜尋結果**
+        請選擇一個您欲播放的歌曲：
+        第 {self.page} 頁 / 共 {(len(result) // 24) + 1} 頁
+        '''
+                self.remove_item(self.select_ui)
+                self.select_ui = SelectUI(result, self.page)
+                self.add_item(self.select_ui)
+
+                if self.page >= (len(result) // 24) + 1:
+                    self.nextpage.disabled = True
+                    self.nextpage.style = discord.ButtonStyle.gray
+                else:
+                    self.nextpage.disabled = False
+                    self.nextpage.style = discord.ButtonStyle.blurple
+
+                if self.page != 1:
+                    self.prevpage.disabled = False
+                    self.prevpage.style = discord.ButtonStyle.blurple
+
+                await interaction.response.edit_message(content=content, view=view)
 
             @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger, row=1)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -97,9 +156,19 @@ class PlayerControl:
                     pass
 
         view = SelectView(result)
-        content = '''
+        if len(result) <= 24:
+            view.remove_item(view.prevpage)
+            view.remove_item(view.nextpage)
+            pagetext = ''
+        else:
+            view.prevpage.disabled = True
+            view.prevpage.style = discord.ButtonStyle.gray
+            pagetext = f'第 {view.page} 頁 / 共 {(len(result) // 24) + 1} 頁'
+
+        content = f'''
         **:mag_right: | 搜尋結果**
         請選擇一個您欲播放的歌曲：
+        {pagetext}
         '''
 
         if command.command_type == 'Interaction':
