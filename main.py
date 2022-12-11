@@ -11,14 +11,13 @@ Current Version
 ''')
 
 production = False
+prefix = '/'
 
 if production:
-    prefix = '$'
     status = discord.Status.online
-    production_status = 'ce' # ce for cutting edge, s for stable
-    bot_version = f'm.20221209.1-{production_status}'
+    production_status = 's' # ce for cutting edge, s for stable
+    bot_version = f'm.20221211-{production_status}'
 else:
-    prefix = '%'
     status = discord.Status.dnd
     branch = 'master'
     bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
