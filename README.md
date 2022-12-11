@@ -19,7 +19,7 @@
 
 ```diff
 =========================================
-Codename TKablent | Version Cutting Edge
+Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
 Shared under CC-NC-SS-4.0 license
 =========================================
