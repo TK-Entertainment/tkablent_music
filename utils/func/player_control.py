@@ -56,6 +56,7 @@ class PlayerControl:
                 for i in range(len(result)):
                     currentindex = i + 24*(page-1)
                     if currentindex + 1 > len(result):
+                        self.max_values = i+1
                         break
 
                     if isinstance(result[currentindex], str):
@@ -63,6 +64,7 @@ class PlayerControl:
                         continue
 
                     if i > 24:
+                        self.max_values = 24
                         break
                     length = _sec_to_hms(seconds=result[currentindex].length, format="symbol")
                     self.add_option(label=result[currentindex].title, value=currentindex, description=f"{result[currentindex].author} / {length}")
