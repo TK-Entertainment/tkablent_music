@@ -56,7 +56,7 @@ class PlayerControl:
                 for i in range(len(result)):
                     currentindex = i + 24*(page-1)
                     if currentindex + 1 > len(result):
-                        self.max_values = i+1
+                        self.max_values = i-1
                         break
 
                     if isinstance(result[currentindex], str):
