@@ -53,10 +53,10 @@ class PlayerControl:
             def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]], page: int=1):
                 super().__init__(placeholder='請選擇一個或多個結果...', min_values=1, row=0)
                 self.interaction = None
+                
                 for i in range(len(result)):
                     currentindex = i + 24*(page-1)
                     if currentindex + 1 > len(result):
-                        self.max_values = i-1
                         break
 
                     if isinstance(result[currentindex], str):
@@ -64,10 +64,11 @@ class PlayerControl:
                         continue
 
                     if i > 24:
-                        self.max_values = 24
                         break
                     length = _sec_to_hms(seconds=result[currentindex].length, format="symbol")
                     self.add_option(label=result[currentindex].title, value=currentindex, description=f"{result[currentindex].author} / {length}")
+                
+                self.max_values = len(self.options)
 
             async def callback(self, interaction: discord.Interaction):
                 if command.command_type == 'Interaction':

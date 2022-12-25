@@ -89,7 +89,7 @@ class InfoGenerator:
         embed = discord.Embed(title=f"{song.title}", colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
         if song.suggested:
-            if holiday == "xmas":
+            if holiday == "xmas" or holiday == "xmaseve":
                 embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/c3X2KBD.png")
             else:
                 embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
