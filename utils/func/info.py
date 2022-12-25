@@ -1,6 +1,8 @@
 from typing import *
 import discord
 import requests
+import random
+import datetime
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
@@ -18,7 +20,26 @@ class InfoGenerator:
         self.auto_stage_available = auto_stage_available
         self.guild_info = guild_info
 
+    def _isitholiday(self):
+        holiday = ""
+        month = datetime.datetime.now().month
+        day = datetime.datetime.now().day
+        if month == 12 and day == 24:
+            holiday = "xmaseve"
+        elif month == 12 and day == 25:
+            holiday = "xmas"
+        elif month == 12 and day == 31:
+            holiday = "newyeareve"
+        elif month == 1 and day == 1:
+            holiday = "newyear"
+        elif (month >= 1 and day >= 21) or (month <= 2 and day <= 20):
+            holiday = "cnewyear"
+        
+        return holiday
+
     def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0, removed = None):
+        holiday = self._isitholiday()
+        
         playlist = self.musicbot._playlist[guild_id]
 
         if len(playlist.order) == 0:
@@ -29,13 +50,26 @@ class InfoGenerator:
         else:
             song = playlist[index]
         
+        if holiday == "":
+            if color_code == "green": # Green means adding to queue
+                color = discord.Colour.from_rgb(97, 219, 83)
+            elif color_code == "red": # Red means deleted
+                color = discord.Colour.from_rgb(255, 0, 0)
+            else: 
+                color = discord.Colour.from_rgb(255, 255, 255)
+        else:
+            if holiday == "xmas" or holiday == "xmaseve":
+                xmascolors = [
+                    discord.Colour.from_rgb(187, 37, 40), 
+                    discord.Colour.from_rgb(234, 70, 48),
+                    discord.Colour.from_rgb(248, 178, 41),
+                    discord.Colour.from_rgb(20, 107, 58),
+                    discord.Colour.from_rgb(22, 91, 51),
+                    ]
 
-        if color_code == "green": # Green means adding to queue
-            color = discord.Colour.from_rgb(97, 219, 83)
-        elif color_code == "red": # Red means deleted
-            color = discord.Colour.from_rgb(255, 0, 0)
-        else: 
-            color = discord.Colour.from_rgb(255, 255, 255)
+                color = random.choice(xmascolors)
+            elif holiday == "newyear" and holiday == "cnewyear":
+                color = discord.Colour.from_rgb(255, 0, 0)
 
         # Generate Loop Icon
         if color_code != "red" and playlist.loop_state != LoopState.NOTHING:
@@ -55,7 +89,10 @@ class InfoGenerator:
         embed = discord.Embed(title=f"{song.title}", colour=color)
         embed.add_field(name="作者", value=f"{song.author}", inline=True)
         if song.suggested:
-            embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
+            if holiday == "xmas":
+                embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/c3X2KBD.png")
+            else:
+                embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
         else:
             embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
         
@@ -66,6 +103,17 @@ class InfoGenerator:
         else: 
             embed.add_field(name="歌曲時長", value=self._sec_to_hms(song.length, "zh"), inline=True)
         
+        if holiday == "xmaseve":
+            embed._author['name'] += " | 🎄 今日聖誕夜"
+        elif holiday == "xmas":
+            embed._author['name'] += " | 🎄 聖誕節快樂！"
+        elif holiday == "newyeareve":
+            embed._author['name'] += " | 🎊 明天就是{}了！".format(datetime.datetime.now().year + 1)
+        elif holiday == "newyear":
+            embed._author['name'] += " | 🎊 {}新年快樂！".format(datetime.datetime.now().year)
+        elif holiday == "cnewyear":
+            embed._author['name'] += " | 🧧 過年啦！你是發紅包還是收紅包呢？"
+
         if self.musicbot[guild_id]._volume_level == 0: 
             embed._author['name'] += " | 🔇 靜音"
         

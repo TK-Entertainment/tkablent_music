@@ -230,7 +230,7 @@ class Playlist:
                             break
                     if suggested_track is None:
                         suggestion = self.ytapi.get_watch_playlist(videoId=self[guild.id].order[playlist_index].identifier, limit=5)
-                        suggestion['index'] = 7
+                        suggestion['index'] = 13
                         playlist_index += 1
 
         self[guild.id]._suggest_search_task = await asyncio.wait_for(self._search_for_suggestion(guild, suggestion, ui_guild_info), None)
@@ -256,17 +256,17 @@ class Playlist:
                             break
                     if suggested_track is None:
                         suggestion = self.ytapi.get_watch_playlist(videoId=self[guild.id].order[playlist_index].identifier, limit=5)
-                        suggestion['index'] = 7
+                        suggestion['index'] = 13
                         playlist_index += 1
 
     async def _search_for_suggestion(self, guild, suggestion, ui_guild_info: GuildUIInfo):
-        indexlist = [2, 3, 4, 5, 6]
+        indexlist = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         playlist_index = 1
         suggested_track = None
 
         if len(ui_guild_info.suggestions) == 0:
 
-            print(f'[Suggestion] Started to fetch 6 suggestions for {guild.id}')
+            print(f'[Suggestion] Started to fetch 12 suggestions for {guild.id}')
 
             while suggested_track is None:
                 for index in indexlist:
@@ -282,7 +282,7 @@ class Playlist:
                             ui_guild_info.suggestions.append(suggested_track)
                     if suggested_track is None:
                         suggestion = self.ytapi.get_watch_playlist(videoId=self[guild.id].order[playlist_index].identifier, limit=5)
-                        suggestion['index'] = 7
+                        suggestion['index'] = 13
                         playlist_index += 1
         
     async def process_suggestion(self, guild: discord.Guild, ui_guild_info: GuildUIInfo):
@@ -314,7 +314,7 @@ class Playlist:
                 index = 1
                 while suggested_track is None:
                     suggestion = ui_guild_info.suggestions_source = self.ytapi.get_watch_playlist(videoId=self[guild.id].current().identifier, limit=5)
-                    ui_guild_info.suggestions_source['index'] = 7
+                    ui_guild_info.suggestions_source['index'] = 13
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
                             suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=self.searchnode, return_first=True)
