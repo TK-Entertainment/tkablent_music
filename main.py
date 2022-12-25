@@ -16,7 +16,7 @@ prefix = '/'
 if production:
     status = discord.Status.online
     production_status = 's' # ce for cutting edge, s for stable
-    bot_version = f'm.20221211.1-{production_status}'
+    bot_version = f'm.20221225.1-{production_status}'
 else:
     status = discord.Status.dnd
     branch = 'master'
@@ -32,7 +32,7 @@ SPOTIFY_ID = os.getenv('SPOTIFY_ID')
 SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
 intents = discord.Intents.default()
-intents.message_content = True
+intents.message_content = False
 bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, status=status)
 
 from utils import *
