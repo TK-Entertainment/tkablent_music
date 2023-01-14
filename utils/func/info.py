@@ -32,8 +32,10 @@ class InfoGenerator:
             holiday = "newyeareve"
         elif month == 1 and day == 1:
             holiday = "newyear"
-        elif (month >= 1 and day >= 21) or (month <= 2 and day <= 20):
+        elif (month >= 1 and month <= 2 and day >= 21) or (month >= 2 and month <= 3 and day <= 20):
             holiday = "cnewyear"
+        else:
+            holiday = ""
         
         return holiday
 
@@ -50,26 +52,25 @@ class InfoGenerator:
         else:
             song = playlist[index]
         
-        if holiday == "":
+        if holiday == "xmas" or holiday == "xmaseve":
+            xmascolors = [
+                discord.Colour.from_rgb(187, 37, 40), 
+                discord.Colour.from_rgb(234, 70, 48),
+                discord.Colour.from_rgb(248, 178, 41),
+                discord.Colour.from_rgb(20, 107, 58),
+                discord.Colour.from_rgb(22, 91, 51),
+                ]
+
+            color = random.choice(xmascolors)
+        elif holiday == "newyear" and holiday == "cnewyear":
+            color = discord.Colour.from_rgb(255, 0, 0)
+        else:
             if color_code == "green": # Green means adding to queue
                 color = discord.Colour.from_rgb(97, 219, 83)
             elif color_code == "red": # Red means deleted
                 color = discord.Colour.from_rgb(255, 0, 0)
             else: 
                 color = discord.Colour.from_rgb(255, 255, 255)
-        else:
-            if holiday == "xmas" or holiday == "xmaseve":
-                xmascolors = [
-                    discord.Colour.from_rgb(187, 37, 40), 
-                    discord.Colour.from_rgb(234, 70, 48),
-                    discord.Colour.from_rgb(248, 178, 41),
-                    discord.Colour.from_rgb(20, 107, 58),
-                    discord.Colour.from_rgb(22, 91, 51),
-                    ]
-
-                color = random.choice(xmascolors)
-            elif holiday == "newyear" and holiday == "cnewyear":
-                color = discord.Colour.from_rgb(255, 0, 0)
 
         # Generate Loop Icon
         if color_code != "red" and playlist.loop_state != LoopState.NOTHING:
