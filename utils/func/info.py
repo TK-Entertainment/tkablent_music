@@ -32,7 +32,7 @@ class InfoGenerator:
             holiday = "newyeareve"
         elif month == 1 and day == 1:
             holiday = "newyear"
-        elif (month >= 1 and day >= 21) or (month <= 2 and day <= 20):
+        elif (month >= 1 and month < 2 and day >= 21) or (month > 1 and month <= 2 and day <= 20):
             holiday = "cnewyear"
         
         return holiday
