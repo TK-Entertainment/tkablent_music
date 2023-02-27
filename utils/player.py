@@ -15,6 +15,8 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
 from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
 from .command import Command
+from dyn_embed.core import DERenderer, DEActivityState
+from .playlist_helper import _playlist
 
 INF = int(1e18)
 
@@ -85,10 +87,11 @@ class GuildInfo:
 class Player:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self.playnode: wavelink.Node = None
         self.searchnode: wavelink.Node = None
+        self.de_renderer = DERenderer()
+        self._playlist = _playlist
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
@@ -293,6 +296,7 @@ class MusicCog(Player, commands.Cog):
         if not isinstance(command, Command):
             command: Optional[Command] = Command(command)
 
+        await self.de_renderer.init_msg(command)
         voice_client: wavelink.Player = command.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
             if voice_client.channel != command.author.voice.channel:
@@ -711,7 +715,9 @@ class MusicCog(Player, commands.Cog):
                 try:
                     await voice_client.play(song)
                     self.ui_guild_info(guild.id).previous_title = song.title
-                    await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+                    #await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+                    self.de_renderer.CurrentActivity = DEActivityState.PLAYING
+                    await self.de_renderer.update(guild.id)
                     self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
                 except Exception as e:
                     await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)

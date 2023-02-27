@@ -16,11 +16,9 @@ prefix = '/'
 if production:
     status = discord.Status.online
     production_status = 's' # ce for cutting edge, s for stable
-    bot_version = f'm.20221225.1-{production_status}'
 else:
     status = discord.Status.dnd
-    branch = 'master'
-    bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
+    branch = 'dyn_embed'
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
@@ -30,12 +28,15 @@ PORT = os.getenv('WAVELINK_PORT')
 PASSWORD = os.getenv('WAVELINK_PWD')
 SPOTIFY_ID = os.getenv('SPOTIFY_ID')
 SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
+bot_version = os.getenv('BOT_VERSION')
 
 intents = discord.Intents.default()
 intents.message_content = False
 bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, status=status)
 
+
 from utils import *
+from test import Test
 
 precenses = [
     discord.Game(f'需要幫助? | {bot.command_prefix}help'),
@@ -56,6 +57,7 @@ async def on_ready():
     bot.loop.create_task(precense_update())
     await bot.add_cog(MusicCog(bot, bot_version))
     await bot.add_cog(HelperCog(bot))
+    await bot.add_cog(Test())
     await bot.tree.sync()
 
     cog: MusicCog = bot.cogs['MusicCog']
