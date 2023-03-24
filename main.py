@@ -36,7 +36,7 @@ bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, st
 
 
 from utils import *
-from test import Test
+from helpers.player_helper import assign_player
 
 precenses = [
     discord.Game(f'需要幫助? | {bot.command_prefix}help'),
@@ -57,7 +57,6 @@ async def on_ready():
     bot.loop.create_task(precense_update())
     await bot.add_cog(MusicCog(bot, bot_version))
     await bot.add_cog(HelperCog(bot))
-    await bot.add_cog(Test())
     await bot.tree.sync()
 
     cog: MusicCog = bot.cogs['MusicCog']
@@ -66,6 +65,7 @@ async def on_ready():
     searchnode: wavelink.Node = await cog._start_search_daemon(bot, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
     cog.playnode = node
     cog.searchnode = cog._playlist.searchnode = searchnode
+    assign_player(cog)
 
     print(f'''
         =========================================

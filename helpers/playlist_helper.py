@@ -1,4 +1,4 @@
-from .playlist import Playlist, LoopState, PlaylistBase
+from utils.playlist import Playlist, LoopState, PlaylistBase
 from typing import *
 from wavelink import Track
 
@@ -15,3 +15,6 @@ def get_loop_state(guild_id) -> LoopState:
 
 def get_playlist(guild_id) -> PlaylistBase:
     return _playlist[guild_id]
+
+def process_suggestion(guild, ui_guild_info):
+    return _playlist.process_suggestion(guild, ui_guild_info)

@@ -1,16 +1,17 @@
 import sys
 sys.path.append("..")
-from utils.playlist_helper import get_current_track, get_playlist
+from helpers.playlist_helper import get_current_track, get_playlist
 from utils.playlist import LoopState
 from dyn_embed.misc import _sec_to_hms
 from dyn_embed.icons import caution_emoji
-from dyn_embed.data import guild_info
+from dyn_embed.data import guild_info, DynEmbedOperation
 import discord
 
 def playinfo_generate(guild_id, embed):
     playlist = get_playlist(guild_id)
+    queuelist: str = ""
     
-    if guild_info(guild_id).skip: # If song is skipped, update songinfo for next song state
+    if guild_info(guild_id).operation == DynEmbedOperation.SKIP: # If song is skipped, update songinfo for next song state
         offset = 1
     else:
         offset = 0
@@ -21,11 +22,11 @@ def playinfo_generate(guild_id, embed):
         embed.add_field(name="歌曲時長", value=_sec_to_hms(playlist.current().length, "zh"), inline=True)
 
     if guild_info(guild_id).music_suggestion and len(playlist.order) == 2 and playlist[1].suggested:
-        if guild_info(guild_id).skip:
+        if guild_info(guild_id).operation == DynEmbedOperation.SKIP:
             queuelist += f"**推薦歌曲載入中**"
         else:
             queuelist += f"**【推薦】** {playlist[1].title}"
-        embed.add_field(name="{} 即將播放".format(f":hourglass: |" if guild_info(guild_id).skip else ""), value=queuelist, inline=False)
+        embed.add_field(name="{} 即將播放".format(f":hourglass: |" if guild_info(guild_id).operation == DynEmbedOperation.SKIP else ""), value=queuelist, inline=False)
     
     elif len(playlist.order) == 1 and playlist.loop_state == LoopState.PLAYLIST:
         embed.add_field(name="即將播放", value="*無下一首，將重複播放此歌曲*", inline=False)

@@ -16,7 +16,7 @@ from wavelink.ext import spotify
 from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
 from .command import Command
 from dyn_embed.core import DERenderer, DEActivityState
-from .playlist_helper import _playlist
+from helpers.playlist_helper import _playlist
 
 INF = int(1e18)
 
