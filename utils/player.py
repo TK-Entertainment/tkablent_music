@@ -587,7 +587,7 @@ class MusicCog(Player, commands.Cog):
         await self.ui.Queue.Embed_AddedToQueue(command, trackinfo, requester=command.author, is_search=is_search)
     
     async def play(self, command, trackinfo: Union[
-                                wavelink.LocalTrack,
+                                wavelink.GenericTrack,
                                 wavelink.SoundCloudTrack,
                             ]):
         if not isinstance(command, Command):
