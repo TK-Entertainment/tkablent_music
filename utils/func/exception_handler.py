@@ -33,6 +33,14 @@ class ExceptionHandler:
             "SHUFFLEFAIL": ["無法隨機排列待播歌曲，請確認待播列表有歌曲可供排列", "shuffle", "來隨機排列待播歌曲"],
         }
 
+    async def NodeDisconnectedMessage(self, status=None, node=None):
+        nodelist = {
+            "SearchNode": "搜尋伺服器",
+            "US_PlayBackNode": "播放伺服器",
+            "TW_PlayBackNode": "播放伺服器",
+        }
+        embed = discord.Embed(title=f"")
+
     async def _MusicExceptionHandler(self, message, exception=None, url=None):
         part_content = f'''
         **:warning: | 警告 | SEARCH_OR_PLAYING_FAILED**

@@ -65,7 +65,7 @@ class PlayerControl:
 
                     if i > 24:
                         break
-                    length = _sec_to_hms(seconds=result[currentindex].length, format="symbol")
+                    length = _sec_to_hms(seconds=(result[currentindex].length)/1000, format="symbol")
                     self.add_option(label=result[currentindex].title, value=currentindex, description=f"{result[currentindex].author} / {length}")
                 
                 self.max_values = len(self.options)
@@ -696,11 +696,11 @@ class PlayerControl:
     
     async def SeekSucceed(self, command: Command, timestamp: int) -> None:
         playlist = self.musicbot._playlist[command.guild.id]
-        if timestamp >= playlist[0].length:
+        if timestamp >= (playlist[0].length)/1000:
             return
         seektime = self._sec_to_hms(timestamp, "symbol")
         duration = self._sec_to_hms(playlist[0].length, "symbol")
-        bar = self._ProgressBar(timestamp, playlist[0].length)
+        bar = self._ProgressBar(timestamp, (playlist[0].length)/1000)
         await command.send(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
