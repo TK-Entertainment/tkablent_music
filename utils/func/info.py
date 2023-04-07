@@ -102,7 +102,7 @@ class InfoGenerator:
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
-            embed.add_field(name="歌曲時長", value=self._sec_to_hms(song.length, "zh"), inline=True)
+            embed.add_field(name="歌曲時長", value=self._sec_to_hms((song.length)/1000, "zh"), inline=True)
         
         if holiday == "xmaseve":
             embed._author['name'] += " | 🎄 今日聖誕夜"

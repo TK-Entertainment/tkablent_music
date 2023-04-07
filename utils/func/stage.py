@@ -46,6 +46,6 @@ class Stage:
             else:
                 await instance.edit(topic='{}{} {}{}'.format(
                     "⏸️" if mode == "pause" else "▶️",
-                    "|🔴" if playlist[0].is_stream() else "",
+                    "|🔴" if playlist[0].is_stream else "",
                     playlist[0].title[:40] if len(playlist[0].title) >= 40 else playlist[0].title,
                     "..." if len(playlist[0].title) >= 40 else ""))

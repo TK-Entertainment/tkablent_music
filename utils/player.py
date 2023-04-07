@@ -159,7 +159,7 @@ class Player:
     
     async def _seek(self, guild: discord.Guild, timestamp: float):
         voice_client: wavelink.Player = guild.voice_client
-        if timestamp >= self._playlist[guild.id].current().length:
+        if timestamp >= (self._playlist[guild.id].current().length)/1000:
             await voice_client.stop()
         await voice_client.seek(timestamp * 1000)
     
