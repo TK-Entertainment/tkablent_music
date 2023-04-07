@@ -87,6 +87,7 @@ class Player:
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
+        self.nodepool: wavelink.NodePool = None
         self.playnode: wavelink.Node = None
         self.searchnode: wavelink.Node = None
 
@@ -95,25 +96,27 @@ class Player:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    def _start_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
+    def _create_daemon(self, host, port, password, spotify_id, spotify_secret):
         self._playlist.init_spotify(spotify_id, spotify_secret)
-        return wavelink.NodePool.create_node(
-            bot=bot,
-            host=host,
-            port=port,
+        return wavelink.Node(
+            id="PlayBackServer",
+            uri=f"http://{host}:{port}",
             password=password,
-            identifier="PlaybackServer",
-            spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
 
-    def _start_search_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
-        return wavelink.NodePool.create_node(
-            bot=bot,
-            host=host,
-            port=port,
+
+    def _create_search_daemon(self, host, port, password):
+        return wavelink.Node(
+            id="SearchServer",
+            uri=f"http://{host}:{port}",
             password=password,
-            identifier="SearchServer",
-            spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
+        )
+
+    async def _connect_node(self, spotify_id, spotify_secret):
+        self.nodepool = await wavelink.NodePool.connect(
+            client=self.bot,
+            nodes=[self.playnode, self.searchnode],
+            spotify=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
 
     async def _join(self, channel: discord.VoiceChannel):

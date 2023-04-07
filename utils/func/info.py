@@ -50,7 +50,7 @@ class InfoGenerator:
         if color_code == "red":
             song = removed
         else:
-            song = playlist[index]
+            song: wavelink.GenericTrack = playlist[index]
         
         if holiday == "xmas" or holiday == "xmaseve":
             xmascolors = [
@@ -97,7 +97,7 @@ class InfoGenerator:
         else:
             embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
         
-        if song.is_stream(): 
+        if song.is_stream: 
             embed._author['name'] += " | 🔴 直播"
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)

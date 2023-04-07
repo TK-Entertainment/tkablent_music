@@ -60,10 +60,11 @@ async def on_ready():
 
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
-    node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
-    searchnode: wavelink.Node = await cog._start_search_daemon(bot, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    node: wavelink.Node = cog._create_daemon(HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    searchnode: wavelink.Node = cog._create_search_daemon(SEARCH_HOST, PORT, PASSWORD)
     cog.playnode = node
     cog.searchnode = cog._playlist.searchnode = searchnode
+    await cog._connect_node(SPOTIFY_ID, SPOTIFY_SECRET)
 
     print(f'''
         =========================================
@@ -88,7 +89,7 @@ async def on_wavelink_node_ready(node: wavelink.Node):
     print(f'''
         Wavelink 音樂處理伺服器已準備完畢
 
-        伺服器名稱: {node.identifier}
+        伺服器名稱: {node.id}
     ''')
 
 try:
