@@ -20,7 +20,7 @@ class Queue:
         self.info_generator: InfoGenerator = info_generator
 
     # Add to queue
-    async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search) -> None:
+    async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]

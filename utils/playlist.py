@@ -54,7 +54,7 @@ class LoopState(Enum):
 class PlaylistBase:
     '''maintain some info in a playlist for single guild'''
     def __init__(self):
-        self.order: list[wavelink.Track] = [] # maintain the song order in a playlist
+        self.order: list[wavelink.GenericTrack] = [] # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0 # use to indicate the times left to play current song
         self.text_channel: discord.TextChannel = None # where to show information to user
@@ -73,7 +73,7 @@ class PlaylistBase:
         self.loop_state = LoopState.NOTHING
         self.times = 0
 
-    def current(self) -> Optional[wavelink.Track]:
+    def current(self) -> Optional[wavelink.GenericTrack]:
         return self[0]
     
     def swap(self, idx1: int, idx2: int):
