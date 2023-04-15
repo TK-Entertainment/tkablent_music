@@ -79,6 +79,7 @@ class Player:
         altplayhost = wavelink.Node(
             id="TW_PlayBackNode",
             uri=f"http://{host}:{port}",
+            use_http=True,
             password=password,
         )
         searchhost = wavelink.Node(
