@@ -22,45 +22,21 @@ class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
         self.text_channel: discord.TextChannel = None
-        self._volume_level: int = None
-        self._multitype_remembered: bool = None
-        self._multitype_choice: str = None
         self._task: asyncio.Task = None
         self._refresh_msg_task: asyncio.Task = None
         self._timer: asyncio.Task = None
-    
-    @property
-    def volume_level(self):
-        if self._volume_level is None:
-            self._volume_level = self.fetch('volume_level')
-        return self._volume_level
-
-    @volume_level.setter
-    def volume_level(self, value):
-        self._volume_level = value
-        self.update('volume_level', value)
+        self._dsa: bool = None
 
     @property
-    def multitype_remembered(self):
-        if self._multitype_remembered is None:
-            self._multitype_remembered = self.fetch('multitype_remembered')
-        return self._multitype_remembered
+    def data_survey_agreement(self):
+        if self._dsa is None:
+            self._dsa = self.fetch('dsa')
+        return self._dsa
 
-    @multitype_remembered.setter
-    def multitype_remembered(self, value):
-        self._multitype_remembered = value
-        self.update('multitype_remembered', value)
-
-    @property
-    def multitype_choice(self):
-        if self._multitype_choice is None:
-            self._multitype_choice = self.fetch('multitype_choice')
-        return self._multitype_choice
-
-    @multitype_choice.setter
-    def multitype_choice(self, value):
-        self._multitype_choice = value
-        self.update('multitype_choice', value)
+    @data_survey_agreement.setter
+    def data_survey_agreement(self, value: bool):
+        self._dsa(self, value)
+        self.update("dsa", value)
 
     def fetch(self, key: str) -> not None:
         '''fetch from database'''
@@ -87,42 +63,42 @@ class Player:
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
-        self.nodepool: wavelink.NodePool = None
-        self.playnode: wavelink.Node = None
-        self.searchnode: wavelink.Node = None
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    def _create_daemon(self, host, port, password, spotify_id, spotify_secret):
+    async def _create_daemon(self, main_host, host, search_host, port, password, spotify_id, spotify_secret):
         self._playlist.init_spotify(spotify_id, spotify_secret)
-        return wavelink.Node(
-            id="PlayBackServer",
+        mainplayhost = wavelink.Node(
+            id="US_PlayBackNode",
+            uri=f"http://{main_host}:{port}",
+            password=password,
+        )
+        altplayhost = wavelink.Node(
+            id="TW_PlayBackNode",
             uri=f"http://{host}:{port}",
             password=password,
         )
-
-
-    def _create_search_daemon(self, host, port, password):
-        return wavelink.Node(
-            id="SearchServer",
-            uri=f"http://{host}:{port}",
+        searchhost = wavelink.Node(
+            id="SearchNode",
+            uri=f"http://{search_host}:{port}",
             password=password,
         )
 
-    async def _connect_node(self, spotify_id, spotify_secret):
-        self.nodepool = await wavelink.NodePool.connect(
+        await wavelink.NodePool.connect(
             client=self.bot,
-            nodes=[self.playnode, self.searchnode],
+            nodes=[mainplayhost, altplayhost, searchhost],
             spotify=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
+        mainplayhost = wavelink.NodePool.get_node(id="US_PlaybackNode")
+        altplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
         if voice_client is None:
-            await channel.connect(cls=wavelink.Player)
+            await channel.connect(cls=wavelink.Player(nodes=[mainplayhost, altplayhost]))
 
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
@@ -634,6 +610,7 @@ class MusicCog(Player, commands.Cog):
             await self.ui.PlayerControl.SearchResultSelection(command, tracks)
 
     async def _get_track(self, command: Command, search: str):
+        searchnode = wavelink.NodePool.get_node(id="SearchNode")
         if command.command_type == 'Interaction':
             await command.defer(ephemeral=True ,thinking=True)
         if 'spotify' in search:
@@ -647,7 +624,8 @@ class MusicCog(Player, commands.Cog):
             if ('album' in search or 'artist' in search or 'playlist' in search):
                 self.ui_guild_info(command.guild.id).processing_msg = await self.ui.Search.SearchInProgress(command)
 
-            tracks = await spotify.SpotifyTrack.search(search, node=self.searchnode, type=searchtype, return_first=True)
+            searchnode = wavelink.NodePool.get_node(id="SearchNode")
+            tracks = await spotify.SpotifyTrack.search(search, node=searchnode, type=searchtype, return_first=True)
 
             if tracks is None:
                 trackinfo = None
@@ -658,7 +636,7 @@ class MusicCog(Player, commands.Cog):
             for trackmethod in [wavelink.YouTubeTrack, wavelink.SoundCloudTrack]:
                 try:
                     # SearchableTrack.search(query, node, return_first)
-                    data = await trackmethod.search(search, node=self.searchnode)
+                    data = await trackmethod.search(search, node=searchnode)
                     if data is not None:
                         trackinfo.extend(data)
                 except Exception:

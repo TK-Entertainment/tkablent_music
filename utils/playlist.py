@@ -123,7 +123,6 @@ class Playlist:
         self._guilds_info: Dict[int, PlaylistBase] = dict()
         self.spotify = None
         self.ytapi: YTMusic = YTMusic(requests_session=False)
-        self.searchnode = None
 
     def __delitem__(self, guild_id: int):
         if self._guilds_info.get(guild_id) is None:
@@ -209,6 +208,7 @@ class Playlist:
     async def _process_resuggestion(self, guild, suggestion, ui_guild_info: GuildUIInfo):
         playlist_index = 1
         suggested_track = None
+        searchnode = wavelink.NodePool.get_node(id="SearchNode")
 
         if len(ui_guild_info.suggestions) != 0:
             # check first one first
@@ -218,7 +218,7 @@ class Playlist:
                 while suggested_track is None:
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=self.searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode, return_first=True)
                         except:
                             suggested_track = None
                             pass
@@ -244,7 +244,7 @@ class Playlist:
                 while suggested_track is None:
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=self.searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode, return_first=True)
                         except:
                             suggested_track = None
                             pass
@@ -263,6 +263,7 @@ class Playlist:
         indexlist = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         playlist_index = 1
         suggested_track = None
+        searchnode = wavelink.NodePool.get_node(id="SearchNode")
 
         if len(ui_guild_info.suggestions) == 0:
 
@@ -272,7 +273,7 @@ class Playlist:
                 for index in indexlist:
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=self.searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=searchnode, return_first=True)
                         except:
                             suggested_track = None
                             pass
@@ -306,6 +307,7 @@ class Playlist:
                             self.pop(guild.id, -1)
                             return
             suggested_track = None
+            searchnode = wavelink.NodePool.get_node(id="SearchNode")
 
             if self[guild.id].current().title not in ui_guild_info.previous_titles:
                 ui_guild_info.previous_titles.append(self[guild.id].current().title)
@@ -317,7 +319,7 @@ class Playlist:
                     ui_guild_info.suggestions_source['index'] = 13
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=self.searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=searchnode, return_first=True)
                         except:
                             suggested_track = None
                             pass
