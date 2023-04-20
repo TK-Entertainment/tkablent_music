@@ -114,9 +114,6 @@ class InfoGenerator:
             embed._author['name'] += " | 🎊 {}新年快樂！".format(datetime.datetime.now().year)
         elif holiday == "cnewyear":
             embed._author['name'] += " | 🧧 過年啦！你是發紅包還是收紅包呢？"
-
-        if self.musicbot[guild_id]._volume_level == 0: 
-            embed._author['name'] += " | 🔇 靜音"
         
         if loopstate != LoopState.NOTHING: 
             embed._author['name'] += f"{loopicon}"
