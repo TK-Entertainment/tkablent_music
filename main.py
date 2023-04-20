@@ -29,6 +29,7 @@ TW_HOST = os.getenv('WAVELINK_TW_HOST')
 US_HOST = os.getenv('WAVELINK_US_HOST')
 SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
 PORT = os.getenv('WAVELINK_PORT')
+SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
 PASSWORD = os.getenv('WAVELINK_PWD')
 SPOTIFY_ID = os.getenv('SPOTIFY_ID')
 SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
@@ -68,7 +69,7 @@ async def on_ready():
 
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
-    await cog._create_daemon(US_HOST, TW_HOST, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    await cog._create_daemon(US_HOST, TW_HOST, SEARCH_HOST, PORT, SEARCH_PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
 
     print(f'''
         =========================================

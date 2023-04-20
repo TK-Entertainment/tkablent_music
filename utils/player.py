@@ -70,7 +70,7 @@ class Player:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    async def _create_daemon(self, main_host, host, search_host, port, password, spotify_id, spotify_secret):
+    async def _create_daemon(self, main_host, host, search_host, port, search_port, password, spotify_id, spotify_secret):
         self._playlist.init_spotify(spotify_id, spotify_secret)
         mainplayhost = wavelink.Node(
             id="US_PlayBackNode",
@@ -86,7 +86,8 @@ class Player:
         )
         searchhost = wavelink.Node(
             id="SearchNode",
-            uri=f"http://{search_host}:{port}",
+            uri=f"http://{search_host}:{search_port}",
+            use_http=True,
             password=password,
         )
 
