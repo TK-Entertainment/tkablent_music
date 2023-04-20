@@ -605,6 +605,8 @@ class MusicCog(Player, commands.Cog):
             await self.ui.Search.YoutubeFuckedUp(command)
             return
         tracks = await self._get_track(command, search)
+        if tracks == "NodeDisconnected":
+            await self.ui.ExceptionHandler.NodeDisconnectedMessage()
         if isinstance(tracks, Union[SpotifyAlbum, SpotifyPlaylist]):
             await self.play(command, tracks)
         else:
@@ -612,6 +614,8 @@ class MusicCog(Player, commands.Cog):
 
     async def _get_track(self, command: Command, search: str):
         searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        if searchnode.status != wavelink.NodeStatus.CONNECTED:
+            return "NodeDisconnected"
         if command.command_type == 'Interaction':
             await command.defer(ephemeral=True ,thinking=True)
         if 'spotify' in search:
@@ -755,5 +759,11 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
                 await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
-        except: 
+        except wavelink.exceptions.InvalidLavalinkResponse:
+            for nodeid in ['US_PlayBackNode', 'TW_PlayBackNode', 'SearchNode']:
+                node = wavelink.NodePool.get_node(id=nodeid)
+                if node.status != wavelink.NodeStatus.CONNECTED:
+                    await wavelink.NodePool.connect(nodes=node)
+                    print(f"[Debug] Reconnected {node.id}")
+        except not wavelink.exceptions.InvalidLavalinkResponse:
             pass
