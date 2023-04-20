@@ -765,5 +765,5 @@ class MusicCog(Player, commands.Cog):
                 if node.status != wavelink.NodeStatus.CONNECTED:
                     await wavelink.NodePool.connect(nodes=node)
                     print(f"[Debug] Reconnected {node.id}")
-        except not wavelink.exceptions.InvalidLavalinkResponse:
+        except:
             pass
