@@ -70,34 +70,45 @@ class Player:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    async def _create_daemon(self, main_host, host, search_host, port, search_port, password, spotify_id, spotify_secret):
-        self._playlist.init_spotify(spotify_id, spotify_secret)
+    async def _create_daemon(self):
+        TW_HOST = os.getenv('WAVELINK_TW_HOST')
+        US_HOST = os.getenv('WAVELINK_US_HOST')
+        SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
+        PORT = os.getenv('WAVELINK_PORT')
+        SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
+        PASSWORD = os.getenv('WAVELINK_PWD')
+        SPOTIFY_ID = os.getenv('SPOTIFY_ID')
+        SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
+        
+        self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
         mainplayhost = wavelink.Node(
             id="US_PlayBackNode",
-            uri=f"http://{main_host}:{port}",
+            uri=f"http://{US_HOST}:{PORT}",
             use_http=True,
-            password=password,
+            password=PASSWORD,
         )
         altplayhost = wavelink.Node(
             id="TW_PlayBackNode",
-            uri=f"http://{host}:{port}",
+            uri=f"http://{TW_HOST}:{PORT}",
             use_http=True,
-            password=password,
+            password=PASSWORD,
         )
         searchhost = wavelink.Node(
             id="SearchNode",
-            uri=f"http://{search_host}:{search_port}",
+            uri=f"http://{SEARCH_HOST}:{SEARCH_PORT}",
             use_http=True,
-            password=password,
+            password=PASSWORD,
         )
 
-        self._spotify = spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
+        self._spotify = spotify.SpotifyClient(client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET)
 
         await wavelink.NodePool.connect(
             client=self.bot,
             nodes=[mainplayhost, altplayhost, searchhost],
             spotify=self._spotify
         )
+
+        self.bot.loop.create_task(self.reconnect_node())
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
@@ -705,7 +716,19 @@ class MusicCog(Player, commands.Cog):
                     await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
                     self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
                 except Exception as e:
-                    await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
+                    print(e)
+                    if isinstance(e, wavelink.exceptions.InvalidLavalinkResponse):
+                        await self._node_reconnection()
+                        try:
+                            await voice_client.play(song)
+                            self.ui_guild_info(guild.id).previous_title = song.title
+                            await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+                            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
+                        except:
+                            await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
+                            pass
+                    else:
+                        await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(0.1)
@@ -729,6 +752,52 @@ class MusicCog(Player, commands.Cog):
             await self._leave(member.guild)
         self._cleanup(guild)
     
+    async def reconnect_node(self):
+        while True:
+            await asyncio.sleep(5)
+            await self._node_reconnection()
+
+
+    async def _node_reconnection(self):
+        for nodeid in ['US_PlayBackNode', 'TW_PlayBackNode', 'SearchNode']:
+            try:
+                node = wavelink.NodePool.get_node(id=nodeid)
+            except wavelink.InvalidNode:
+                TW_HOST = os.getenv('WAVELINK_TW_HOST')
+                US_HOST = os.getenv('WAVELINK_US_HOST')
+                SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
+                PORT = os.getenv('WAVELINK_PORT')
+                SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
+                PASSWORD = os.getenv('WAVELINK_PWD')
+
+                match nodeid:
+                    case 'US_PlayBackNode':
+                        node = wavelink.Node(
+                            id="US_PlayBackNode",
+                            uri=f"http://{US_HOST}:{PORT}",
+                            use_http=True,
+                            password=PASSWORD,
+                        )
+                    case 'TW_PlayBackNode':
+                        node = wavelink.Node(
+                                id="TW_PlayBackNode",
+                                uri=f"http://{TW_HOST}:{PORT}",
+                                use_http=True,
+                                password=PASSWORD,
+                            )
+                    case 'SearchNode':
+                        node = wavelink.Node(
+                            id="SearchNode",
+                            uri=f"http://{SEARCH_HOST}:{SEARCH_PORT}",
+                            use_http=True,
+                            password=PASSWORD,
+                        )
+            if node.status != wavelink.NodeStatus.CONNECTED:
+                await wavelink.NodePool.connect(
+                    client=self.bot, 
+                    nodes=[node], 
+                    spotify=self._spotify)
+                print(f"[Debug] Reconnected {node.id}")
 
     # Error handler
     @commands.Cog.listener()
@@ -764,17 +833,5 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
                 await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
-        except wavelink.InvalidLavalinkResponse:
-            for nodeid in ['US_PlayBackNode', 'TW_PlayBackNode', 'SearchNode']:
-                try:
-                    node = wavelink.NodePool.get_node(id=nodeid)
-                    if node.status != wavelink.NodeStatus.CONNECTED:
-                        await wavelink.NodePool.connect(
-                            client=self.bot, 
-                            nodes=node, 
-                            spotify=self._spotify)
-                        print(f"[Debug] Reconnected {node.id}")
-                except wavelink.InvalidNode:
-                    continue
         except:
             pass
