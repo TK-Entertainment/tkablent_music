@@ -22,21 +22,45 @@ class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
         self.text_channel: discord.TextChannel = None
+        self._volume_level: int = None
+        self._multitype_remembered: bool = None
+        self._multitype_choice: str = None
         self._task: asyncio.Task = None
         self._refresh_msg_task: asyncio.Task = None
         self._timer: asyncio.Task = None
-        self._dsa: bool = None
+    
+    @property
+    def volume_level(self):
+        if self._volume_level is None:
+            self._volume_level = self.fetch('volume_level')
+        return self._volume_level
+
+    @volume_level.setter
+    def volume_level(self, value):
+        self._volume_level = value
+        self.update('volume_level', value)
 
     @property
-    def data_survey_agreement(self):
-        if self._dsa is None:
-            self._dsa = self.fetch('dsa')
-        return self._dsa
+    def multitype_remembered(self):
+        if self._multitype_remembered is None:
+            self._multitype_remembered = self.fetch('multitype_remembered')
+        return self._multitype_remembered
 
-    @data_survey_agreement.setter
-    def data_survey_agreement(self, value: bool):
-        self._dsa(self, value)
-        self.update("dsa", value)
+    @multitype_remembered.setter
+    def multitype_remembered(self, value):
+        self._multitype_remembered = value
+        self.update('multitype_remembered', value)
+
+    @property
+    def multitype_choice(self):
+        if self._multitype_choice is None:
+            self._multitype_choice = self.fetch('multitype_choice')
+        return self._multitype_choice
+
+    @multitype_choice.setter
+    def multitype_choice(self, value):
+        self._multitype_choice = value
+        self.update('multitype_choice', value)
 
     def fetch(self, key: str) -> not None:
         '''fetch from database'''
@@ -63,59 +87,39 @@ class Player:
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
-        self._spotify: spotify.SpotifyClient = None
+        self.playnode: wavelink.Node = None
+        self.searchnode: wavelink.Node = None
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id] 
 
-    async def _create_daemon(self):
-        TW_HOST = os.getenv('WAVELINK_TW_HOST')
-        US_HOST = os.getenv('WAVELINK_US_HOST')
-        SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
-        PORT = os.getenv('WAVELINK_PORT')
-        SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
-        PASSWORD = os.getenv('WAVELINK_PWD')
-        SPOTIFY_ID = os.getenv('SPOTIFY_ID')
-        SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
-        
-        self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
-        mainplayhost = wavelink.Node(
-            id="US_PlayBackNode",
-            uri=f"http://{US_HOST}:{PORT}",
-            use_http=True,
-            password=PASSWORD,
-        )
-        altplayhost = wavelink.Node(
-            id="TW_PlayBackNode",
-            uri=f"http://{TW_HOST}:{PORT}",
-            use_http=True,
-            password=PASSWORD,
-        )
-        searchhost = wavelink.Node(
-            id="SearchNode",
-            uri=f"http://{SEARCH_HOST}:{SEARCH_PORT}",
-            use_http=True,
-            password=PASSWORD,
+    def _start_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
+        self._playlist.init_spotify(spotify_id, spotify_secret)
+        return wavelink.NodePool.create_node(
+            bot=bot,
+            host=host,
+            port=port,
+            password=password,
+            identifier="PlaybackServer",
+            spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
 
-        self._spotify = spotify.SpotifyClient(client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET)
-
-        await wavelink.NodePool.connect(
-            client=self.bot,
-            nodes=[mainplayhost, altplayhost, searchhost],
-            spotify=self._spotify
+    def _start_search_daemon(self, bot, host, port, password, spotify_id, spotify_secret):
+        return wavelink.NodePool.create_node(
+            bot=bot,
+            host=host,
+            port=port,
+            password=password,
+            identifier="SearchServer",
+            spotify_client=spotify.SpotifyClient(client_id=spotify_id, client_secret=spotify_secret)
         )
-
-        self.bot.loop.create_task(self.reconnect_node())
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
-        mainplayhost = wavelink.NodePool.get_node(id="US_PlayBackNode")
-        altplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
         if voice_client is None:
-            await channel.connect(cls=wavelink.Player(nodes=[mainplayhost, altplayhost]))
+            await channel.connect(cls=wavelink.Player)
 
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
@@ -152,7 +156,7 @@ class Player:
     
     async def _seek(self, guild: discord.Guild, timestamp: float):
         voice_client: wavelink.Player = guild.voice_client
-        if timestamp >= (self._playlist[guild.id].current().length)/1000:
+        if timestamp >= self._playlist[guild.id].current().length:
             await voice_client.stop()
         await voice_client.seek(timestamp * 1000)
     
@@ -583,7 +587,7 @@ class MusicCog(Player, commands.Cog):
         await self.ui.Queue.Embed_AddedToQueue(command, trackinfo, requester=command.author, is_search=is_search)
     
     async def play(self, command, trackinfo: Union[
-                                wavelink.GenericTrack,
+                                wavelink.LocalTrack,
                                 wavelink.SoundCloudTrack,
                             ]):
         if not isinstance(command, Command):
@@ -621,17 +625,12 @@ class MusicCog(Player, commands.Cog):
             await self.ui.Search.YoutubeFuckedUp(command)
             return
         tracks = await self._get_track(command, search)
-        if tracks == "NodeDisconnected":
-            await self.ui.ExceptionHandler.NodeDisconnectedMessage()
         if isinstance(tracks, Union[SpotifyAlbum, SpotifyPlaylist]):
             await self.play(command, tracks)
         else:
             await self.ui.PlayerControl.SearchResultSelection(command, tracks)
 
     async def _get_track(self, command: Command, search: str):
-        searchnode = wavelink.NodePool.get_node(id="SearchNode")
-        if searchnode.status != wavelink.NodeStatus.CONNECTED:
-            return "NodeDisconnected"
         if command.command_type == 'Interaction':
             await command.defer(ephemeral=True ,thinking=True)
         if 'spotify' in search:
@@ -645,8 +644,7 @@ class MusicCog(Player, commands.Cog):
             if ('album' in search or 'artist' in search or 'playlist' in search):
                 self.ui_guild_info(command.guild.id).processing_msg = await self.ui.Search.SearchInProgress(command)
 
-            searchnode = wavelink.NodePool.get_node(id="SearchNode")
-            tracks = await spotify.SpotifyTrack.search(search, node=searchnode, type=searchtype, return_first=True)
+            tracks = await spotify.SpotifyTrack.search(search, node=self.searchnode, type=searchtype, return_first=True)
 
             if tracks is None:
                 trackinfo = None
@@ -657,7 +655,7 @@ class MusicCog(Player, commands.Cog):
             for trackmethod in [wavelink.YouTubeTrack, wavelink.SoundCloudTrack]:
                 try:
                     # SearchableTrack.search(query, node, return_first)
-                    data = await trackmethod.search(search, node=searchnode)
+                    data = await trackmethod.search(search, node=self.searchnode)
                     if data is not None:
                         trackinfo.extend(data)
                 except Exception:
@@ -716,19 +714,7 @@ class MusicCog(Player, commands.Cog):
                     await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
                     self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
                 except Exception as e:
-                    print(e)
-                    if isinstance(e, wavelink.exceptions.InvalidLavalinkResponse):
-                        await self._node_reconnection()
-                        try:
-                            await voice_client.play(song)
-                            self.ui_guild_info(guild.id).previous_title = song.title
-                            await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-                            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
-                        except:
-                            await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
-                            pass
-                    else:
-                        await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
+                    await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
 
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(0.1)
@@ -752,52 +738,6 @@ class MusicCog(Player, commands.Cog):
             await self._leave(member.guild)
         self._cleanup(guild)
     
-    async def reconnect_node(self):
-        while True:
-            await asyncio.sleep(5)
-            await self._node_reconnection()
-
-
-    async def _node_reconnection(self):
-        for nodeid in ['US_PlayBackNode', 'TW_PlayBackNode', 'SearchNode']:
-            try:
-                node = wavelink.NodePool.get_node(id=nodeid)
-            except wavelink.InvalidNode:
-                TW_HOST = os.getenv('WAVELINK_TW_HOST')
-                US_HOST = os.getenv('WAVELINK_US_HOST')
-                SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
-                PORT = os.getenv('WAVELINK_PORT')
-                SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
-                PASSWORD = os.getenv('WAVELINK_PWD')
-
-                match nodeid:
-                    case 'US_PlayBackNode':
-                        node = wavelink.Node(
-                            id="US_PlayBackNode",
-                            uri=f"http://{US_HOST}:{PORT}",
-                            use_http=True,
-                            password=PASSWORD,
-                        )
-                    case 'TW_PlayBackNode':
-                        node = wavelink.Node(
-                                id="TW_PlayBackNode",
-                                uri=f"http://{TW_HOST}:{PORT}",
-                                use_http=True,
-                                password=PASSWORD,
-                            )
-                    case 'SearchNode':
-                        node = wavelink.Node(
-                            id="SearchNode",
-                            uri=f"http://{SEARCH_HOST}:{SEARCH_PORT}",
-                            use_http=True,
-                            password=PASSWORD,
-                        )
-            if node.status != wavelink.NodeStatus.CONNECTED:
-                await wavelink.NodePool.connect(
-                    client=self.bot, 
-                    nodes=[node], 
-                    spotify=self._spotify)
-                print(f"[Debug] Reconnected {node.id}")
 
     # Error handler
     @commands.Cog.listener()
@@ -833,5 +773,5 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
                 await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
-        except:
+        except: 
             pass

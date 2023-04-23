@@ -10,27 +10,26 @@ Current Version
 {sys.version}
 ''')
 
-production = True
+production = False
 prefix = '/'
-
-branch = 'master'
 
 if production:
     status = discord.Status.online
-    production_status = 's_mon' # ce for cutting edge, s for stable
-    bot_version = f'm.20221225.7-{production_status}'
+    production_status = 's' # ce for cutting edge, s for stable
+    bot_version = f'm.20221225.2-{production_status}'
 else:
     status = discord.Status.dnd
+    branch = 'master'
     bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
-
-node_state = {
-    "SearchNode": True,
-    "US_PlayBackNode": True,
-    "TW_PlayBackNode": True
-}
+HOST = os.getenv('WAVELINK_HOST')
+SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
+PORT = os.getenv('WAVELINK_PORT')
+PASSWORD = os.getenv('WAVELINK_PWD')
+SPOTIFY_ID = os.getenv('SPOTIFY_ID')
+SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
 intents = discord.Intents.default()
 intents.message_content = False
@@ -61,11 +60,14 @@ async def on_ready():
 
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
-    await cog._create_daemon()
+    node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    searchnode: wavelink.Node = await cog._start_search_daemon(bot, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    cog.playnode = node
+    cog.searchnode = cog._playlist.searchnode = searchnode
 
     print(f'''
         =========================================
-        Codename TKablent | Branch {branch}
+        Codename TKablent | Version Alpha
         Copyright 2022-present @ TK Entertainment
         Shared under CC-NC-SS-4.0 license
         =========================================
@@ -83,11 +85,10 @@ async def on_ready():
 
 @bot.event
 async def on_wavelink_node_ready(node: wavelink.Node):
-    node_state[node.id] = True
     print(f'''
         Wavelink 音樂處理伺服器已準備完畢
 
-        伺服器名稱: {node.id}
+        伺服器名稱: {node.identifier}
     ''')
 
 try:
@@ -95,7 +96,7 @@ try:
 except AttributeError:
     print(f'''
     =========================================
-    Codename TKablent | Branch {branch}
+    Codename TKablent | Version Alpha
     Copyright 2022-present @ TK Entertainment
     Shared under CC-NC-SS-4.0 license
     =========================================
