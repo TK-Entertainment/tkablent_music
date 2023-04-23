@@ -10,7 +10,7 @@ Current Version
 {sys.version}
 ''')
 
-production = False
+production = True
 prefix = '/'
 
 branch = 'master'
@@ -18,21 +18,13 @@ branch = 'master'
 if production:
     status = discord.Status.online
     production_status = 's_mon' # ce for cutting edge, s for stable
-    bot_version = f'm.20221225.6-{production_status}'
+    bot_version = f'm.20221225.7-{production_status}'
 else:
     status = discord.Status.dnd
     bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
-TW_HOST = os.getenv('WAVELINK_TW_HOST')
-US_HOST = os.getenv('WAVELINK_US_HOST')
-SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
-PORT = os.getenv('WAVELINK_PORT')
-SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
-PASSWORD = os.getenv('WAVELINK_PWD')
-SPOTIFY_ID = os.getenv('SPOTIFY_ID')
-SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
 node_state = {
     "SearchNode": True,
@@ -69,7 +61,7 @@ async def on_ready():
 
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
-    await cog._create_daemon(US_HOST, TW_HOST, SEARCH_HOST, PORT, SEARCH_PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
+    await cog._create_daemon()
 
     print(f'''
         =========================================
