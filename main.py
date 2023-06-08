@@ -13,24 +13,18 @@ Current Version
 production = True
 prefix = '/'
 
-branch = 'master'
+branch = 'wl2.0-depend'
 
 if production:
     status = discord.Status.online
     production_status = 's_mon' # ce for cutting edge, s for stable
-    bot_version = f'm.20221225.7-{production_status}'
+    bot_version = f'm.20230609-{production_status}'
 else:
     status = discord.Status.dnd
     bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
-
-node_state = {
-    "SearchNode": True,
-    "US_PlayBackNode": True,
-    "TW_PlayBackNode": True
-}
 
 intents = discord.Intents.default()
 intents.message_content = False
@@ -83,7 +77,6 @@ async def on_ready():
 
 @bot.event
 async def on_wavelink_node_ready(node: wavelink.Node):
-    node_state[node.id] = True
     print(f'''
         Wavelink 音樂處理伺服器已準備完畢
 

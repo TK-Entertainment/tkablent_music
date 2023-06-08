@@ -716,19 +716,14 @@ class MusicCog(Player, commands.Cog):
                     await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
                     self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
                 except Exception as e:
-                    print(e)
-                    if isinstance(e, wavelink.exceptions.InvalidLavalinkResponse):
-                        await self._node_reconnection()
-                        try:
-                            await voice_client.play(song)
-                            self.ui_guild_info(guild.id).previous_title = song.title
-                            await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-                            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
-                        except:
-                            await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
-                            pass
-                    else:
+                    try:
+                        await voice_client.play(song)
+                        self.ui_guild_info(guild.id).previous_title = song.title
+                        await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+                        self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
+                    except:
                         await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
+                        pass
 
                 while voice_client.is_playing() or voice_client.is_paused():
                     await asyncio.sleep(0.1)
@@ -751,53 +746,6 @@ class MusicCog(Player, commands.Cog):
         elif after.channel is None:
             await self._leave(member.guild)
         self._cleanup(guild)
-    
-    async def reconnect_node(self):
-        while True:
-            await asyncio.sleep(5)
-            await self._node_reconnection()
-
-
-    async def _node_reconnection(self):
-        for nodeid in ['US_PlayBackNode', 'TW_PlayBackNode', 'SearchNode']:
-            try:
-                node = wavelink.NodePool.get_node(id=nodeid)
-            except wavelink.InvalidNode:
-                TW_HOST = os.getenv('WAVELINK_TW_HOST')
-                US_HOST = os.getenv('WAVELINK_US_HOST')
-                SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
-                PORT = os.getenv('WAVELINK_PORT')
-                SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
-                PASSWORD = os.getenv('WAVELINK_PWD')
-
-                match nodeid:
-                    case 'US_PlayBackNode':
-                        node = wavelink.Node(
-                            id="US_PlayBackNode",
-                            uri=f"http://{US_HOST}:{PORT}",
-                            use_http=True,
-                            password=PASSWORD,
-                        )
-                    case 'TW_PlayBackNode':
-                        node = wavelink.Node(
-                                id="TW_PlayBackNode",
-                                uri=f"http://{TW_HOST}:{PORT}",
-                                use_http=True,
-                                password=PASSWORD,
-                            )
-                    case 'SearchNode':
-                        node = wavelink.Node(
-                            id="SearchNode",
-                            uri=f"http://{SEARCH_HOST}:{SEARCH_PORT}",
-                            use_http=True,
-                            password=PASSWORD,
-                        )
-            if node.status != wavelink.NodeStatus.CONNECTED:
-                await wavelink.NodePool.connect(
-                    client=self.bot, 
-                    nodes=[node], 
-                    spotify=self._spotify)
-                print(f"[Debug] Reconnected {node.id}")
 
     # Error handler
     @commands.Cog.listener()
