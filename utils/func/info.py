@@ -50,7 +50,7 @@ class InfoGenerator:
         if color_code == "red":
             song = removed
         else:
-            song = playlist[index]
+            song: wavelink.GenericTrack = playlist[index]
         
         if holiday == "xmas" or holiday == "xmaseve":
             xmascolors = [
@@ -95,14 +95,17 @@ class InfoGenerator:
             else:
                 embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
         else:
-            embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
-        
-        if song.is_stream(): 
+            if song.requester.discriminator == "0":
+                embed.set_author(name=f"這首歌由 {song.requester.name} 點播", icon_url=song.requester.display_avatar)
+            else:
+                embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
+
+        if song.is_stream: 
             embed._author['name'] += " | 🔴 直播"
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
-            embed.add_field(name="歌曲時長", value=self._sec_to_hms(song.length, "zh"), inline=True)
+            embed.add_field(name="歌曲時長", value=self._sec_to_hms((song.length)/1000, "zh"), inline=True)
         
         if holiday == "xmaseve":
             embed._author['name'] += " | 🎄 今日聖誕夜"
@@ -114,9 +117,6 @@ class InfoGenerator:
             embed._author['name'] += " | 🎊 {}新年快樂！".format(datetime.datetime.now().year)
         elif holiday == "cnewyear":
             embed._author['name'] += " | 🧧 過年啦！你是發紅包還是收紅包呢？"
-
-        if self.musicbot[guild_id]._volume_level == 0: 
-            embed._author['name'] += " | 🔇 靜音"
         
         if loopstate != LoopState.NOTHING: 
             embed._author['name'] += f"{loopicon}"
@@ -165,7 +165,10 @@ class InfoGenerator:
 
         color = discord.Colour.from_rgb(97, 219, 83)
         embed = discord.Embed(title=title, url=url, colour=color)
-        embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
+        if requester.discriminator == "0":
+            embed.set_author(name=f"此播放清單由 {requester.name} 點播", icon_url=requester.display_avatar)
+        else:
+            embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
 
         pllist: str = ""
         if isinstance(playlist, list):

@@ -10,26 +10,21 @@ Current Version
 {sys.version}
 ''')
 
-production = False
+production = True
 prefix = '/'
+
+branch = 'wl2.0-depend'
 
 if production:
     status = discord.Status.online
     production_status = 's' # ce for cutting edge, s for stable
-    bot_version = f'm.20221225.2-{production_status}'
+    bot_version = f'm.20230611-{production_status}'
 else:
     status = discord.Status.dnd
-    branch = 'master'
     bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
 
 dotenv.load_dotenv()
 TOKEN = os.getenv('TOKEN')
-HOST = os.getenv('WAVELINK_HOST')
-SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
-PORT = os.getenv('WAVELINK_PORT')
-PASSWORD = os.getenv('WAVELINK_PWD')
-SPOTIFY_ID = os.getenv('SPOTIFY_ID')
-SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
 
 intents = discord.Intents.default()
 intents.message_content = False
@@ -60,14 +55,11 @@ async def on_ready():
 
     cog: MusicCog = bot.cogs['MusicCog']
     await cog.resolve_ui()
-    node: wavelink.Node = await cog._start_daemon(bot, HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
-    searchnode: wavelink.Node = await cog._start_search_daemon(bot, SEARCH_HOST, PORT, PASSWORD, SPOTIFY_ID, SPOTIFY_SECRET)
-    cog.playnode = node
-    cog.searchnode = cog._playlist.searchnode = searchnode
+    await cog._create_daemon()
 
     print(f'''
         =========================================
-        Codename TKablent | Version Alpha
+        Codename TKablent | Branch {branch}
         Copyright 2022-present @ TK Entertainment
         Shared under CC-NC-SS-4.0 license
         =========================================
@@ -88,7 +80,7 @@ async def on_wavelink_node_ready(node: wavelink.Node):
     print(f'''
         Wavelink 音樂處理伺服器已準備完畢
 
-        伺服器名稱: {node.identifier}
+        伺服器名稱: {node.id}
     ''')
 
 try:
@@ -96,7 +88,7 @@ try:
 except AttributeError:
     print(f'''
     =========================================
-    Codename TKablent | Version Alpha
+    Codename TKablent | Branch {branch}
     Copyright 2022-present @ TK Entertainment
     Shared under CC-NC-SS-4.0 license
     =========================================
