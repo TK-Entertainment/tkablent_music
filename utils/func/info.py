@@ -96,7 +96,7 @@ class InfoGenerator:
                 embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
         else:
             if song.requester.discriminator == "0":
-                embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
+                embed.set_author(name=f"這首歌由 {song.requester.name} 點播", icon_url=song.requester.display_avatar)
             else:
                 embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
 
