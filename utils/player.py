@@ -108,8 +108,6 @@ class Player:
             spotify=self._spotify
         )
 
-        self.bot.loop.create_task(self.reconnect_node())
-
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.NodePool.get_node(id="US_PlayBackNode")

@@ -117,7 +117,11 @@ class Queue:
         class NewSongModal(discord.ui.Modal):
             musicbot = self.musicbot
 
-            def __init__(self, requester):
+            def __init__(self, requester: Union[discord.User, discord.Member]):
+                if requester.discriminator == "0":
+                    requester = f"{requester.name}"
+                else:
+                    requester = f"{requester.name}#{requester.discriminator}"
                 self.url_or_name = discord.ui.TextInput(
                     custom_id="song_url",
                     label="歌曲網址或關鍵字 (網址支援 Spotify, SoundCloud)",

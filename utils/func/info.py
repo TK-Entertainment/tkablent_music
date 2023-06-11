@@ -3,6 +3,7 @@ import discord
 import requests
 import random
 import datetime
+import copy
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
@@ -41,7 +42,8 @@ class InfoGenerator:
 
     def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0, removed = None):
         holiday = self._isitholiday()
-        
+        embed_opt = copy.deepcopy(self.embed_opt)
+
         playlist = self.musicbot._playlist[guild_id]
 
         if len(playlist.order) == 0:
@@ -75,16 +77,16 @@ class InfoGenerator:
         # Generate Loop Icon
         if color_code != "red" and playlist.loop_state != LoopState.NOTHING:
             loopstate: LoopState = playlist.loop_state
-            loopicon = ''
+            stateicon = ''
             if loopstate == LoopState.SINGLE:
-                loopicon = f' | 🔂ₛ 🕗 {playlist.times} 次'
+                stateicon = f'🔂ₛ 🕗 {playlist.times} 次'
             elif loopstate == LoopState.SINGLEINF:
-                loopicon = ' | 🔂ₛ'
+                stateicon = '🔂ₛ 單曲重播'
             elif loopstate == LoopState.PLAYLIST:
-                loopicon = ' | 🔁'
+                stateicon = '🔁 全待播清單重播'
         else:
             loopstate = None
-            loopicon = ''
+            stateicon = ''
 
         # Generate Embed Body
         embed = discord.Embed(title=f"{song.title}", colour=color)
@@ -101,7 +103,10 @@ class InfoGenerator:
                 embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
 
         if song.is_stream: 
-            embed._author['name'] += " | 🔴 直播"
+            if stateicon != '':
+                stateicon += " | 🔴 直播"
+            else:
+                stateicon = "🔴 直播"
             if color_code == None: 
                embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
         else: 
@@ -118,8 +123,8 @@ class InfoGenerator:
         elif holiday == "cnewyear":
             embed._author['name'] += " | 🧧 過年啦！你是發紅包還是收紅包呢？"
         
-        if loopstate != LoopState.NOTHING: 
-            embed._author['name'] += f"{loopicon}"
+        if stateicon != "": 
+            embed_opt['footer']['text'] = stateicon + "\n" + embed_opt['footer']['text'] 
 
         queuelist: str = ""
 
@@ -151,7 +156,7 @@ class InfoGenerator:
         if song.audio_source == 'soundcloud' and (color_code != 'red' or color_code != 'green'):
             embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能', inline=False)
 
-        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
+        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed
 
     def _PlaylistInfo(self, playlist: SpotifyAlbum, requester: discord.User):

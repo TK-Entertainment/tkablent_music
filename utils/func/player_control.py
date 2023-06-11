@@ -736,33 +736,38 @@ class PlayerControl:
             **:repeat_one: | 循環播放**
             已啟動單曲循環播放
             '''
-                icon = '🔂ₛ'
+                text = 'ₛ'
+                icon = repeat_sing_emoji
                 color = discord.ButtonStyle.green
             elif loopstate == LoopState.SINGLE:
                 msg = f'''
             **:repeat_one: | 循環播放**
             已啟動單曲循環播放，將會循環 {looptimes} 次
             '''
-                icon = '🔂ₛ'
+                text = f'ₛ {looptimes} 次'
+                icon = repeat_sing_emoji
                 color = discord.ButtonStyle.green
             elif loopstate == LoopState.PLAYLIST:
                 msg = '''
             **:repeat: | 循環播放**
             已啟動待播清單循環播放
             '''
-                icon = '🔁'
+                text = ''
+                icon = repeat_emoji
                 color = discord.ButtonStyle.green
             else:
                 msg = '''
             **:repeat: | 循環播放**
             已關閉循環播放功能
             '''
-                icon = '🔁'
+                text = ''
+                icon = repeat_emoji
                 color = discord.ButtonStyle.danger
             await command.send(msg)
         if self.guild_info(command.guild.id).playinfo is not None:
             await self.info_generator._UpdateSongInfo(command.guild.id)
-            self.guild_info(command.guild.id).playinfo_view.loop_control.label = icon
+            self.guild_info(command.guild.id).playinfo_view.loop_control.emoji = icon
+            self.guild_info(command.guild.id).playinfo_view.loop_control.label = text
             self.guild_info(command.guild.id).playinfo_view.loop_control.style = color
             await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
 
