@@ -20,7 +20,7 @@ class Queue:
         self.info_generator: InfoGenerator = info_generator
 
     # Add to queue
-    async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.Track, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search) -> None:
+    async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
@@ -83,7 +83,7 @@ class Queue:
         for i in range(1, 4):
             index = page*3+i
             if (index == len(playlist.order)): break
-            length = self._sec_to_hms(playlist[index].length, "symbol")
+            length = self._sec_to_hms((playlist[index].length)/1000, "symbol")
             if playlist[index].suggested:
                 requester = "💡推薦歌曲"
                 index_text = ""
@@ -91,8 +91,8 @@ class Queue:
                 requester = f"{playlist[index].requester} 點歌"
                 index_text = f"第 {index} 順位\n"
             embed.add_field(
-                name="{}{}\n{}{}".format(index_text, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream() else "", requester),
-                value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream() else "", length if not playlist[index].is_stream() else ""),
+                name="{}{}\n{}{}".format(index_text, playlist[index].title, "🔴 直播 | " if playlist[index].is_stream else "", requester),
+                value="作者: {}{}{}".format(playlist[index].author, " / 歌曲時長: " if not playlist[index].is_stream else "", length if not playlist[index].is_stream else ""),
                 inline=False,
             )
 

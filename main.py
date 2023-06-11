@@ -13,7 +13,7 @@ Current Version
 production = True
 prefix = '/'
 
-branch = 'wl2.0-depend'
+branch = 'master'
 
 if production:
     status = discord.Status.online
