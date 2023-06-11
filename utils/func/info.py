@@ -95,8 +95,11 @@ class InfoGenerator:
             else:
                 embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
         else:
-            embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
-        
+            if song.requester.discriminator == "0":
+                embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
+            else:
+                embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
+
         if song.is_stream: 
             embed._author['name'] += " | 🔴 直播"
             if color_code == None: 
@@ -162,7 +165,10 @@ class InfoGenerator:
 
         color = discord.Colour.from_rgb(97, 219, 83)
         embed = discord.Embed(title=title, url=url, colour=color)
-        embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
+        if requester.discriminator == "0":
+            embed.set_author(name=f"此播放清單由 {requester.name} 點播", icon_url=requester.display_avatar)
+        else:
+            embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
 
         pllist: str = ""
         if isinstance(playlist, list):
