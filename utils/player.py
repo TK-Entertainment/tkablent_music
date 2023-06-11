@@ -448,7 +448,8 @@ class MusicCog(Player, commands.Cog):
     async def single_loop(self, command, times: Union[int, str]=INF):
         if not isinstance(command, Command):
             command: Command = Command(command)
-        if not isinstance(times, int):
+        voice_client: wavelink.Player = command.guild.voice_client
+        if not isinstance(times, int) or voice_client is None or len(self._playlist[command.guild.id].order) == 0:
             return await self.ui.PlayerControl.SingleLoopFailed(command)
         self._playlist.single_loop(command.guild.id, times)
         await self.ui.PlayerControl.LoopSucceed(command)
@@ -477,6 +478,9 @@ class MusicCog(Player, commands.Cog):
     async def playlist_loop(self, command):
         if not isinstance(command, Command):
             command: Command = Command(command)
+        voice_client: wavelink.Player = command.guild.voice_client
+        if voice_client is None or len(self._playlist[command.guild.id].order) == 0:
+            return await self.ui.PlayerControl.SingleLoopFailed(command)
         self._playlist.playlist_loop(command.guild.id)
         await self.ui.PlayerControl.LoopSucceed(command)
 

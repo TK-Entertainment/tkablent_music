@@ -7,7 +7,7 @@ import copy
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
-from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji
+from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
 
 class InfoGenerator:
     def __init__(self):
@@ -229,5 +229,10 @@ class InfoGenerator:
         else:
             self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.blurple
             self.guild_info(guild_id).playinfo_view.skip.disabled = False
-
+        if self.musicbot._playlist[guild_id].loop_state == LoopState.SINGLE:
+            self.guild_info(guild_id).playinfo_view.loop_control.label = f"ₛ {self.musicbot._playlist[guild_id].times} 次"
+        elif self.musicbot._playlist[guild_id].loop_state == LoopState.NOTHING:
+            self.guild_info(guild_id).playinfo_view.loop_control.emoji = repeat_emoji
+            self.guild_info(guild_id).playinfo_view.loop_control.label = ''
+            self.guild_info(guild_id).playinfo_view.loop_control.style = discord.ButtonStyle.danger
         await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
