@@ -13,10 +13,10 @@ class Stage:
         self.auto_stage_available = auto_stage_available
         self.guild_info = guild_info
 
-    async def CreateStageInstance(self, command: Command, guild_id: int) -> None:
-        if isinstance(command.author.voice.channel.instance, discord.StageInstance) or self.auto_stage_available(guild_id) == False:
+    async def CreateStageInstance(self, interaction: discord.Interaction, guild_id: int) -> None:
+        if isinstance(interaction.user.voice.channel.instance, discord.StageInstance) or self.auto_stage_available(guild_id) == False:
             return
-        channel: discord.StageChannel = command.author.voice.channel
+        channel: discord.StageChannel = interaction.user.voice.channel
         await channel.create_instance(topic='🕓 目前無歌曲播放 | 等待指令')
     
     async def EndStage(self, guild_id: int) -> None:

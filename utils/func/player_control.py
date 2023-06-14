@@ -5,7 +5,6 @@ import wavelink
 import asyncio
 from wavelink import YouTubeTrack, SoundCloudTrack
 
-from ..player import Command
 from ..playlist import LoopState
 from .info import InfoGenerator
 from .stage import Stage
@@ -607,14 +606,14 @@ class PlayerControl:
     ############################################################
     # Pause ####################################################
 
-    async def PauseSucceed(self, command: Command, guild_id: int) -> None:
-        await command.send(f'''
+    async def PauseSucceed(self, interaction: discord.Interaction, guild_id: int) -> None:
+        await interaction.response.send_message(f'''
             **:pause_button: | 暫停歌曲**
             歌曲已暫停播放
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
-        self.guild_info(command.guild.id).playinfo_view.playorpause.label = '▶️'
-        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        self.guild_info(interaction.guild.id).playinfo_view.playorpause.label = '▶️'
+        await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'pause')
         except: 
@@ -635,27 +634,27 @@ class PlayerControl:
         except: 
             pass
     
-    async def PauseFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "PAUSEFAIL", exception)
+    async def PauseFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "PAUSEFAIL", exception)
 
     ############################################################
     # Resume ###################################################
 
-    async def ResumeSucceed(self, command: Command, guild_id: int) -> None:
-        await command.send(f'''
+    async def ResumeSucceed(self, interaction: discord.Interaction, guild_id: int) -> None:
+        await interaction.response.send_message(f'''
             **:arrow_forward: | 續播歌曲**
             歌曲已繼續播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
-        self.guild_info(command.guild.id).playinfo_view.playorpause.emoji = pause_emoji
-        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        self.guild_info(interaction.guild.id).playinfo_view.playorpause.emoji = pause_emoji
+        await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(interaction.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'resume')
         except: 
             pass
     
-    async def ResumeFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "RESUMEFAIL", exception)
+    async def ResumeFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "RESUMEFAIL", exception)
 
     ############################################################
     # Skip #####################################################

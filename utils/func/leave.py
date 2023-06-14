@@ -1,7 +1,7 @@
 from typing import *
 from discord.ext import commands
+import discord
 
-from ..player import Command
 from .exception_handler import ExceptionHandler
 
 class Leave:
@@ -20,9 +20,9 @@ class Leave:
         guild_info.skip = False
         guild_info.music_suggestion = False
 
-    async def LeaveSucceed(self, command: Command) -> None:
-        self.reset_value(command.guild)
-        await command.send(f'''
+    async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
+        self.reset_value(interaction.guild)
+        await interaction.response.send_message(f'''
             **:outbox_tray: | 已離開語音/舞台頻道**
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
@@ -34,5 +34,5 @@ class Leave:
             已停止所有音樂並離開目前所在的語音/舞台頻道
             ''')
     
-    async def LeaveFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "LEAVEFAIL", exception)
+    async def LeaveFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "LEAVEFAIL", exception)

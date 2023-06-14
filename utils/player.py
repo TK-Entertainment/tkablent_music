@@ -14,7 +14,6 @@ from ytmusicapi import YTMusic
 from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
 from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
-from .command import Command
 
 INF = int(1e18)
 
@@ -231,27 +230,23 @@ class MusicCog(Player, commands.Cog):
         from .ui import groupbutton
         self.groupbutton = groupbutton
 
-    async def help(self, command: Union[commands.Context, discord.Interaction]):
-        command: Command = Command(command)
-        await self.ui.Help.Help(command)
-
     @app_commands.command(name='help', description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
-    async def _i_help(self, interaction: discord.Interaction):
-        await self.help(interaction)
+    async def help(self, interaction: discord.Interaction):
+        await self.ui.Help.Help(interaction)
 
     ##############################################
 
-    async def ensure_stage_status(self, command: Command):
+    async def ensure_stage_status(self, interaction: discord.Interaction):
         '''a helper function for opening a stage'''
 
-        if not isinstance(command.author.voice.channel, discord.StageChannel):
+        if not isinstance(interaction.user.voice.channel, discord.StageChannel):
             return
 
-        bot_itself: discord.Member = await command.guild.fetch_member(self.bot.user.id)
-        auto_stage_vaildation = self.auto_stage_available(command.guild.id)
+        bot_itself: discord.Member = await interaction.guild.fetch_member(self.bot.user.id)
+        auto_stage_vaildation = self.auto_stage_available(interaction.guild.id)
         
-        if command.author.voice.channel.instance is None:
-            await self.ui.Stage.CreateStageInstance(command, command.guild.id)
+        if interaction.user.voice.channel.instance is None:
+            await self.ui.Stage.CreateStageInstance(interaction, interaction.guild.id)
         
         if auto_stage_vaildation and bot_itself.voice.suppress:
             try: 
@@ -259,108 +254,86 @@ class MusicCog(Player, commands.Cog):
             except: 
                 auto_stage_vaildation = False
 
-    async def rejoin(self, command: Command):
-        voice_client: wavelink.Player = command.guild.voice_client
+    async def rejoin(self, interaction: discord.Interaction):
+        voice_client: wavelink.Player = interaction.guild.voice_client
         # Get the bot former playing state
         former: discord.VoiceChannel = voice_client.channel
         former_state: bool = voice_client.is_paused()
         # To determine is the music paused before rejoining or not
         if not former_state: 
-            await self._pause(command.guild)
+            await self._pause(interaction.guild)
         # Moving itself to author's channel
-        await voice_client.move_to(command.author.voice.channel)
-        if isinstance(command.author.voice.channel, discord.StageChannel):
-            await self.ensure_stage_status(command)
+        await voice_client.move_to(interaction.user.voice.channel)
+        if isinstance(interaction.user.voice.channel, discord.StageChannel):
+            await self.ensure_stage_status(interaction)
 
         # If paused before rejoining, resume the music
         if not former_state: 
-            await self._resume(command.guild)
+            await self._resume(interaction.guild)
         # Send a rejoin message
-        await self.ui.Join.RejoinNormal(command)
+        await self.ui.Join.RejoinNormal(interaction)
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and \
                 isinstance(former.instance, discord.StageInstance):
-            await self.ui.Stage.EndStage(command.guild.id)
+            await self.ui.Stage.EndStage(interaction.guild.id)
 
-    async def join(self, command):
-        if not isinstance(command, Command):
-            command: Optional[Command] = Command(command)
-
-        voice_client: wavelink.Player = command.guild.voice_client
+    @app_commands.command(name='join', description='📥 | 將我加入目前您所在的頻道')
+    async def join(self, interaction: discord.Interaction):
+        voice_client: wavelink.Player = interaction.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
-            if voice_client.channel != command.author.voice.channel:
-                await self.rejoin(command)
+            if voice_client.channel != interaction.user.voice.channel:
+                await self.rejoin(interaction)
             else:
                 # If bot joined the same channel, send a message to notice user
-                await self.ui.Join.JoinAlready(command)
+                await self.ui.Join.JoinAlready(interaction)
             return
         try:
-            await self._join(command.author.voice.channel)
-            voice_client: wavelink.Player = command.guild.voice_client
+            await self._join(interaction.user.voice.channel)
+            voice_client: wavelink.Player = interaction.guild.voice_client
             if isinstance(voice_client.channel, discord.StageChannel):
-                await self.ensure_stage_status(command)
-                await self.ui.Join.JoinStage(command, command.guild.id)
+                await self.ensure_stage_status(interaction)
+                await self.ui.Join.JoinStage(interaction, interaction.guild.id)
             else:
-                await self.ui.Join.JoinNormal(command)
+                await self.ui.Join.JoinNormal(interaction)
         except Exception as e:
-            await self.ui.Join.JoinFailed(command, e)
-    
-    @app_commands.command(name='join', description='📥 | 將我加入目前您所在的頻道')
-    async def _i_join(self, interaction: discord.Interaction):
-        await self.join(interaction)
+            await self.ui.Join.JoinFailed(interaction, e)
 
     ##############################################
 
-    async def leave(self, command):
-        if not isinstance(command, Command):
-            command: Optional[Command] = Command(command)
-
-        voice_client: wavelink.Player = command.guild.voice_client
+    @app_commands.command(name='leave', description='📤 | 讓我從目前您所在的頻道離開')
+    async def leave(self, interaction: discord.Interaction):
+        voice_client: wavelink.Player = interaction.guild.voice_client
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and \
                     isinstance(voice_client.channel.instance, discord.StageInstance):
-                await self.ui.Stage.EndStage(command.guild.id)
-            await self._leave(command.guild)
-            await self.ui.Leave.LeaveSucceed(command)
+                await self.ui.Stage.EndStage(interaction.guild.id)
+            await self._leave(interaction.guild)
+            await self.ui.Leave.LeaveSucceed(interaction)
         except Exception as e:
-            await self.ui.Leave.LeaveFailed(command, e)
-
-    @app_commands.command(name='leave', description='📤 | 讓我從目前您所在的頻道離開')
-    async def _i_leave(self, interaction: discord.Interaction):
-        await self.leave(interaction)
+            await self.ui.Leave.LeaveFailed(interaction, e)
 
     ##############################################
-
-    async def pause(self, command):
-        if not isinstance(command, Command):
-            command: Optional[Command] = Command(command)
-        try:
-            await self._pause(command.guild)
-            await self.ui.PlayerControl.PauseSucceed(command, command.guild.id)
-        except Exception as e:
-            await self.ui.PlayerControl.PauseFailed(command, e)
 
     @app_commands.command(name='pause', description='⏸️ | 暫停目前播放的音樂')
-    async def _i_pause(self, interaction: discord.Interaction):
-        await self.pause(interaction)
+    async def pause(self, interaction: discord.Interaction):
+        try:
+            await self._pause(interaction.guild)
+            await self.ui.PlayerControl.PauseSucceed(interaction, interaction.guild.id)
+        except Exception as e:
+            await self.ui.PlayerControl.PauseFailed(interaction, e)
 
     ##############################################
 
-    async def resume(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        try:
-            if isinstance(command.channel, discord.StageChannel):
-                await self.ensure_stage_status(command)
-            await self._resume(command.guild)
-            await self.ui.PlayerControl.ResumeSucceed(command, command.guild.id)
-        except Exception as e:
-            await self.ui.PlayerControl.ResumeFailed(command, e)
-
     @app_commands.command(name='resume', description='▶️ | 繼續播放目前暫停的歌曲')
-    async def _i_resume(self, interaction: discord.Interaction):
-        await self.resume(interaction)
+    async def resume(self, interaction: discord.Interaction):
+        try:
+            if isinstance(interaction.channel, discord.StageChannel):
+                await self.ensure_stage_status(interaction)
+            await self._resume(interaction.guild)
+            await self.ui.PlayerControl.ResumeSucceed(interaction, interaction.guild.id)
+        except Exception as e:
+            await self.ui.PlayerControl.ResumeFailed(interaction, e)
 
     ##############################################
 

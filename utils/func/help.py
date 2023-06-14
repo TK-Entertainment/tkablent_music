@@ -2,7 +2,6 @@ from typing import *
 import discord
 from discord.ext import commands
 
-from utils.command import Command
 from ..ui import end_emoji
 
 class Help:
@@ -40,7 +39,7 @@ class Help:
         {self.bot.command_prefix}move [原順位數] [目標順位數] | 移動指定待播歌曲至指定順序
         ''', colour=0xF2F3EE)
 
-    async def Help(self, command: Command) -> None:
+    async def Help(self, interaction: discord.Interaction) -> None:
 
         class Help(discord.ui.View):
 
@@ -95,6 +94,5 @@ class Help:
         embed = self._HelpEmbedBasic()
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
         view = Help()
-        msg = await command.send(embed=embed, view=view)
-        if command.command_type == 'Interaction':
-            msg = await command.original_response()
+        await interaction.response.send_message(embed=embed, view=view)
+        msg = await interaction.original_response()
