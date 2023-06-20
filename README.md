@@ -27,7 +27,7 @@
 =========================================
 Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
-Shared under CC-NC-SS-4.0 license
+Shared under MIT License license
 =========================================
 # Version m.20230611.1-s (8a4d564)
 +【更改】重複播放標示的顯示方式 (圖三、四、五)
