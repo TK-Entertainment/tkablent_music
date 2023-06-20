@@ -52,7 +52,7 @@ Shared under CC-NC-SS-4.0 license
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 授權
 **TKablent 開發計畫**  
-遵循 **CC-BY-NC-SA-4.0 International License (姓名標示-非商業性-相同方式分享 4.0 國際)**  
-您可以自由使用，但不可用於營利
+遵循 **MIT License**  
+授權詳細內容請參 **LICENSE** 檔案
 ## 作者
 By TK Entertainment / Kevinowo GrandTiger
