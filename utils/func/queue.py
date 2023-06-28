@@ -2,7 +2,7 @@ from typing import *
 import discord
 import copy
 
-from ..player import Command, SpotifyAlbum
+from ..player import SpotifyAlbum
 from ..playlist import PlaylistBase, SpotifyPlaylist
 from .info import InfoGenerator
 from ..ui import firstpage_emoji, prevpage_emoji, nextpage_emoji, lastpage_emoji, search_emoji, end_emoji
@@ -20,20 +20,20 @@ class Queue:
         self.info_generator: InfoGenerator = info_generator
 
     # Add to queue
-    async def Embed_AddedToQueue(self, command: Command, trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search) -> None:
+    async def Embed_AddedToQueue(self, interaction: discord.Interaction, trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search, is_ytpl) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
-        playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
+        playlist: PlaylistBase = self.musicbot._playlist[interaction.guild.id]
         if len(playlist.order) == 1:
             return
-        if (len(playlist.order) > 1 and is_search) or (isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])):
+        if (len(playlist.order) > 1 and is_search) or is_ytpl or (isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])):
             if is_search:
                 msg = f'''
             **:white_check_mark: | 搜尋成功**
             以下歌曲已加入待播清單中
             '''
             else:
-                if isinstance(trackinfo, SpotifyPlaylist):
+                if isinstance(trackinfo, SpotifyPlaylist) or is_ytpl:
                     type_string = '播放清單'
                 elif isinstance(trackinfo, SpotifyAlbum):
                     type_string = 'Spotify 專輯'
@@ -43,7 +43,7 @@ class Queue:
             以下{type_string}已加入待播清單中
             '''
 
-            embed = self.info_generator._PlaylistInfo(trackinfo, requester)
+            embed = self.info_generator._PlaylistInfo(trackinfo, requester, is_ytpl)
         else:
             index = len(playlist.order) - 1
 
@@ -52,27 +52,24 @@ class Queue:
             以下歌曲已加入待播清單中，為第 **{len(playlist.order)-1}** 首歌
             '''
 
-            embed = self.info_generator._SongInfo(color_code="green", index=index, guild_id=command.guild.id)
+            embed = self.info_generator._SongInfo(color_code="green", index=index, guild_id=interaction.guild.id)
 
-        if self.guild_info(command.guild.id).playinfo is not None:
-            self.guild_info(command.guild.id).playinfo_view.skip.emoji = lastpage_emoji
-            self.guild_info(command.guild.id).playinfo_view.skip.disabled = self.guild_info(command.guild.id).playinfo_view.shuffle.disabled = False
-            self.guild_info(command.guild.id).playinfo_view.skip.style = self.guild_info(command.guild.id).playinfo_view.shuffle.style = discord.ButtonStyle.blurple
-            await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        if self.guild_info(interaction.guild.id).playinfo is not None:
+            self.guild_info(interaction.guild.id).playinfo_view.skip.emoji = lastpage_emoji
+            self.guild_info(interaction.guild.id).playinfo_view.skip.disabled = self.guild_info(interaction.guild.id).playinfo_view.shuffle.disabled = False
+            self.guild_info(interaction.guild.id).playinfo_view.skip.style = self.guild_info(interaction.guild.id).playinfo_view.shuffle.style = discord.ButtonStyle.blurple
+            await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(interaction.guild.id).playinfo_view)
 
-        if command.command_type == 'Interaction' and command.is_response() is not None and not command.is_response():        
-            await command.send(msg, embed=embed, ephemeral=True)
+        if not interaction.response.is_done():        
+            await interaction.response.send_message(msg, embed=embed, ephemeral=True)
         else:
-            if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(command.guild.id).processing_msg is not None:
-                processing_msg = self.guild_info(command.guild.id).processing_msg
-                if command.command_type == 'Interaction':
-                    await command.edit_response(content=msg, embed=embed)
-                else:
-                    await processing_msg.edit(content=msg, embed=embed)
+            if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(interaction.guild.id).processing_msg is not None:
+                processing_msg = self.guild_info(interaction.guild.id).processing_msg
+                await interaction.edit_response(content=msg, embed=embed)
             else:
-                await command.channel.send(msg, embed=embed)
+                await interaction.channel.send(msg, embed=embed)
         try:
-            await self.info_generator._UpdateSongInfo(command.guild.id)
+            await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:
             pass
 
@@ -140,8 +137,8 @@ class Queue:
         return NewSongModal
 
     # Queue Listing
-    async def ShowQueue(self, command: Union[Command, discord.Interaction], op=None) -> None:
-        playlist: PlaylistBase = self.musicbot._playlist[command.guild.id]
+    async def ShowQueue(self, interaction: discord.Interaction, op=None) -> None:
+        playlist: PlaylistBase = self.musicbot._playlist[interaction.guild.id]
 
         class QueueListing(discord.ui.View):
 
@@ -246,7 +243,7 @@ class Queue:
             async def on_timeout(self):
                 if self.operation == 'button':
                     try:
-                        await command.edit_original_response(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
+                        await interaction.edit_original_response(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=None, embed=None)
                     except:
                         pass
                 else:
@@ -257,18 +254,15 @@ class Queue:
             view.clear_page_control()
             if op == 'button':
                 view.remove_item(view.done)
-                await command.response.send_message(f'''
-            **:information_source: | 待播歌曲**
-            目前沒有任何歌曲待播中
-            *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*
-            *請點按「刪除這些訊息」來關閉此訊息*
-            ''', ephemeral=True, view=view)
+                txt = "\n            *請點按「刪除這些訊息」來關閉此訊息*"
             else:
-                await command.send(f'''
+                txt = ""
+            await interaction.response.send_message(f'''
             **:information_source: | 待播歌曲**
             目前沒有任何歌曲待播中
-            *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*
-            ''', view=view)
+            *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*{txt}
+            ''', ephemeral=(op == 'button'), view=view)
+            msg = await interaction.original_response()
             return
         else:
             embed = self._QueueEmbed(playlist, 0, op)
@@ -276,6 +270,6 @@ class Queue:
                 view.clear_page_control()
             if op == 'button':
                 view.remove_item(view.done)
-                await command.response.send_message(embed=embed, view=view, ephemeral=True)
-            else:
-                msg = await command.send(embed=embed, view=view)
+
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=(op == 'button'))
+            msg = await interaction.original_response()

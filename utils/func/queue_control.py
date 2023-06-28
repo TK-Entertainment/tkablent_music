@@ -1,7 +1,6 @@
 from typing import *
 import discord
 
-from ..player import Command
 from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
 
@@ -13,25 +12,25 @@ class QueueControl:
         self.info_generator: InfoGenerator = info_generator
 
     # Remove an entity from queue
-    async def RemoveSucceed(self, command: Command, removed, idx) -> None:
-        await command.send(f'''
+    async def RemoveSucceed(self, interaction: discord.Interaction, removed, idx) -> None:
+        await interaction.response.send_message(f'''
             **:wastebasket: | 已刪除指定歌曲**
             已刪除 **第 {idx} 順位** 的歌曲，詳細資料如下
-            ''', embed=self.info_generator._SongInfo(command.guild.id, 'red', removed=removed))
-        if len(self.musicbot._playlist[command.guild.id].order) == 1:
-            await self.musicbot._playlist.process_suggestion(command.guild, self.musicbot.ui_guild_info(command.guild.id))
+            ''', embed=self.info_generator._SongInfo(interaction.guild.id, 'red', removed=removed))
+        if len(self.musicbot._playlist[interaction.guild.id].order) == 1:
+            await self.musicbot._playlist.process_suggestion(interaction.guild, self.musicbot.ui_guild_info(interaction.guild.id))
         try:
-            await self.info_generator._UpdateSongInfo(command.guild.id)
+            await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:
             pass
 
     
-    async def RemoveFailed(self, command: Command, exception):
-        await self.exception_handler._CommonExceptionHandler(command, "REMOVEFAIL", exception)
+    async def RemoveFailed(self, interaction: discord.Interaction, exception):
+        await self.exception_handler._CommonExceptionHandler(interaction, "REMOVEFAIL", exception)
     
     # Swap entities in queue
-    async def Embed_SwapSucceed(self, command: Command, idx1: int, idx2: int) -> None:
-        playlist = self.musicbot._playlist[command.guild.id]
+    async def Embed_SwapSucceed(self, interaction: discord.Interaction, idx1: int, idx2: int) -> None:
+        playlist = self.musicbot._playlist[interaction.guild.id]
         embed = discord.Embed(title=":arrows_counterclockwise: | 調換歌曲順序", description="已調換歌曲順序，以下為詳細資料", colour=0xF2F3EE)
         
         embed.add_field(name=f"第 ~~{idx2}~~ -> **{idx1}** 順序", value='{}\n{}\n{} 點歌\n'
@@ -48,14 +47,14 @@ class QueueControl:
                 playlist[idx2].requester
             ), inline=True)
 
-        await command.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    async def SwapFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SWAPFAIL", exception)
+    async def SwapFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "SWAPFAIL", exception)
     
     # Move entity to other place in queue
-    async def MoveToSucceed(self, command: Command, origin: int, new: int) -> None:
-        playlist = self.musicbot._playlist[command.guild.id]
+    async def MoveToSucceed(self, interaction: discord.Interaction, origin: int, new: int) -> None:
+        playlist = self.musicbot._playlist[interaction.guild.id]
         embed = discord.Embed(title=":arrows_counterclockwise: | 移動歌曲順序", description="已移動歌曲順序，以下為詳細資料", colour=0xF2F3EE)
         
         embed.add_field(name=f"第 ~~{origin}~~ -> **{new}** 順序", value='{}\n{}\n{} 點歌\n'
@@ -65,7 +64,7 @@ class QueueControl:
                 playlist[new].requester
             ), inline=True)
         
-        await command.send(embed=embed)
+        await interaction.response.send_message(embed=embed)
 
-    async def MoveToFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "MOVEFAIL", exception)
+    async def MoveToFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "MOVEFAIL", exception)

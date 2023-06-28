@@ -1,4 +1,4 @@
-import secrets
+import random
 from typing import *
 import discord
 import wavelink
@@ -33,19 +33,22 @@ class PlayerControl:
     ############################################################
     # Now Playing ##############################################
 
-    async def NowPlaying(self, command: Command):
-        if command.command_type == 'Interaction' and command.is_response is not None and not command.is_response():
-            await command.send("⠀")
-        self.guild_info(command.guild.id).playinfo_view.clear_items()
-        await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
-        self.guild_info(command.guild.id).playinfo_view.stop()
-        self.guild_info(command.guild.id).playinfo = None
-        await self.PlayingMsg(command.channel)
+    async def NowPlaying(self, interaction: discord.Interaction):
+        if not interaction.response.is_done():
+            await interaction.response.send_message("⠀")
+            tmpmsg = await interaction.original_response()
+            await tmpmsg.delete()
+
+        self.guild_info(interaction.guild.id).playinfo_view.clear_items()
+        await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(interaction.guild.id).playinfo_view)
+        self.guild_info(interaction.guild.id).playinfo_view.stop()
+        self.guild_info(interaction.guild.id).playinfo = None
+        await self.PlayingMsg(interaction.channel)
 
     ############################################################
     # Play #####################################################
 
-    async def SearchResultSelection(self, command: Command, result: list[Union[YouTubeTrack, SoundCloudTrack]]) -> None:
+    async def SearchResultSelection(self, interaction: discord.Interaction, result: list[Union[YouTubeTrack, SoundCloudTrack]]) -> None:
         class SelectUI(discord.ui.Select):
             musicbot = self.musicbot
 
@@ -70,10 +73,7 @@ class PlayerControl:
                 self.max_values = len(self.options)
 
             async def callback(self, interaction: discord.Interaction):
-                if command.command_type == 'Interaction':
-                    await command.edit_response(content="⠀", view=None)
-                else:
-                    await msg.delete()
+                await msg.edit(content="⠀", view=None)
                 view.clear_items()
                 view.stop()
                 if len(self.values) > 0:
@@ -173,168 +173,164 @@ class PlayerControl:
         {pagetext}
         '''
 
-        if command.command_type == 'Interaction':
-            view.remove_item(view.done)
-            await command.edit_response(content=content, view=view)
-            msg = await command.original_response()
-        else:
-            msg = await command.send(content, view=view)
+        view.remove_item(view.done)
+        await interaction.edit_original_response(content=content, view=view)
+        msg = await interaction.original_response()
 
-    # async def MultiTypeSetup(self, command: Command):
-    #     content = f'''
-    #     **:bell: | 混合連結預設動作設定**
-    #     部分連結會同時包含歌曲和播放清單
-    #     如 https://www.youtube.com/watch?v=xxxx&list=xxxx
-    #     預設情況下系統會詢問要播放的種類
-    #     但若您已經記住選項，或想要先手動設定，都可以在這邊重新設定
+    async def MultiTypeSetup(self, interaction: discord.Interaction):
+        content = f'''
+        **:bell: | 混合連結預設動作設定**
+        部分連結會同時包含歌曲和播放清單
+        如 https://www.youtube.com/watch?v=xxxx&list=xxxx
+        預設情況下系統會詢問要播放的種類
+        但若您已經記住選項，或想要先手動設定，都可以在這邊重新設定
 
-    #     請選擇以後的預設選項，或清除已記住的選項。
-    #     '''
+        請選擇以後的預設選項，或清除已記住的選項。
+        '''
 
-    #     class MultiType(discord.ui.View):
+        class MultiType(discord.ui.View):
 
-    #         bot = self.bot
-    #         musicbot = self.musicbot
+            bot = self.bot
+            musicbot = self.musicbot
             
-    #         def __init__(self, *, timeout=60):
-    #             self.choice = ""
-    #             super().__init__(timeout=timeout)
+            def __init__(self, *, timeout=60):
+                self.choice = ""
+                super().__init__(timeout=timeout)
 
-    #         async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, choice: str):
-    #             view.clear_items()
-    #             if choice == "clear_remember":
-    #                 self.musicbot[command.guild.id].multitype_remembered = False
-    #                 self.musicbot[command.guild.id].multitype_choice = ""
-    #                 await interaction.response.edit_message(
-    #                     content='''
-    #     **:white_check_mark: | 已清除混合連結預設動作設定**
-    #     已清除混合連結預設動作設定，之後將會重新詢問預設動作
-    #                     ''', view=view
-    #                 )
-    #             else:
-    #                 self.musicbot[command.guild.id].multitype_remembered = True
-    #                 self.musicbot[command.guild.id].multitype_choice = choice
-    #                 choice_translated = {"videoonly": "只播放影片", "playlist": "播放整個播放清單"}
-    #                 await interaction.response.edit_message(
-    #                     content=f'''
-    #     **:white_check_mark: | 已設定混合連結預設動作設定**
-    #     已設定混合連結預設動作為 **{choice_translated[choice]}**
-    #                     ''', view=view)
-    #             self.stop()
+            async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, choice: str):
+                view.clear_items()
+                if choice == "clear_remember":
+                    self.musicbot[interaction.guild.id].multitype_remembered = False
+                    self.musicbot[interaction.guild.id].multitype_choice = ""
+                    await interaction.response.edit_message(
+                        content='''
+        **:white_check_mark: | 已清除混合連結預設動作設定**
+        已清除混合連結預設動作設定，之後將會重新詢問預設動作
+                        ''', view=view
+                    )
+                else:
+                    self.musicbot[interaction.guild.id].multitype_remembered = True
+                    self.musicbot[interaction.guild.id].multitype_choice = choice
+                    choice_translated = {"videoonly": "只播放影片", "playlist": "播放整個播放清單"}
+                    await interaction.response.edit_message(
+                        content=f'''
+        **:white_check_mark: | 已設定混合連結預設動作設定**
+        已設定混合連結預設動作為 **{choice_translated[choice]}**
+                        ''', view=view)
+                self.stop()
                     
-    #         @discord.ui.button(label='影片', style=discord.ButtonStyle.blurple)
-    #         async def videoonly(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             await self.toggle(interaction, button, 'videoonly')
+            @discord.ui.button(label='影片', style=discord.ButtonStyle.blurple)
+            async def videoonly(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'videoonly')
 
-    #         @discord.ui.button(label='播放清單', style=discord.ButtonStyle.blurple)
-    #         async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             await self.toggle(interaction, button, 'playlist')
+            @discord.ui.button(label='播放清單', style=discord.ButtonStyle.blurple)
+            async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'playlist')
 
-    #         @discord.ui.button(
-    #             label='清除記住的選擇',
-    #             style=discord.ButtonStyle.danger if musicbot[command.guild.id].multitype_remembered else discord.ButtonStyle.gray,
-    #             disabled = not musicbot[command.guild.id].multitype_remembered)
-    #         async def clear(self, interaction: discord.Interaction, button: discord.ui.Button):            
-    #             await self.toggle(interaction, button, 'clear_remember')
+            @discord.ui.button(
+                label='清除記住的選擇',
+                style=discord.ButtonStyle.danger if musicbot[interaction.guild.id].multitype_remembered else discord.ButtonStyle.gray,
+                disabled = not musicbot[interaction.guild.id].multitype_remembered)
+            async def clear(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, 'clear_remember')
 
-    #         @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
-    #         async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             await interaction.response.pong()
-    #             await interaction.message.delete()
-    #             self.stop()
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
+            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.pong()
+                await interaction.message.delete()
+                self.stop()
 
-    #         async def on_timeout(self):
-    #             self.clear_items()
-    #             await msg.edit(view=self)
-    #             await msg.add_reaction('🛑')
+            async def on_timeout(self):
+                self.clear_items()
+                await msg.edit(view=self)
+                await msg.add_reaction('🛑')
 
-    #     view = MultiType()
-    #     msg = await command.send(content, view=view)
-    #     if command.command_type == 'Interaction':
-    #         msg = await command.original_response()
+        view = MultiType()
+        await interaction.response.send_message(content, view=view)
+        msg = await interaction.original_response()
 
-    # async def MultiTypeNotify(self, command: Command, search):
-    #     content = f'''
-    #     **:bell: | 你所提供的連結有點特別**
-    #     你的連結似乎同時包含歌曲和播放清單，請選擇你想要加入的那一種
-    #     *(如果有選擇困難，你也可以交給機器人決定(#)*
-    #     *"你開心就好" 選項不會被儲存，即使勾選了 "記住我的選擇"*
-    #     *如果記住選擇後想要更改，可以輸入 /playwith 或 *{self.bot.command_prefix}playwith 來重新選擇*'''
+    async def MultiTypeNotify(self, interaction: discord.Interaction, search):
+        content = f'''
+        **:bell: | 你所提供的連結有點特別**
+        你的連結似乎同時包含歌曲和播放清單，請選擇你想要加入的那一種
+        *(如果有選擇困難，你也可以交給機器人決定(#)*
+        *"你開心就好" 選項不會被儲存，即使勾選了 "記住我的選擇"*
+        *如果記住選擇後想要更改，可以輸入 /playwith 來重新選擇*'''
 
-    #     class MultiType(discord.ui.View):
+        class MultiType(discord.ui.View):
 
-    #         bot = self.bot
-    #         get_track = self.musicbot._Notify_Choice_Done
-    #         musicbot = self.musicbot
+            bot = self.bot
+            get_track = self.musicbot._get_track
+            musicbot = self.musicbot
             
-    #         def __init__(self, *, timeout=60):
-    #             self.choice = ""
-    #             super().__init__(timeout=timeout)
+            def __init__(self, *, timeout=60):
+                self.choice = ""
+                super().__init__(timeout=timeout)
 
-    #         async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, choice: str):
-    #             if choice != 'remember_choice':
-    #                 if choice == 'whatever':
-    #                     self.choice = random.choice(['videoonly', 'playlist'])
-    #                 else:
-    #                     self.choice = choice
-    #                 if self.musicbot[command.guild.id].multitype_remembered and choice != 'whatever':
-    #                     self.musicbot[command.guild.id].multitype_choice = choice
-    #                 await interaction.response.pong()
-    #                 await interaction.message.delete()
-    #                 await self.get_track(command, search, self.choice)
-    #                 self.stop()
-    #             else:
-    #                 if button.label == '⬜ 記住我的選擇':
-    #                     button.label = '✅ 記住我的選擇'
-    #                     button.style = discord.ButtonStyle.success
-    #                     self.musicbot[command.guild.id].multitype_remembered = True
-    #                 else:
-    #                     button.label = '⬜ 記住我的選擇'
-    #                     button.style = discord.ButtonStyle.danger
-    #                     self.musicbot[command.guild.id].multitype_remembered = False
-    #                 await interaction.response.edit_message(view=view)
+            async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, choice: str):
+                if choice != 'remember_choice':
+                    if choice == 'whatever':
+                        self.choice = random.choice(['videoonly', 'playlist'])
+                    else:
+                        self.choice = choice
+                    if self.musicbot[interaction.guild.id].multitype_remembered and choice != 'whatever':
+                        self.musicbot[interaction.guild.id].multitype_choice = choice
+                    await interaction.response.pong()
+                    await interaction.message.delete()
+                    track = await self.get_track(interaction, search, self.choice)
+                    await self.musicbot.play(interaction, track)
+                    self.stop()
+                else:
+                    if button.label == '⬜ 記住我的選擇':
+                        button.label = '✅ 記住我的選擇'
+                        button.style = discord.ButtonStyle.success
+                        self.musicbot[interaction.guild.id].multitype_remembered = True
+                    else:
+                        button.label = '⬜ 記住我的選擇'
+                        button.style = discord.ButtonStyle.danger
+                        self.musicbot[interaction.guild.id].multitype_remembered = False
+                    await interaction.response.edit_message(view=view)
                     
-    #         @discord.ui.button(label='影片', style=discord.ButtonStyle.blurple)
-    #         async def videoonly(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             await self.toggle(interaction, button, 'videoonly')
+            @discord.ui.button(label='影片', style=discord.ButtonStyle.blurple)
+            async def videoonly(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'videoonly')
 
-    #         @discord.ui.button(label='播放清單', style=discord.ButtonStyle.blurple)
-    #         async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             await self.toggle(interaction, button, 'playlist')
+            @discord.ui.button(label='播放清單', style=discord.ButtonStyle.blurple)
+            async def playlist(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'playlist')
 
-    #         @discord.ui.button(label='你開心就好', style=discord.ButtonStyle.blurple)
-    #         async def whatever(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             await self.toggle(interaction, button, 'whatever')
+            @discord.ui.button(label='你開心就好', style=discord.ButtonStyle.blurple)
+            async def whatever(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, 'whatever')
 
-    #         @discord.ui.button(
-    #             label='⬜ 記住我的選擇' if not musicbot[command.guild.id].multitype_remembered else "✅ 記住我的選擇", 
-    #             style=discord.ButtonStyle.danger if not musicbot[command.guild.id].multitype_remembered else discord.ButtonStyle.success)
-    #         async def remember(self, interaction: discord.Interaction, button: discord.ui.Button):            
-    #             await self.toggle(interaction, button, 'remember_choice')
+            @discord.ui.button(
+                label='⬜ 記住我的選擇' if not musicbot[interaction.guild.id].multitype_remembered else "✅ 記住我的選擇", 
+                style=discord.ButtonStyle.danger if not musicbot[interaction.guild.id].multitype_remembered else discord.ButtonStyle.success)
+            async def remember(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, 'remember_choice')
 
-    #         @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
-    #         async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-    #             if self.musicbot[command.guild.id].multitype_remembered and \
-    #                 self.musicbot[command.guild.id].multitype_choice == "":
-    #                 self.musicbot[command.guild.id].multitype_remembered = False
-    #             await interaction.response.pong()
-    #             await interaction.message.delete()
-    #             self.stop()
+            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
+            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
+                if self.musicbot[interaction.guild.id].multitype_remembered and \
+                    self.musicbot[interaction.guild.id].multitype_choice == "":
+                    self.musicbot[interaction.guild.id].multitype_remembered = False
+                await interaction.response.pong()
+                await interaction.message.delete()
+                self.stop()
 
-    #         async def on_timeout(self):
-    #             if self.musicbot[command.guild.id].multitype_remembered and \
-    #                 self.musicbot[command.guild.id].multitype_choice == "":
-    #                 self.musicbot[command.guild.id].multitype_remembered = False
-    #             self.clear_items()
-    #             await msg.edit(view=self)
-    #             await msg.add_reaction('🛑')
+            async def on_timeout(self):
+                if self.musicbot[interaction.guild.id].multitype_remembered and \
+                    self.musicbot[interaction.guild.id].multitype_choice == "":
+                    self.musicbot[interaction.guild.id].multitype_remembered = False
+                self.clear_items()
+                await msg.edit(view=self)
+                await msg.add_reaction('🛑')
 
-    #     view = MultiType()
-    #     msg = await command.send(content, view=view)
-    #     if command.command_type == 'Interaction':
-    #         msg = await command.original_response()
+        view = MultiType()
+        await interaction.response.send_message(content, view=view)
+        msg = await interaction.original_response()
 
-    async def PlayingMsg(self, channel: Union[discord.TextChannel, Command]):
+    async def PlayingMsg(self, channel: Union[discord.TextChannel, discord.Interaction]):
         playlist = self.musicbot._playlist[channel.guild.id]
 
         if len(playlist.order) > 0 \
@@ -352,7 +348,10 @@ class PlayerControl:
             if await self.guild_info(channel.guild.id).playinfo is not None:
                 await self.guild_info(channel.guild.id).playinfo.edit(content=msg)
             else:
-                await channel.send(msg)
+                if isinstance(channel, discord.Interaction):
+                    await channel.response.send_message(msg)
+                else:
+                    await channel.send(msg)
 
         class PlaybackControl(discord.ui.View):
 
@@ -613,7 +612,7 @@ class PlayerControl:
             *輸入 **{self.bot.command_prefix}resume** 以繼續播放*
             ''')
         self.guild_info(interaction.guild.id).playinfo_view.playorpause.label = '▶️'
-        await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+        await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(interaction.guild.id).playinfo_view)
         try: 
             await self.stage._UpdateStageTopic(guild_id, 'pause')
         except: 
@@ -662,21 +661,21 @@ class PlayerControl:
     def SkipProceed(self, guild_id: int):
         self.guild_info(guild_id).skip = True
 
-    async def SkipFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SKIPFAIL", exception)
+    async def SkipFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "SKIPFAIL", exception)
 
     ############################################################
     # Stop #####################################################
 
-    async def StopSucceed(self, command: Command) -> None:
-        await command.send(f'''
+    async def StopSucceed(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(f'''
             **:stop_button: | 停止播放**
             歌曲已停止播放
             *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
             ''')
     
-    async def StopFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "STOPFAIL", exception)
+    async def StopFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "STOPFAIL", exception)
 
     ############################################################
     # Seek #####################################################
@@ -693,43 +692,43 @@ class PlayerControl:
         bar += "**"
         return bar
     
-    async def SeekSucceed(self, command: Command, timestamp: int) -> None:
-        playlist = self.musicbot._playlist[command.guild.id]
+    async def SeekSucceed(self, interaction: discord.Interaction, timestamp: int) -> None:
+        playlist = self.musicbot._playlist[interaction.guild.id]
         if timestamp >= (playlist[0].length)/1000:
             return
         seektime = self._sec_to_hms(timestamp, "symbol")
         duration = self._sec_to_hms(playlist[0].length, "symbol")
         bar = self._ProgressBar(timestamp, (playlist[0].length)/1000)
-        await command.send(f'''
+        await interaction.response.send_message(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
             **{seektime}** {bar} **{duration}**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
         ''')
     
-    async def SeekFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SEEKFAIL", exception)
+    async def SeekFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "SEEKFAIL", exception)
 
     ############################################################
     # Replay ###################################################
 
-    async def ReplaySucceed(self, command: Command) -> None:
-        await command.send(f'''
+    async def ReplaySucceed(self, interaction: discord.Interaction) -> None:
+        await interaction.response.send_message(f'''
             **:repeat: | 重播歌曲**
             歌曲已重新開始播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
             ''')
     
-    async def ReplayFailed(self, command: Command, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "REPLAYFAIL", exception)
+    async def ReplayFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "REPLAYFAIL", exception)
 
     ############################################################
     # Loop #####################################################
 
-    async def LoopSucceed(self, command: Command) -> None:
-        if command.command_type == 'Interaction' or self.guild_info(command.guild.id).playinfo is None:
-            loopstate = self.musicbot._playlist[command.guild.id].loop_state
-            looptimes = self.musicbot._playlist[command.guild.id].times
+    async def LoopSucceed(self, interaction: discord.Interaction) -> None:
+        if self.guild_info(interaction.guild.id).playinfo is None:
+            loopstate = self.musicbot._playlist[interaction.guild.id].loop_state
+            looptimes = self.musicbot._playlist[interaction.guild.id].times
             if loopstate == LoopState.SINGLEINF:
                 msg = '''
             **:repeat_one: | 循環播放**
@@ -762,29 +761,26 @@ class PlayerControl:
                 text = ''
                 icon = repeat_emoji
                 color = discord.ButtonStyle.danger
-            await command.send(msg)
-        if self.guild_info(command.guild.id).playinfo is not None:
-            await self.info_generator._UpdateSongInfo(command.guild.id)
-            self.guild_info(command.guild.id).playinfo_view.loop_control.emoji = icon
-            self.guild_info(command.guild.id).playinfo_view.loop_control.label = text
-            self.guild_info(command.guild.id).playinfo_view.loop_control.style = color
-            await self.guild_info(command.guild.id).playinfo.edit(view=self.guild_info(command.guild.id).playinfo_view)
+            await interaction.response.send_message(msg)
+        if self.guild_info(interaction.guild.id).playinfo is not None:
+            await self.info_generator._UpdateSongInfo(interaction.guild.id)
+            self.guild_info(interaction.guild.id).playinfo_view.loop_control.emoji = icon
+            self.guild_info(interaction.guild.id).playinfo_view.loop_control.label = text
+            self.guild_info(interaction.guild.id).playinfo_view.loop_control.style = color
+            await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(interaction.guild.id).playinfo_view)
 
-    async def SingleLoopFailed(self, command: Command) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "LOOPFAIL_SIG")
+    async def SingleLoopFailed(self, interaction: discord.Interaction) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "LOOPFAIL_SIG")
 
     ###############################################################
     # Shuffle #####################################################
 
-    async def ShuffleSucceed(self, command: Command) -> None:
+    async def ShuffleSucceed(self, interaction: discord.Interaction) -> None:
         msg = f'''
             **:twisted_rightwards_arrows: | 隨機排列待播清單**
             待播清單已成功隨機排列
             '''
-        if command.command_type == 'Interaction':
-            await command.send(msg, ephemeral=True)
-        else:
-            await command.send(msg)
+        await interaction.response.send_message(msg, ephemeral=True)
 
-    async def ShuffleFailed(self, command: Command) -> None:
-        await self.exception_handler._CommonExceptionHandler(command, "SHUFFLEFAIL")
+    async def ShuffleFailed(self, interaction: discord.Interaction) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "SHUFFLEFAIL")

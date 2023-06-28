@@ -30,7 +30,7 @@ class ExceptionHandler:
             "SHUFFLEFAIL": ["無法隨機排列待播歌曲，請確認待播列表有歌曲可供排列", "shuffle", "來隨機排列待播歌曲"],
         }
 
-    async def _MusicExceptionHandler(self, message, exception=None, url=None):
+    async def _MusicExceptionHandler(self, message: discord.Interaction, exception=None, url=None):
         part_content = f'''
         **:warning: | 警告 | SEARCH_OR_PLAYING_FAILED**
         您提供的音樂，機器人無法播放
@@ -80,7 +80,7 @@ class ExceptionHandler:
                 msg = await message.send(content, embed=embed, view=groupbutton)
         else:
             if isinstance(message, discord.Interaction):
-                if message.is_response():
+                if message.response.is_done():
                     msg = await message.channel.send(content, view=groupbutton)
                 else:
                     msg = await message.response.send_message(content, view=groupbutton)

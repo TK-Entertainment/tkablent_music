@@ -133,16 +133,19 @@ class InfoGenerator:
         else:
             offset = 0
 
+        # Upcoming song (via Suggestion)
         if self.guild_info(guild_id).music_suggestion and len(playlist.order) == 2 and playlist[1].suggested and color_code != 'red':
             if self.guild_info(guild_id).skip:
                 queuelist += f"**推薦歌曲載入中**"
             else:
-                queuelist += f"**【推薦】** {playlist[1].title}"
-            embed.add_field(name="{} 即將播放".format(f":hourglass: |" if self.guild_info(guild_id).skip else ""), value=queuelist, inline=False)
+                queuelist += f"**:bulb:** {playlist[1].title}"
+            embed.add_field(name="{}即將播放".format(f":hourglass: | " if self.guild_info(guild_id).skip else ""), value=queuelist, inline=False)
         
+        # Upcoming song (with single repeat on and only one song in queue)
         elif len(playlist.order) == 1 and playlist.loop_state == LoopState.PLAYLIST:
             embed.add_field(name="即將播放", value="*無下一首，將重複播放此歌曲*", inline=False)
         
+        # Upcoming song
         elif len(playlist.order)-offset > 1 and color_code != 'red':
             queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].requester}*\n"
             if len(playlist.order) > 2: 
@@ -159,10 +162,13 @@ class InfoGenerator:
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed
 
-    def _PlaylistInfo(self, playlist: SpotifyAlbum, requester: discord.User):
+    def _PlaylistInfo(self, playlist: Union[SpotifyAlbum, wavelink.YouTubePlaylist], requester: discord.User, is_ytpl=False):
         # Generate Embed Body
-        if isinstance(playlist, list):
+        if isinstance(playlist, list) and not is_ytpl:
             title = f"{search_emoji} | 選取的搜尋歌曲"
+            url = None
+        elif is_ytpl:
+            title = f":newspaper: | 音樂播放清單"
             url = None
         else:
             title = f"{spotify_emoji} | {playlist.name}"

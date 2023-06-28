@@ -25,6 +25,9 @@ class GuildInfo:
         self._refresh_msg_task: asyncio.Task = None
         self._timer: asyncio.Task = None
         self._dsa: bool = None
+        self._multitype_remembered: bool = None
+        self._multitype_choice: str = None
+
 
     @property
     def data_survey_agreement(self):
@@ -37,10 +40,31 @@ class GuildInfo:
         self._dsa(self, value)
         self.update("dsa", value)
 
+    @property
+    def multitype_remembered(self):
+        if self._multitype_remembered is None:
+            self._multitype_remembered = self.fetch('multitype_remembered')
+        return self._multitype_remembered
+    
+    @multitype_remembered.setter
+    def multitype_remembered(self, value: bool):
+        self._multitype_remembered(self, value)
+        self.update("multitype_remembered", value)
+
+    @property
+    def multitype_choice(self):
+        if self._multitype_choice is None:
+            self._multitype_choice = self.fetch('multitype_choice')
+        return self._multitype_choice
+
+    @multitype_choice.setter
+    def multitype_choice(self, value: str):
+        self._multitype_choice(self, value)
+        self.update("multitype_choice", value)
+
     def fetch(self, key: str) -> not None:
         '''fetch from database'''
-
-        with open(r'utils\data.json', 'r') as f:
+        with open(fr"{os.getcwd()}/utils/data.json", 'r') as f:
             data: dict = json.load(f)
         if data.get(str(self.guild_id)) is None or data[str(self.guild_id)].get(key) is None:
             return data['default'][key]
@@ -49,7 +73,7 @@ class GuildInfo:
     def update(self, key: str, value: str) -> None:
         '''update database'''
 
-        with open(r'utils\data.json', 'r') as f:
+        with open(fr"{os.getcwd()}/utils/data.json", 'r') as f:
             data: dict = json.load(f)
         if data.get(str(self.guild_id)) is None:
             data[str(self.guild_id)] = dict()
@@ -236,6 +260,12 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
+    @app_commands.command(name='playwith', description="⚙️ | 設定對於混合連結的預設動作")
+    async def mtsetup(self, interaction: discord.Interaction):
+        await self.ui.PlayerControl.MultiTypeSetup(interaction)
+
+    ##############################################
+
     async def ensure_stage_status(self, interaction: discord.Interaction):
         '''a helper function for opening a stage'''
 
@@ -278,7 +308,6 @@ class MusicCog(Player, commands.Cog):
                 isinstance(former.instance, discord.StageInstance):
             await self.ui.Stage.EndStage(interaction.guild.id)
 
-    @app_commands.command(name='join', description='📥 | 將我加入目前您所在的頻道')
     async def join(self, interaction: discord.Interaction):
         voice_client: wavelink.Player = interaction.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
@@ -298,6 +327,10 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.Join.JoinNormal(interaction)
         except Exception as e:
             await self.ui.Join.JoinFailed(interaction, e)
+
+    @app_commands.command(name='join', description='📥 | 將我加入目前您所在的頻道')
+    async def _join_s(self, interaction: discord.Interaction):
+        await self.join(interaction)
 
     ##############################################
 
@@ -337,204 +370,147 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    async def skip(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        try:
-            await self._skip(command.guild)
-            self.ui.PlayerControl.SkipProceed(command.guild.id)
-            if command.is_response() is not None and not command.is_response():
-                await command.send("⠀")
-        except Exception as e:
-            await self.ui.PlayerControl.SkipFailed(command, e)
-    
     @app_commands.command(name='skip', description='⏩ | 跳過目前播放的歌曲')
-    async def _i_skip(self, interaction: discord.Interaction):
-        await self.skip(interaction)
-
-    ##############################################
-
-    async def nowplaying(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        await self.ui.PlayerControl.NowPlaying(command)
-
-    @app_commands.command(name='np', description='▶️ | 查看現在在播放什麼!')
-    async def _i_nowplaying(self, interaction: discord.Interaction):
-        await self.nowplaying(interaction)
-
-    ##############################################
-
-    async def stop(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
+    async def skip(self, interaction: discord.Interaction):
         try:
-            await self._stop(command.guild)
-            await self.ui.PlayerControl.StopSucceed(command)
+            await self._skip(interaction.guild)
+            self.ui.PlayerControl.SkipProceed(interaction.guild.id)
+            if not interaction.response.is_done():
+                await interaction.response.send_message("⠀")
+                tmpmsg = await interaction.original_response()
+                await tmpmsg.delete()
         except Exception as e:
-            await self.ui.PlayerControl.StopFailed(command, e)
+            await self.ui.PlayerControl.SkipFailed(interaction, e)
+
+    ##############################################
+    
+    @app_commands.command(name='np', description='▶️ | 查看現在在播放什麼!')
+    async def nowplaying(self, interaction: discord.Interaction):
+        await self.ui.PlayerControl.NowPlaying(interaction)
+
+    ##############################################
 
     @app_commands.command(name='stop', description='⏹️ | 停止音樂並清除待播清單')
-    async def _i_stop(self, interaction: discord.Interaction):
-        await self.stop(interaction)
+    async def stop(self, interaction: discord.Interaction):
+        try:
+            await self._stop(interaction.guild)
+            await self.ui.PlayerControl.StopSucceed(interaction)
+        except Exception as e:
+            await self.ui.PlayerControl.StopFailed(interaction, e)
 
     ##############################################
 
-    async def seek(self, command, timestamp: Union[float, str]):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
+    @app_commands.command(name='seek', description='⏲️ | 跳轉你想要聽的地方')
+    @app_commands.describe(timestamp='目標時間 (時間戳格式 0:20) 或 (秒數 20)')
+    @app_commands.rename(timestamp='目標時間')
+    async def seek(self, interaction, timestamp: str):
         try:
             if isinstance(timestamp, str):
                 tmp = map(int, reversed(timestamp.split(":")))
                 timestamp = 0
                 for idx, val in enumerate(tmp):
                     timestamp += (60 ** idx) * val
-            await self._seek(command.guild, timestamp)
-            await self.ui.PlayerControl.SeekSucceed(command, timestamp)
+            await self._seek(interaction.guild, timestamp)
+            await self.ui.PlayerControl.SeekSucceed(interaction, timestamp)
         except ValueError as e:  # For ignoring string with ":" like "o:ro"
-            await self.ui.PlayerControl.SeekFailed(command, e)
+            await self.ui.PlayerControl.SeekFailed(interaction, e)
             return
 
-    @app_commands.command(name='seek', description='⏲️ | 跳轉你想要聽的地方')
-    @app_commands.describe(timestamp='目標時間 (時間戳格式 0:20) 或 (秒數 20)')
-    @app_commands.rename(timestamp='目標時間')
-    async def _i_seek(self, interaction: discord.Interaction, timestamp: str):
-        await self.seek(interaction, timestamp)
-
     ##############################################
-
-    async def restart(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        try:
-            await self._seek(0)
-            await self.ui.PlayerControl.ReplaySucceed(command)
-        except Exception as e:
-            await self.ui.PlayerControl.ReplayFailed(command, e)
 
     @app_commands.command(name='restart', description='🔁 | 重頭開始播放目前的歌曲')
-    async def _i_restart(self, interaction: discord.Interaction):
-        await self.restart(interaction)
+    async def restart(self, interaction: discord.Interaction):
+        try:
+            await self._seek(0)
+            await self.ui.PlayerControl.ReplaySucceed(interaction)
+        except Exception as e:
+            await self.ui.PlayerControl.ReplayFailed(interaction, e)
 
     ##############################################
-
-    async def single_loop(self, command, times: Union[int, str]=INF):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        voice_client: wavelink.Player = command.guild.voice_client
-        if not isinstance(times, int) or voice_client is None or len(self._playlist[command.guild.id].order) == 0:
-            return await self.ui.PlayerControl.SingleLoopFailed(command)
-        self._playlist.single_loop(command.guild.id, times)
-        await self.ui.PlayerControl.LoopSucceed(command)
 
     @app_commands.command(name='loop', description='🔂 | 循環播放目前的歌曲')
     @app_commands.describe(times='重複播放次數 (不填寫次數以啟動無限次數循環)')
     @app_commands.rename(times='重複播放次數')
-    async def _i_single_loop(self, interaction: discord.Interaction, times: int=INF):
-        await self.single_loop(interaction, times)
+    async def single_loop(self, interaction: discord.Interaction, times: int=INF):
+        voice_client: wavelink.Player = interaction.guild.voice_client
+        if not isinstance(times, int) or voice_client is None or len(self._playlist[interaction.guild.id].order) == 0:
+            return await self.ui.PlayerControl.SingleLoopFailed(interaction)
+        self._playlist.single_loop(interaction.guild.id, times)
+        await self.ui.PlayerControl.LoopSucceed(interaction)
 
     ##############################################
-
-    async def shuffle(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        if len(self._playlist[command.guild.id]) < 2:
-            await self.ui.PlayerControl.ShuffleFailed(command)
-        self._playlist[command.guild.id].shuffle()
 
     @app_commands.command(name='shuffle', description='🔀 | 隨機排序目前的待播清單')
-    async def _i_shuffle(self, interaction: discord.Interaction):
-        await self.shuffle(interaction)
+    async def shuffle(self, interaction: discord.Interaction):
+        if len(self._playlist[interaction.guild.id]) < 2:
+            await self.ui.PlayerControl.ShuffleFailed(interaction)
+        self._playlist[interaction.guild.id].shuffle()
 
     ##############################################
-
-    async def playlist_loop(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        voice_client: wavelink.Player = command.guild.voice_client
-        if voice_client is None or len(self._playlist[command.guild.id].order) == 0:
-            return await self.ui.PlayerControl.SingleLoopFailed(command)
-        self._playlist.playlist_loop(command.guild.id)
-        await self.ui.PlayerControl.LoopSucceed(command)
 
     @app_commands.command(name='queueloop', description='🔁 | 循環播放目前的待播清單')
-    async def _i_playlist_loop(self, interaction: discord.Interaction):
-        await self.playlist_loop(interaction)
+    async def playlist_loop(self, interaction: discord.Interaction):
+        voice_client: wavelink.Player = interaction.guild.voice_client
+        if voice_client is None or len(self._playlist[interaction.guild.id].order) == 0:
+            return await self.ui.PlayerControl.SingleLoopFailed(interaction)
+        self._playlist.playlist_loop(interaction.guild.id)
+        await self.ui.PlayerControl.LoopSucceed(interaction)
 
     ##############################################
 
-    async def show_queue(self, command):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        await self.ui.Queue.ShowQueue(command)
-
     @app_commands.command(name='queue', description='ℹ️ | 列出目前的待播清單')
-    async def _i_show_queue(self, interaction: discord.Interaction):
-        await self.show_queue(interaction)
+    async def show_queue(self, interaction: discord.Interaction):
+        await self.ui.Queue.ShowQueue(interaction)
 
     ##############################################    
-
-    async def remove(self, command, idx: Union[int, str]):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        try:
-            if self._playlist[command.guild.id].order[idx].suggested:
-                await self.ui.QueueControl.RemoveFailed(command, '不能移除建議歌曲')
-                return
-            removed = self._playlist[command.guild.id].order[idx]
-            self._playlist.pop(command.guild.id, idx)
-            await self.ui.QueueControl.RemoveSucceed(command, removed, idx)
-        except (IndexError, TypeError) as e:
-            await self.ui.QueueControl.RemoveFailed(command, e)
 
     @app_commands.command(name='remove', description='🗑️ | 刪除待播清單中的一首歌')
     @app_commands.describe(idx='欲刪除歌曲之位置 (可用 %queue 或 /queue 得知位置代號)')
     @app_commands.rename(idx='刪除歌曲位置')
-    async def _i_remove(self, interaction: discord.Interaction, idx: int):
-        await self.remove(interaction, idx)
+    async def remove(self, interaction: discord.Interaction, idx: int):
+        try:
+            if self._playlist[interaction.guild.id].order[idx].suggested:
+                await self.ui.QueueControl.RemoveFailed(interaction, '不能移除建議歌曲')
+                return
+            removed = self._playlist[interaction.guild.id].order[idx]
+            self._playlist.pop(interaction.guild.id, idx)
+            await self.ui.QueueControl.RemoveSucceed(interaction, removed, idx)
+        except (IndexError, TypeError) as e:
+            await self.ui.QueueControl.RemoveFailed(interaction, e)
 
    ##############################################
-
-    async def swap(self, command, idx1: Union[int, str], idx2: Union[int, str]):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
-        try:
-            if self._playlist[command.guild.id].order[idx1].suggested or self._playlist[command.guild.id].order[idx2].suggested:
-                await self.ui.QueueControl.SwapFailed(command, '不能移動建議歌曲')
-                return
-            self._playlist.swap(command.guild.id, idx1, idx2)
-            await self.ui.QueueControl.Embed_SwapSucceed(command, idx1, idx2)
-        except (IndexError, TypeError) as e:
-            await self.ui.QueueControl.SwapFailed(command, e)
 
     @app_commands.command(name='swap', description='🔄 | 交換待播清單中兩首歌的位置')
     @app_commands.describe(idx1='歌曲1 位置 (可用 %queue 或 /queue 得知位置代號)', idx2='歌曲2 位置 (可用 %queue 或 /queue 得知位置代號)')
     @app_commands.rename(idx1='歌曲1位置', idx2='歌曲2位置')
-    async def _i_swap(self, interaction: discord.Interaction, idx1: int, idx2: int):
-        await self.swap(interaction, idx1, idx2)
-    ##############################################
-
-    async def move_to(self, command, origin: Union[int, str], new: Union[int, str]):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
+    async def swap(self, interaction: discord.Interaction, idx1: int, idx2: int):
         try:
-            if self._playlist[command.guild.id].order[origin].suggested or self._playlist[command.guild.id].order[new].suggested:
-                await self.ui.QueueControl.MoveToFailed(command, '不能移動建議歌曲')
+            if self._playlist[interaction.guild.id].order[idx1].suggested or self._playlist[interaction.guild.id].order[idx2].suggested:
+                await self.ui.QueueControl.SwapFailed(interaction, '不能移動建議歌曲')
                 return
-            self._playlist.move_to(command.guild.id, origin, new)
-            await self.ui.QueueControl.MoveToSucceed(command, origin, new)
+            self._playlist.swap(interaction.guild.id, idx1, idx2)
+            await self.ui.QueueControl.Embed_SwapSucceed(interaction, idx1, idx2)
         except (IndexError, TypeError) as e:
-            await self.ui.QueueControl.MoveToFailed(command, e)
+            await self.ui.QueueControl.SwapFailed(interaction, e)
+
+    ##############################################
 
     @app_commands.command(name='move', description='🔄 | 移動待播清單中一首歌的位置')
     @app_commands.describe(origin='原位置 (可用 %queue 或 /queue 得知位置代號)', new='目標位置 (可用 %queue 或 /queue 得知位置代號)')
     @app_commands.rename(origin='原位置', new='目標位置')
-    async def _i_move_to(self, interaction: discord.Interaction, origin: int, new: int):
-        await self.move_to(interaction, origin, new)
+    async def move_to(self, interaction: discord.Interaction, origin: int, new: int):
+        try:
+            if self._playlist[interaction.guild.id].order[origin].suggested or self._playlist[interaction.guild.id].order[new].suggested:
+                await self.ui.QueueControl.MoveToFailed(interaction, '不能移動建議歌曲')
+                return
+            self._playlist.move_to(interaction.guild.id, origin, new)
+            await self.ui.QueueControl.MoveToSucceed(interaction, origin, new)
+        except (IndexError, TypeError) as e:
+            await self.ui.QueueControl.MoveToFailed(interaction, e)
 
     ##############################################
 
-    async def process(self, command: Command,
+    async def process(self, interaction: discord.Interaction,
                             trackinfo: Union[
                                 wavelink.YouTubeTrack,
                                 wavelink.YouTubeMusicTrack,
@@ -546,69 +522,73 @@ class MusicCog(Player, commands.Cog):
         try: 
             if isinstance(trackinfo, list):
                 is_search = trackinfo[-1] == 'Search'
-                trackinfo.pop(-1)
+                is_ytpl = trackinfo[-1] == 'YTPL'
+                if trackinfo[-1] == 'Search' or trackinfo[-1] == 'YTPL':
+                    trackinfo.pop(-1)
             else:
                 is_search = False
-            await self._search(command.guild, trackinfo, requester=command.author)
+            await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
             # If search failed, sent to handler
-            await self.ui.Search.SearchFailed(command, e)
+            await self.ui.Search.SearchFailed(interaction, e)
             return
         # If queue has more than 1 songs, then show the UI
-        await self.ui.Queue.Embed_AddedToQueue(command, trackinfo, requester=command.author, is_search=is_search)
+        await self.ui.Queue.Embed_AddedToQueue(interaction, trackinfo, requester=interaction.user, is_search=is_search, is_ytpl=is_ytpl)
     
-    async def play(self, command, trackinfo: Union[
+    async def play(self, interaction: discord.Interaction, trackinfo: Union[
                                 wavelink.GenericTrack,
                                 wavelink.SoundCloudTrack,
                             ]):
-        if not isinstance(command, Command):
-            command: Command = Command(command)
         # Try to make bot join author's channel
         if isinstance(trackinfo, list):
-            if trackinfo[-1] != 'Search':
+            if trackinfo[-1] != 'Search' and trackinfo[-1] != "YTPL":
                 trackinfo.pop(-1)
-        if command.command_type == 'Context':
-            await command.channel.typing()
-        voice_client: wavelink.Player = command.guild.voice_client
+        voice_client: wavelink.Player = interaction.guild.voice_client
         if isinstance(voice_client, wavelink.Player) and \
-            command.author.voice is None:
+            interaction.user.voice is None:
             pass
         elif not isinstance(voice_client, wavelink.Player) or \
-                voice_client.channel != command.author.voice.channel:
-            await self.join(command)
-            voice_client = command.guild.voice_client
+                voice_client.channel != interaction.user.voice.channel:
+            await self.join(interaction)
+            voice_client = interaction.guild.voice_client
             if not isinstance(voice_client, wavelink.Player):
                 return
 
         # Start search process
-        await self.process(command, trackinfo)
+        await self.process(interaction, trackinfo)
 
-        await self._play(command.guild, command.channel)
-        if command.command_type == 'Interaction' and command.is_response is not None and not command.is_response():
-            await command.send("⠀")    
+        await self._play(interaction.guild, interaction.channel)
+        if not interaction.response.is_done():
+            await interaction.response.send_message("⠀")  
+            tmpmsg = await interaction.original_response()
+            await tmpmsg.delete()  
 
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
     @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 SoundCloud / Spotify)')
     @app_commands.rename(search='影片網址或關鍵字')
     async def _i_play(self, interaction: discord.Interaction, search: str):
-        command: Command = Command(interaction)
-        if "youtube" in search or 'youtu.be' in search:
-            await self.ui.Search.YoutubeFuckedUp(command)
-            return
-        tracks = await self._get_track(command, search)
-        if tracks == "NodeDisconnected":
-            await self.ui.ExceptionHandler.NodeDisconnectedMessage()
-        if isinstance(tracks, Union[SpotifyAlbum, SpotifyPlaylist]):
-            await self.play(command, tracks)
+        if 'spotify' in search or "https://www.youtube.com/" in search or "https://youtu.be/" in search:
+            if "list" in search:
+                if self[interaction.guild.id].multitype_remembered:
+                    tracks = await self._get_track(interaction, search, self[interaction.guild.id].multitype_choice)   
+                else:
+                    await self.ui.PlayerControl.MultiTypeNotify(interaction, search)
+                    return
+            else:
+                tracks = await self._get_track(interaction, search)
+            if tracks == "NodeDisconnected":
+                await self.ui.ExceptionHandler.NodeDisconnectedMessage()
+                return
+            await self.play(interaction, tracks)
         else:
-            await self.ui.PlayerControl.SearchResultSelection(command, tracks)
+            tracks = await self._get_track(interaction, search)
+            await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
-    async def _get_track(self, command: Command, search: str):
+    async def _get_track(self, interaction: discord.Interaction, search: str, choice="videoonly"):
         searchnode = wavelink.NodePool.get_node(id="SearchNode")
         if searchnode.status != wavelink.NodeStatus.CONNECTED:
             return "NodeDisconnected"
-        if command.command_type == 'Interaction':
-            await command.defer(ephemeral=True ,thinking=True)
+        await interaction.response.defer(ephemeral=True ,thinking=True)
         if 'spotify' in search:
             if 'track' in search:
                 searchtype = spotify.SpotifySearchType.track
@@ -618,7 +598,7 @@ class MusicCog(Player, commands.Cog):
                 searchtype = spotify.SpotifySearchType.playlist
             
             if ('album' in search or 'artist' in search or 'playlist' in search):
-                self.ui_guild_info(command.guild.id).processing_msg = await self.ui.Search.SearchInProgress(command)
+                self.ui_guild_info(interaction.guild.id).processing_msg = await self.ui.Search.SearchInProgress(interaction)
 
             searchnode = wavelink.NodePool.get_node(id="SearchNode")
             tracks = await spotify.SpotifyTrack.search(search, node=searchnode, type=searchtype, return_first=True)
@@ -628,34 +608,59 @@ class MusicCog(Player, commands.Cog):
             else:
                 trackinfo = self._playlist.spotify_info_process(search, tracks, searchtype)
         else:
+            if "https://www.youtube.com/" in search or "https://youtu.be/" in search:
+                youtube_url = True
+                if "list" in search:
+                    extract = search.split('&')
+                    if choice == 'videoonly':
+                        url = extract[0]
+                    elif choice == 'playlist':
+                        url = f'https://www.youtube.com/playlist?{extract[1]}'
+                    else:
+                        url = search
+                else:
+                    url = search
+            else:
+                youtube_url = False
+                url = search
+
             trackinfo = []
-            for trackmethod in [wavelink.YouTubeTrack, wavelink.SoundCloudTrack]:
-                try:
-                    # SearchableTrack.search(query, node, return_first)
-                    data = await trackmethod.search(search, node=searchnode)
-                    if data is not None:
-                        trackinfo.extend(data)
-                except Exception:
-                    # When there is no result for provided method
-                    # Then change to next method to search
-                    pass
+            if choice == 'playlist' or 'list' in search:
+                data = await wavelink.YouTubePlaylist.search(search, node=searchnode)
+                if data is not None:
+                    trackinfo = data
+            else:
+                for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack, wavelink.SoundCloudTrack]:
+                    try:
+                        # SearchableTrack.search(query, node, return_first)
+                        data = await trackmethod.search(url, node=searchnode)
+                        if data is not None:
+                            trackinfo.extend(data)
+                            if youtube_url:
+                                break
+                    except Exception:
+                        # When there is no result for provided method
+                        # Then change to next method to search
+                        pass
         
         if trackinfo is None:
-            await self.ui.Search.SearchFailed(command, search)
+            await self.ui.Search.SearchFailed(interaction, search)
             return None
-        elif not isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]):
+        elif not isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
             if len(trackinfo) == 0:
-                await self.ui.Search.SearchFailed(command, search)
+                await self.ui.Search.SearchFailed(interaction, search)
                 return None
 
-        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]):
+        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
             tracklist = trackinfo.tracks
+            if isinstance(trackinfo, wavelink.YouTubePlaylist):
+                tracklist.append('YTPL')
         else:
             tracklist = trackinfo
             trackinfo.append('YTorSC')
 
         for track in tracklist:
-            if track == "YTorSC":
+            if track == "YTorSC" or track == "YTPL":
                 break
             track.suggested = False
             if isinstance(track, wavelink.YouTubeTrack):
@@ -663,7 +668,7 @@ class MusicCog(Player, commands.Cog):
             else:
                 track.audio_source = "soundcloud"
 
-        return trackinfo
+        return tracklist
 
     ##############################
 

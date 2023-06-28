@@ -2,8 +2,6 @@ from typing import *
 import discord
 from discord.ext import commands
 
-from ..player import Command
-
 class Stage:
     def __init__(self):
         from ..ui import musicbot, auto_stage_available, guild_info

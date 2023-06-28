@@ -144,8 +144,8 @@ class Playlist:
             elif (not trackinfo.suggested):
                 self[guild_id].order.pop(1)
 
-        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, list]):
-            if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]):
+        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist, list]):
+            if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
                 for track in trackinfo.tracks:
                     track.requester = requester
                     track.audio_source = 'youtube'
