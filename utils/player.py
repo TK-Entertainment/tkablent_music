@@ -149,11 +149,14 @@ class Player:
         )
 
     async def _refresh_sessdata(self):
-        sessdata = self._bilibilic.sessdata
-        bili_jct = self._bilibilic.bili_jct
-        dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="SESSDATA", value_to_set=sessdata)
-        dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="BILI_JCT", value_to_set=bili_jct)
-        await asyncio.sleep(10)
+        need_refresh = await self._bilibilic.chcek_refresh()
+        if need_refresh:
+            await self._bilibilic.refresh()
+            sessdata = self._bilibilic.sessdata
+            bili_jct = self._bilibilic.bili_jct
+            dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="SESSDATA", value_to_set=sessdata)
+            dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="BILI_JCT", value_to_set=bili_jct)
+        await asyncio.sleep(120)
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
