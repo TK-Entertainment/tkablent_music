@@ -1,17 +1,14 @@
-from http import client
-import random
 from typing import *
 import asyncio, json, os
+import dotenv
+import validators
 
 import discord
 from discord.ext import commands
-from discord import VoiceClient, app_commands
+from discord import app_commands
 
+import bilibili_api as bilibili
 import wavelink
-import spotipy
-import logging
-from ytmusicapi import YTMusic
-from spotipy.oauth2 import SpotifyClientCredentials
 from wavelink.ext import spotify
 from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
 
@@ -78,7 +75,7 @@ class GuildInfo:
         if data.get(str(self.guild_id)) is None:
             data[str(self.guild_id)] = dict()
         data[str(self.guild_id)][key] = value
-        with open(r'utils\data.json', 'w') as f:
+        with open(fr"{os.getcwd()}/utils/data.json", 'w') as f:
             json.dump(data, f)
 
 class Player:
@@ -102,6 +99,11 @@ class Player:
         PASSWORD = os.getenv('WAVELINK_PWD')
         SPOTIFY_ID = os.getenv('SPOTIFY_ID')
         SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
+        SESSDATA = os.getenv('SESSDATA')
+        BILI_JCT = os.getenv('BILI_JCT')
+        BUVID3 = os.getenv('BUVID3')
+        DEDEUSERID = os.getenv('DEDEUSERID')
+        AC_TIME_VALUE = os.getenv('AC_TIME_VALUE')
         
         self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
         mainplayhost = wavelink.Node(
@@ -123,6 +125,21 @@ class Player:
             password=PASSWORD,
         )
 
+        self._bilibilic = bilibili.Credential(
+            sessdata=SESSDATA,
+            bili_jct=BILI_JCT,
+            buvid3=BUVID3,
+            dedeuserid=DEDEUSERID,
+            ac_time_value=AC_TIME_VALUE
+        )
+        
+        valid = await self._bilibilic.check_valid()
+
+        print(f"[BiliBili API] Cookie valid: {valid}")
+
+        if valid:
+            await self.bot.loop.create_task(self._refresh_sessdata())
+
         self._spotify = spotify.SpotifyClient(client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET)
 
         await wavelink.NodePool.connect(
@@ -130,6 +147,13 @@ class Player:
             nodes=[mainplayhost, altplayhost, searchhost],
             spotify=self._spotify
         )
+
+    async def _refresh_sessdata(self):
+        sessdata = self._bilibilic.sessdata
+        bili_jct = self._bilibilic.bili_jct
+        dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="SESSDATA", value_to_set=sessdata)
+        dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="BILI_JCT", value_to_set=bili_jct)
+        await asyncio.sleep(10)
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
@@ -527,6 +551,7 @@ class MusicCog(Player, commands.Cog):
                     trackinfo.pop(-1)
             else:
                 is_search = False
+                is_ytpl = False
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
             # If search failed, sent to handler
@@ -534,7 +559,7 @@ class MusicCog(Player, commands.Cog):
             return
         # If queue has more than 1 songs, then show the UI
         await self.ui.Queue.Embed_AddedToQueue(interaction, trackinfo, requester=interaction.user, is_search=is_search, is_ytpl=is_ytpl)
-    
+
     async def play(self, interaction: discord.Interaction, trackinfo: Union[
                                 wavelink.GenericTrack,
                                 wavelink.SoundCloudTrack,
@@ -564,11 +589,11 @@ class MusicCog(Player, commands.Cog):
             await tmpmsg.delete()  
 
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
-    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 SoundCloud / Spotify)')
+    @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 SoundCloud / Spotify / BiliBili(單曲))')
     @app_commands.rename(search='影片網址或關鍵字')
     async def _i_play(self, interaction: discord.Interaction, search: str):
-        if 'spotify' in search or "https://www.youtube.com/" in search or "https://youtu.be/" in search:
-            if "list" in search:
+        if validators.url(search):
+            if "list" in search and "watch" in search and ("youtube" in search or "youtu.be" in search):
                 if self[interaction.guild.id].multitype_remembered:
                     tracks = await self._get_track(interaction, search, self[interaction.guild.id].multitype_choice)   
                 else:
@@ -584,12 +609,50 @@ class MusicCog(Player, commands.Cog):
             tracks = await self._get_track(interaction, search)
             await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
+    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str):
+        searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        if "BV" in search and "https://www.bilibili.com/" not in search:
+            vid = search
+        else:
+            try:
+                int(search)
+                is_aid = True
+            except:
+                is_aid = False
+            if is_aid:
+                vid = bilibili.aid2bvid(search)
+            else:
+                if "b23.tv" in search:
+                    search = bilibili.get_real_url(search, self._bilibilic)
+                
+                url_split = search.split("/")
+                vid = url_split[4]
+        
+        v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
+        download_url_data = await v_data.get_download_url(0)
+        detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
+
+        data = detector.detect_best_streams()
+        raw_url = data[1].url.replace("&", "%26")
+        trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+        track = trackinfo[0]
+        vinfo = await v_data.get_info()
+        track.author = vinfo['owner']['name']
+        track.duration = vinfo['duration'] * 1000
+        track.identifier = vinfo['bvid']
+        track.is_seekable = True
+        track.title = vinfo['title']
+
+        return track
+
     async def _get_track(self, interaction: discord.Interaction, search: str, choice="videoonly"):
         searchnode = wavelink.NodePool.get_node(id="SearchNode")
         if searchnode.status != wavelink.NodeStatus.CONNECTED:
             return "NodeDisconnected"
         await interaction.response.defer(ephemeral=True ,thinking=True)
-        if 'spotify' in search:
+        if ('bilibili' in search or 'b23.tv' in search) and validators.url(search):
+            trackinfo = await self._get_bilibili_track(interaction, search)
+        elif 'spotify' in search and validators.url(search):
             if 'track' in search:
                 searchtype = spotify.SpotifySearchType.track
             elif 'album' in search:
@@ -646,7 +709,7 @@ class MusicCog(Player, commands.Cog):
         if trackinfo is None:
             await self.ui.Search.SearchFailed(interaction, search)
             return None
-        elif not isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
+        elif not isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist, wavelink.GenericTrack]):
             if len(trackinfo) == 0:
                 await self.ui.Search.SearchFailed(interaction, search)
                 return None
@@ -655,18 +718,25 @@ class MusicCog(Player, commands.Cog):
             tracklist = trackinfo.tracks
             if isinstance(trackinfo, wavelink.YouTubePlaylist):
                 tracklist.append('YTPL')
+        elif isinstance(trackinfo, wavelink.GenericTrack):
+            pass
         else:
             tracklist = trackinfo
-            trackinfo.append('YTorSC')
+            tracklist.append('YTorSC')
 
-        for track in tracklist:
-            if track == "YTorSC" or track == "YTPL":
-                break
-            track.suggested = False
-            if isinstance(track, wavelink.YouTubeTrack):
-                track.audio_source = "youtube"
-            else:
-                track.audio_source = "soundcloud"
+        if isinstance(trackinfo, wavelink.GenericTrack):
+            trackinfo.suggested = False
+            trackinfo.audio_source = "bilibili"
+            tracklist = trackinfo
+        else:
+            for track in tracklist:
+                if track == "YTorSC" or track == "YTPL":
+                    break
+                track.suggested = False
+                if isinstance(track, wavelink.YouTubeTrack):
+                    track.audio_source = "youtube"
+                else:
+                    track.audio_source = "soundcloud"
 
         return tracklist
 
