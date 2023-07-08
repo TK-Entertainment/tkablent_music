@@ -137,8 +137,8 @@ class Player:
 
         print(f"[BiliBili API] Cookie valid: {valid}")
 
-        if valid:
-            await self.bot.loop.create_task(self._refresh_sessdata())
+        # if valid:
+        #     await self.bot.loop.create_task(self._refresh_sessdata())
 
         self._spotify = spotify.SpotifyClient(client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET)
 
@@ -149,14 +149,15 @@ class Player:
         )
 
     async def _refresh_sessdata(self):
-        need_refresh = await self._bilibilic.chcek_refresh()
-        if need_refresh:
-            await self._bilibilic.refresh()
-            sessdata = self._bilibilic.sessdata
-            bili_jct = self._bilibilic.bili_jct
-            dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="SESSDATA", value_to_set=sessdata)
-            dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="BILI_JCT", value_to_set=bili_jct)
-        await asyncio.sleep(120)
+        while True:
+            need_refresh = await self._bilibilic.chcek_refresh()
+            if need_refresh:
+                await self._bilibilic.refresh()
+                sessdata = self._bilibilic.sessdata
+                bili_jct = self._bilibilic.bili_jct
+                dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="SESSDATA", value_to_set=sessdata)
+                dotenv.set_key(dotenv_path=fr"{os.getcwd()}/.env", key_to_set="BILI_JCT", value_to_set=bili_jct)
+            await asyncio.sleep(120)
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
@@ -635,8 +636,17 @@ class MusicCog(Player, commands.Cog):
         download_url_data = await v_data.get_download_url(0)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
-        data = detector.detect_best_streams()
-        raw_url = data[1].url.replace("&", "%26")
+        data = detector.detect()
+        for t in data:
+            if isinstance(t, bilibili.video.AudioStreamDownloadURL):
+                raw_url = t.url.replace("&", "%26")
+                break
+            else:
+                raw_url = None
+        
+        if raw_url == None:
+            return None
+
         trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
         track = trackinfo[0]
         vinfo = await v_data.get_info()
