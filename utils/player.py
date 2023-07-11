@@ -414,6 +414,8 @@ class MusicCog(Player, commands.Cog):
     @app_commands.rename(timestamp='目標時間')
     async def seek(self, interaction, timestamp: str):
         try:
+            # timestamp in seconds
+            # playlist[].length in milliseconds
             if isinstance(timestamp, str):
                 tmp = map(int, reversed(timestamp.split(":")))
                 timestamp = 0
@@ -430,7 +432,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.command(name='restart', description='🔁 | 重頭開始播放目前的歌曲')
     async def restart(self, interaction: discord.Interaction):
         try:
-            await self._seek(0)
+            await self._seek(interaction.guild, 0)
             await self.ui.PlayerControl.ReplaySucceed(interaction)
         except Exception as e:
             await self.ui.PlayerControl.ReplayFailed(interaction, e)

@@ -681,14 +681,14 @@ class PlayerControl:
         if timestamp >= (playlist[0].length)/1000:
             return
         seektime = self._sec_to_hms(timestamp, "symbol")
-        duration = self._sec_to_hms(playlist[0].length, "symbol")
+        duration = self._sec_to_hms(playlist[0].length/1000, "symbol")
         bar = self._ProgressBar(timestamp, (playlist[0].length)/1000)
         await interaction.response.send_message(f'''
             **:timer: | 跳轉歌曲**
             已成功跳轉至指定時間
             **{seektime}** {bar} **{duration}**
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
-        ''')
+        ''', ephemeral=True)
     
     async def SeekFailed(self, interaction: discord.Interaction, exception) -> None:
         await self.exception_handler._CommonExceptionHandler(interaction, "SEEKFAIL", exception)
@@ -701,7 +701,7 @@ class PlayerControl:
             **:repeat: | 重播歌曲**
             歌曲已重新開始播放
             *輸入 **{self.bot.command_prefix}pause** 以暫停播放*
-            ''')
+            ''', ephemeral=True)
     
     async def ReplayFailed(self, interaction: discord.Interaction, exception) -> None:
         await self.exception_handler._CommonExceptionHandler(interaction, "REPLAYFAIL", exception)
@@ -745,7 +745,7 @@ class PlayerControl:
                 text = ''
                 icon = repeat_emoji
                 color = discord.ButtonStyle.danger
-            await interaction.response.send_message(msg)
+            await interaction.response.send_message(msg, ephemeral=True)
         if self.guild_info(interaction.guild.id).playinfo is not None:
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
             self.guild_info(interaction.guild.id).playinfo_view.loop_control.emoji = icon

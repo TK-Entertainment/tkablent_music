@@ -77,13 +77,13 @@ class ExceptionHandler:
             if isinstance(message, discord.Interaction) and message.is_response():
                 msg = await message.channel.send(content, embed=embed, view=groupbutton)
             else:
-                msg = await message.send(content, embed=embed, view=groupbutton)
+                msg = await message.send(content, embed=embed, view=groupbutton, ephemeral=True)
         else:
             if isinstance(message, discord.Interaction):
                 if message.response.is_done():
                     msg = await message.channel.send(content, view=groupbutton)
                 else:
-                    msg = await message.response.send_message(content, view=groupbutton)
+                    msg = await message.response.send_message(content, view=groupbutton, ephemeral=True)
             else:
                 msg = await message.send(content, view=groupbutton)
 
