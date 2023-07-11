@@ -34,7 +34,7 @@ class GuildInfo:
 
     @data_survey_agreement.setter
     def data_survey_agreement(self, value: bool):
-        self._dsa(self, value)
+        self._dsa = value
         self.update("dsa", value)
 
     @property
@@ -45,7 +45,7 @@ class GuildInfo:
     
     @multitype_remembered.setter
     def multitype_remembered(self, value: bool):
-        self._multitype_remembered(self, value)
+        self._multitype_remembered = value
         self.update("multitype_remembered", value)
 
     @property
@@ -56,7 +56,7 @@ class GuildInfo:
 
     @multitype_choice.setter
     def multitype_choice(self, value: str):
-        self._multitype_choice(self, value)
+        self._multitype_choice = value
         self.update("multitype_choice", value)
 
     def fetch(self, key: str) -> not None:
@@ -227,8 +227,9 @@ class Player:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
         self._start_timer(guild)
-
-        await vc.play(self._playlist[guild.id].current())
+        
+        if not vc.is_playing():
+            await vc.play(self._playlist[guild.id].current())
 
     def _start_timer(self, guild: discord.Guild):
         if self[guild.id]._timer is not None:

@@ -60,14 +60,18 @@ class Queue:
             self.guild_info(interaction.guild.id).playinfo_view.skip.style = self.guild_info(interaction.guild.id).playinfo_view.shuffle.style = discord.ButtonStyle.blurple
             await self.guild_info(interaction.guild.id).playinfo.edit(view=self.guild_info(interaction.guild.id).playinfo_view)
 
-        if not interaction.response.is_done():        
-            await interaction.response.send_message(msg, embed=embed, ephemeral=True)
+        if is_search:
+            await self.guild_info(interaction.guild.id).searchmsg.edit(content=msg, embed=embed)
+            self.guild_info(interaction.guild.id).searchmsg = None
         else:
-            if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(interaction.guild.id).processing_msg is not None:
-                processing_msg = self.guild_info(interaction.guild.id).processing_msg
-                await interaction.edit_response(content=msg, embed=embed)
+            if not interaction.response.is_done():        
+                await interaction.response.send_message(msg, embed=embed, ephemeral=True)
             else:
-                await interaction.channel.send(msg, embed=embed)
+                if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(interaction.guild.id).processing_msg is not None:
+                    processing_msg = self.guild_info(interaction.guild.id).processing_msg
+                    await interaction.edit_response(content=msg, embed=embed)
+                else:
+                    await interaction.channel.send(msg, embed=embed)
         try:
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:
@@ -121,7 +125,7 @@ class Queue:
                     requester = f"{requester.name}#{requester.discriminator}"
                 self.url_or_name = discord.ui.TextInput(
                     custom_id="song_url",
-                    label="歌曲網址或關鍵字 (網址支援 Spotify, SoundCloud, BiliBili(單曲))",
+                    label="歌曲網址或關鍵字 (網址支援 Spotify, SoundCloud, B站(單曲))",
                     placeholder=f"此歌曲由 {requester} 點播"
                 )
                 super().__init__(
@@ -249,7 +253,7 @@ class Queue:
                 else:
                     await msg.delete()
 
-        view = QueueListing()    
+        view = QueueListing()  
         if (len(playlist.order) < 2):
             view.clear_page_control()
             if op == 'button':
@@ -271,5 +275,5 @@ class Queue:
             if op == 'button':
                 view.remove_item(view.done)
 
-            await interaction.response.send_message(embed=embed, view=view, ephemeral=(op == 'button'))
+            await interaction.response.send_message(embeds=embed, view=view, ephemeral=(op == 'button'))
             msg = await interaction.original_response()

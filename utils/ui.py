@@ -38,12 +38,14 @@ class GuildUIInfo:
         self.lastskip: bool = False
         self.mute: bool = False
         self.search: bool = False
+        self.minimized_info: Coroutine[Any, Any, discord.Message] = None
         self.lasterrorinfo: dict = {}
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
         self.music_suggestion: bool = False
         self.suggestions_source = None
+        self.searchmsg: Coroutine[Any, Any, discord.Message] = None
         self.previous_titles: list[str] = []
         self.suggestions: list = []
 

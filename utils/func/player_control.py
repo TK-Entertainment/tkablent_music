@@ -67,6 +67,13 @@ class PlayerControl:
 
                     if i > 24:
                         break
+
+                    if len(result[currentindex].title) > 100:
+                        result[currentindex].title = result[currentindex].title[:95] + "..."
+
+                    if len(result[currentindex].author) > 85:
+                        result[currentindex].author = result[currentindex].author[:70] + "..."
+
                     length = _sec_to_hms(seconds=(result[currentindex].length)/1000, format="symbol")
                     self.add_option(label=result[currentindex].title, value=currentindex, description=f"{result[currentindex].author} / {length}")
                 
@@ -87,6 +94,7 @@ class PlayerControl:
                     await self.musicbot.play(interaction, result[option_index])
         
         class SelectView(discord.ui.View):
+            guild_info = self.guild_info
             def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]]):
                 super().__init__(timeout=180)
                 self.select_ui = SelectUI(result)
@@ -152,8 +160,7 @@ class PlayerControl:
             async def on_timeout(self):
                 self.clear_items()
                 try:
-                    await msg.edit(view=self)
-                    await msg.add_reaction('🛑')
+                    await msg.edit(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=self)
                 except:
                     pass
 
@@ -175,7 +182,7 @@ class PlayerControl:
 
         view.remove_item(view.done)
         await interaction.edit_original_response(content=content, view=view)
-        msg = await interaction.original_response()
+        self.guild_info(interaction.guild.id).searchmsg = msg = await interaction.original_response() 
 
     async def MultiTypeSetup(self, interaction: discord.Interaction):
         content = f'''
@@ -192,6 +199,7 @@ class PlayerControl:
 
             bot = self.bot
             musicbot = self.musicbot
+            guild_info = self.guild_info
             
             def __init__(self, *, timeout=60):
                 self.choice = ""
@@ -242,11 +250,10 @@ class PlayerControl:
 
             async def on_timeout(self):
                 self.clear_items()
-                await msg.edit(view=self)
-                await msg.add_reaction('🛑')
+                await msg.edit(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=self)
 
         view = MultiType()
-        await interaction.response.send_message(content, view=view)
+        await interaction.response.send_message(content, view=view, ephemeral=True)
         msg = await interaction.original_response()
 
     async def MultiTypeNotify(self, interaction: discord.Interaction, search):
@@ -261,6 +268,7 @@ class PlayerControl:
 
             bot = self.bot
             get_track = self.musicbot._get_track
+            guild_info = self.guild_info
             musicbot = self.musicbot
             
             def __init__(self, *, timeout=60):
@@ -323,11 +331,10 @@ class PlayerControl:
                     self.musicbot[interaction.guild.id].multitype_choice == "":
                     self.musicbot[interaction.guild.id].multitype_remembered = False
                 self.clear_items()
-                await msg.edit(view=self)
-                await msg.add_reaction('🛑')
+                await msg.edit(content='時限已到，請按「關閉這些訊息」來刪掉此訊息', view=self)
 
         view = MultiType()
-        await interaction.response.send_message(content, view=view)
+        await interaction.response.send_message(content, view=view, ephemeral=True)
         msg = await interaction.original_response()
 
     async def PlayingMsg(self, channel: Union[discord.TextChannel, discord.Interaction]):
@@ -445,6 +452,16 @@ class PlayerControl:
                 self.guild_info(channel.guild.id).skip = True
                 await self.musicbot._skip(channel.guild)
 
+                if playlist.current().audio_source == "soundcloud":
+                    self.guild_info(channel.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.gray
+                    self.guild_info(channel.guild.id).playinfo_view.suggest.disabled = True
+                else:
+                    self.guild_info(channel.guild.id).playinfo_view.suggest.disabled = False
+                    if self.guild_info(channel.guild.id).music_suggestion:
+                        self.guild_info(channel.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.green
+                    else:
+                        self.guild_info(channel.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.danger
+
                 if len(playlist.order) > 1:
                     embed = self.info_generator._SongInfo(guild_id=channel.guild.id, index=1)
 
@@ -505,8 +522,10 @@ class PlayerControl:
             @discord.ui.button(
                 label='⬜ 推薦音樂' if not self.guild_info(channel.guild.id).music_suggestion else "✅ 推薦音樂", 
                 style=discord.ButtonStyle.danger if not self.guild_info(channel.guild.id).music_suggestion \
-                        else discord.ButtonStyle.success,
-                emoji=bulb_emoji)
+                        else discord.ButtonStyle.gray if self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" \
+                            else discord.ButtonStyle.success,
+                emoji=bulb_emoji,
+                disabled=self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud")
             async def suggest(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.suggestion_control(interaction, button)
 

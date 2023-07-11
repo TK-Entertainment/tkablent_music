@@ -24,10 +24,14 @@ class Join:
         msg = f'''
             **:inbox_tray: | 已加入語音頻道**
             已成功加入 {interaction.user.voice.channel.name} 語音頻道'''
-        try:
-            await interaction.response.send_message(msg)
-        except discord.InteractionResponded:
-            await interaction.followup.send(content=msg)
+        if self.guild_info(interaction.guild.id).searchmsg is not None:
+            await self.guild_info(interaction.guild.id).searchmsg.edit(content=msg)
+            self.guild_info(interaction.guild.id).searchmsg = None
+        else:
+            try:
+                await interaction.response.send_message(msg)
+            except discord.InteractionResponded:
+                await interaction.followup.send(content=msg)
 
     async def JoinStage(self, interaction: discord.Interaction, guild_id: int) -> None:
         channel = interaction.channel
