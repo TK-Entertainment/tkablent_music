@@ -237,7 +237,7 @@ class Player:
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: discord.Guild):
-        await asyncio.sleep(10.0)
+        await asyncio.sleep(600.0)
         await self._leave(guild)
     
     def _cleanup(self, guild: discord.Guild):
