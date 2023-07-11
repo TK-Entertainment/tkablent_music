@@ -752,10 +752,24 @@ class MusicCog(Player, commands.Cog):
     async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
         guild = payload.player.guild
         try:
+            if self[guild.id]._timer is not None:
+                self[guild.id]._timer.cancel()
+                self[guild.id]._timer = None
             await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
             self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
         except:
             pass
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_event(self, payload: wavelink.TrackEventPayload):
+        player: wavelink.Player = payload.player
+        guild = payload.player.guild
+        if player.is_paused():
+            self._start_timer(payload.player.guild)
+        elif player.is_playing:
+            if self[guild.id]._timer is not None:
+                self[guild.id]._timer.cancel()
+                self[guild.id]._timer = None
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
@@ -767,6 +781,7 @@ class MusicCog(Player, commands.Cog):
             self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = None
 
         if len(self._playlist[guild.id].order) == 0:
+            self._start_timer(payload.player.guild)
             await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
             return
         else:
