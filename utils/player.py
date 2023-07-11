@@ -218,38 +218,15 @@ class Player:
             
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
-        await self._start_mainloop(guild)
+        vc: wavelink.Player = guild.voice_client
+        await vc.play(self._playlist[guild.id].current())
 
-    async def _start_mainloop(self, guild: discord.Guild):
         if self[guild.id]._timer is not None:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
-        if self[guild.id]._task is not None:
-            return
-        coro = self._mainloop(guild)
-        self[guild.id]._task = self.bot.loop.create_task(coro)
-        self[guild.id]._task.add_done_callback(lambda task, guild=guild: self._start_timer(guild))
-    
-    async def _mainloop(self, guild: discord.Guild):
-        # implement in musicbot class for ui support
-        '''
-        while len(self._playlist[guild.id].order):
-            await self[guild.id].text_channel.send('now playing')
-            voice_client: VoiceClient = guild.voice_client
-            song = self._playlist[guild.id].current()
-            try:
-                voice_client.play(discord.FFmpegPCMAudio(song.url))
-                while voice_client.is_playing() or voice_client.is_paused():
-                    await asyncio.sleep(1.0)
-            finally:
-                self._playlist.rule(guild.id)
-        '''
-        raise NotImplementedError
+        self._start_timer(guild)
 
     def _start_timer(self, guild: discord.Guild):
-        if self[guild.id]._task is not None:
-            self[guild.id]._task.cancel()
-            self[guild.id]._task = None
         if self[guild.id]._timer is not None:
             self[guild.id]._timer.cancel()
         coro = self._timer(guild)
@@ -633,10 +610,10 @@ class MusicCog(Player, commands.Cog):
                 vid = url_split[4]
         
         v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(0)
+        download_url_data = await v_data.get_download_url(page_index=0)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
-        data = detector.detect()
+        data = detector.detect_all()
         for t in data:
             if isinstance(t, bilibili.video.AudioStreamDownloadURL):
                 raw_url = t.url.replace("&", "%26")
@@ -758,45 +735,6 @@ class MusicCog(Player, commands.Cog):
     async def _refresh_msg(self, guild):
         await asyncio.sleep(3)
         await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-
-    async def _mainloop(self, guild: discord.Guild):
-        while len(self._playlist[guild.id].order):
-            await asyncio.sleep(0.2)
-
-            self._playlist[guild.id]._refresh_msg_task = self[guild.id]._refresh_msg_task
-
-            await asyncio.wait_for(self._playlist.process_suggestion(guild, self.ui_guild_info(guild.id)), None)
-            
-            # Sync the task status with playlist
-            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task
-            
-            voice_client: wavelink.Player = guild.voice_client
-            song = self._playlist[guild.id].current()
-            try:
-                try:
-                    await voice_client.play(song)
-                    self.ui_guild_info(guild.id).previous_title = song.title
-                    await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-                    self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
-                except Exception as e:
-                    try:
-                        await voice_client.play(song)
-                        self.ui_guild_info(guild.id).previous_title = song.title
-                        await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-                        self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
-                    except:
-                        await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
-                        pass
-
-                while voice_client.is_playing() or voice_client.is_paused():
-                    await asyncio.sleep(0.1)
-            finally:
-                self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
-                await asyncio.sleep(0.2)
-                if self[guild.id]._refresh_msg_task is not None:
-                    self[guild.id]._refresh_msg_task.cancel()
-                    self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = None
-        await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
         
     @commands.Cog.listener(name='on_voice_state_update')
     async def end_session(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
@@ -810,6 +748,43 @@ class MusicCog(Player, commands.Cog):
             await self._leave(member.guild)
         self._cleanup(guild)
 
+    @commands.Cog.listener()
+    async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
+        guild = payload.player.guild
+        try:
+            await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
+        except:
+            pass
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
+        guild = payload.player.guild
+        self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
+        await asyncio.sleep(0.2)
+        if self[guild.id]._refresh_msg_task is not None:
+            self[guild.id]._refresh_msg_task.cancel()
+            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = None
+
+        if len(self._playlist[guild.id].order) == 0:
+            await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
+            return
+        else:
+            self._playlist[guild.id]._refresh_msg_task = self[guild.id]._refresh_msg_task
+
+            await asyncio.wait_for(self._playlist.process_suggestion(guild, self.ui_guild_info(guild.id)), None)
+            
+            # Sync the task status with playlist
+            self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task
+            
+            song = self._playlist[guild.id].current()
+            try:
+                await payload.player.play(song)
+                self.ui_guild_info(guild.id).previous_title = song.title
+            except Exception as e:
+                await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
+                pass
+        
     # Error handler
     @commands.Cog.listener()
     async def on_command_error(self, ctx: commands.Context, error: commands.CommandError):

@@ -89,28 +89,43 @@ class InfoGenerator:
             stateicon = ''
 
         # Generate Embed Body
-        embed = discord.Embed(title=f"{song.title}", colour=color)
-        embed.add_field(name="作者", value=f"{song.author}", inline=True)
+        voice_client: wavelink.Player = self.bot.get_guild(guild_id).voice_client
+        if color_code != 'red' and color_code != 'green':
+            if self.guild_info(guild_id).skip:
+                playing_state = "⏩ | 已跳過上個歌曲\n"
+            else:
+                if voice_client.is_paused():
+                    playing_state = "⏸️ | 暫停播放\n"
+                else:
+                    playing_state = "▶️ | 播放中\n"
+            
+            if not self.auto_stage_available(guild_id):
+                notice = "\n*可能需要手動對機器人 **邀請發言** 才能正常播放歌曲*"
+            else:
+                notice = ""
+        else:
+            playing_state = ""
+            notice = ""
+                
+        if song.is_stream:
+            embed = discord.Embed(title=f"{song.title}", description=f"**{song.author}**\n*🔴 直播*{notice}", colour=color)
+        else:
+            time_string = self._sec_to_hms((song.length)/1000, "zh")
+            embed = discord.Embed(title=f"{song.title}", description=f"**{song.author}**\n*{time_string}*{notice}", colour=color)
         if song.suggested:
             if holiday == "xmas" or holiday == "xmaseve":
-                embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/c3X2KBD.png")
+                embed.set_author(name=f"{playing_state}這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/c3X2KBD.png")
             else:
-                embed.set_author(name=f"這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
+                embed.set_author(name=f"{playing_state}這首歌為 自動推薦歌曲", icon_url="https://i.imgur.com/p4vHa3y.png")
         else:
             if song.requester.discriminator == "0":
-                embed.set_author(name=f"這首歌由 {song.requester.name} 點播", icon_url=song.requester.display_avatar)
+                embed.set_author(name=f"{playing_state}這首歌由 {song.requester.name} 點播", icon_url=song.requester.display_avatar)
             else:
-                embed.set_author(name=f"這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
+                embed.set_author(name=f"{playing_state}這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
 
         if song.is_stream: 
-            if stateicon != '':
-                stateicon += " | 🔴 直播"
-            else:
-                stateicon = "🔴 直播"
             if color_code == None: 
-               embed.add_field(name="結束播放", value=f"輸入 ⏩ {self.bot.command_prefix}skip / ⏹️ {self.bot.command_prefix}stop\n來結束播放此直播", inline=True)
-        else: 
-            embed.add_field(name="歌曲時長", value=self._sec_to_hms((song.length)/1000, "zh"), inline=True)
+               embed.add_field(name="結束播放", value=f"點擊 ⏩ **跳過** / ⏹️ **停止播放**\n來結束播放此直播", inline=True)
         
         if holiday == "xmaseve":
             embed._author['name'] += " | 🎄 今日聖誕夜"
@@ -201,32 +216,14 @@ class InfoGenerator:
         return embed
 
     async def _UpdateSongInfo(self, guild_id: int):
-        if self.guild_info(guild_id).lastskip and len(self.musicbot._playlist[guild_id].order) == 1:
-            message = f'''
-            **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，候播清單已無歌曲
-            正在播放最後一首歌曲，資訊如下所示
-            *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
-                '''
-        elif self.guild_info(guild_id).lastskip and len(self.musicbot._playlist[guild_id].order) > 1:
-            message = f'''
-            **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，正在播放下一首歌曲，資訊如下所示
-            *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
-                '''
-        elif len(self.musicbot._playlist[guild_id].order) == 0:
+        if len(self.musicbot._playlist[guild_id].order) == 0:
             message = f'''
             **:clock4: | 播放完畢，等待播放動作**
             候播清單已全數播放完畢，等待使用者送出播放指令
             *輸入 **{self.bot.command_prefix}play [URL/歌曲名稱]** 即可播放/搜尋*
         '''
         else:
-            message = f'''
-            **:arrow_forward: | 正在播放以下歌曲**
-            *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
-            
-        if not self.auto_stage_available(guild_id):
-            message += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
+            message = ""
 
         self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
         if len(self.musicbot._playlist[guild_id].order) == 1:
@@ -241,4 +238,7 @@ class InfoGenerator:
             self.guild_info(guild_id).playinfo_view.loop_control.emoji = repeat_emoji
             self.guild_info(guild_id).playinfo_view.loop_control.label = ''
             self.guild_info(guild_id).playinfo_view.loop_control.style = discord.ButtonStyle.danger
-        await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
+        if message == "":
+            await self.guild_info(guild_id).playinfo.edit(embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
+        else:
+            await self.guild_info(guild_id).playinfo.edit(content=message, embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)

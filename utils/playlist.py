@@ -218,7 +218,8 @@ class Playlist:
                 while suggested_track is None:
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode)
+                            suggested_track = suggested_track[0]
                         except:
                             suggested_track = None
                             pass
@@ -244,7 +245,8 @@ class Playlist:
                 while suggested_track is None:
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode)
+                            suggested_track = suggested_track[0]
                         except:
                             suggested_track = None
                             pass
@@ -273,7 +275,8 @@ class Playlist:
                 for index in indexlist:
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=searchnode)
+                            suggested_track = suggested_track[0]
                         except:
                             suggested_track = None
                             pass
@@ -319,7 +322,8 @@ class Playlist:
                     ui_guild_info.suggestions_source['index'] = 13
                     for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
                         try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=searchnode, return_first=True)
+                            suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=searchnode)
+                            suggested_track = suggested_track[0]
                         except:
                             suggested_track = None
                             pass

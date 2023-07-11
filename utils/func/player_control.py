@@ -526,34 +526,14 @@ class PlayerControl:
             ''')
                 await self.guild_info(channel.guild.id).playinfo.edit(view=view)
                 self.stop()
-
-        if self.guild_info(channel.guild.id).skip:
-            if len(playlist.order) > 1:
-                msg = f'''
-            **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，正在播放下一首歌曲，資訊如下所示
-            *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
-                '''
-            else:
-                msg = f'''
-            **:fast_forward: | 跳過歌曲**
-            目前歌曲已成功跳過，候播清單已無歌曲
-            正在播放最後一首歌曲，資訊如下所示
-            *輸入 **{self.bot.command_prefix}play** 以加入新歌曲*
-                '''
-            self.guild_info(channel.guild.id).skip = False
-            self.guild_info(channel.guild.id).lastskip = True
-        else:
-            msg = f'''
-            **:arrow_forward: | 正在播放以下歌曲**
-            *輸入 **{self.bot.command_prefix}pause** 以暫停播放*'''
-            
-        if not self.auto_stage_available(channel.guild.id):
-            msg += '\n            *可能需要手動對機器人*` 邀請發言` *才能正常播放歌曲*'
         
         self.guild_info(channel.guild.id).lastskip = False
 
         embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
+
+        if self.guild_info(channel.guild.id).skip:
+            self.guild_info(channel.guild.id).skip = False
+            self.guild_info(channel.guild.id).lastskip = True
 
         if self.guild_info(channel.guild.id).playinfo is None:
             view = PlaybackControl()
@@ -564,9 +544,9 @@ class PlayerControl:
             self.bot.loop.create_task(view.restore_skip())
 
             self.guild_info(channel.guild.id).playinfo_view = view
-            self.guild_info(channel.guild.id).playinfo = await channel.send(msg, embed=embed, view=view)
+            self.guild_info(channel.guild.id).playinfo = await channel.send(embed=embed, view=view)
         else:
-            await self.guild_info(channel.guild.id).playinfo.edit(content=msg, embed=embed)
+            await self.guild_info(channel.guild.id).playinfo.edit(embed=embed)
 
         try: 
             await self.stage._UpdateStageTopic(channel.guild.id)
