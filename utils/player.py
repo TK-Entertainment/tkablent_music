@@ -179,10 +179,14 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
         if not voice_client.is_paused() and voice_client.is_playing():
             await voice_client.pause()
+            self._start_timer(guild)
 
     async def _resume(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
         if voice_client.is_paused():
+            if self[guild.id]._timer is not None:
+                self[guild.id]._timer.cancel()
+                self[guild.id]._timer = None
             await voice_client.resume()
 
     async def _skip(self, guild: discord.Guild):
@@ -219,12 +223,12 @@ class Player:
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
         vc: wavelink.Player = guild.voice_client
-        await vc.play(self._playlist[guild.id].current())
-
         if self[guild.id]._timer is not None:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
         self._start_timer(guild)
+
+        await vc.play(self._playlist[guild.id].current())
 
     def _start_timer(self, guild: discord.Guild):
         if self[guild.id]._timer is not None:
@@ -233,7 +237,7 @@ class Player:
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: discord.Guild):
-        await asyncio.sleep(600.0)
+        await asyncio.sleep(10.0)
         await self._leave(guild)
     
     def _cleanup(self, guild: discord.Guild):
@@ -735,7 +739,7 @@ class MusicCog(Player, commands.Cog):
     async def _refresh_msg(self, guild):
         await asyncio.sleep(3)
         await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-        
+    
     @commands.Cog.listener(name='on_voice_state_update')
     async def end_session(self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState):
         if member.id != self.bot.user.id or not (before.channel is not None and after.channel is None):
@@ -759,17 +763,6 @@ class MusicCog(Player, commands.Cog):
             self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
         except:
             pass
-
-    @commands.Cog.listener()
-    async def on_wavelink_track_event(self, payload: wavelink.TrackEventPayload):
-        player: wavelink.Player = payload.player
-        guild = payload.player.guild
-        if player.is_paused():
-            self._start_timer(payload.player.guild)
-        elif player.is_playing:
-            if self[guild.id]._timer is not None:
-                self[guild.id]._timer.cancel()
-                self[guild.id]._timer = None
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):

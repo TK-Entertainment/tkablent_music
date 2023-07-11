@@ -412,9 +412,13 @@ class PlayerControl:
                 style=discord.ButtonStyle.blurple)
             async def playorpause(self, interaction: discord.Interaction, button: discord.ui.Button):
                 if self.voice_client.is_paused():
+                    if self[interaction.guild.id]._timer is not None:
+                        self[interaction.guild.id]._timer.cancel()
+                        self[interaction.guild.id]._timer = None
                     await self.voice_client.resume()
                     button.emoji = pause_emoji
                 else:
+                    self.musicbot._start_timer(interaction.guild)
                     await self.voice_client.pause()
                     button.emoji = play_emoji
 
