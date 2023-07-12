@@ -589,6 +589,8 @@ class MusicCog(Player, commands.Cog):
                     return
             else:
                 tracks = await self._get_track(interaction, search)
+                if isinstance(tracks, Exception):
+                    await self.ui.Search.SearchFailed(interaction, search)
             if tracks == "NodeDisconnected":
                 await self.ui.ExceptionHandler.NodeDisconnectedMessage()
                 return
@@ -624,6 +626,11 @@ class MusicCog(Player, commands.Cog):
         for t in data:
             if isinstance(t, bilibili.video.AudioStreamDownloadURL):
                 raw_url = t.url.replace("&", "%26")
+                try:
+                    trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+                except Exception as e:
+                    raw_url = None
+                    continue
                 break
             else:
                 raw_url = None
@@ -631,7 +638,10 @@ class MusicCog(Player, commands.Cog):
         if raw_url == None:
             return None
 
-        trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+        try:
+            trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+        except Exception as e:
+            return e
         track = trackinfo[0]
         vinfo = await v_data.get_info()
         track.author = vinfo['owner']['name']
@@ -649,6 +659,8 @@ class MusicCog(Player, commands.Cog):
         await interaction.response.defer(ephemeral=True ,thinking=True)
         if ('bilibili' in search or 'b23.tv' in search) and validators.url(search):
             trackinfo = await self._get_bilibili_track(interaction, search)
+            if isinstance(trackinfo, Exception):
+                return trackinfo
         elif 'spotify' in search and validators.url(search):
             if 'track' in search:
                 searchtype = spotify.SpotifySearchType.track
