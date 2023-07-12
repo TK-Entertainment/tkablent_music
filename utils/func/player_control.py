@@ -521,8 +521,7 @@ class PlayerControl:
             @discord.ui.button(
                 label='⬜ 推薦音樂' if not self.guild_info(channel.guild.id).music_suggestion else "✅ 推薦音樂", 
                 style=discord.ButtonStyle.danger if not self.guild_info(channel.guild.id).music_suggestion \
-                        else discord.ButtonStyle.gray if (self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" or \
-                            self.musicbot._playlist[channel.guild.id].order[0].audio_source == "bilibili") \
+                        else discord.ButtonStyle.gray if (self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" or self.musicbot._playlist[channel.guild.id].order[0].audio_source == "bilibili") \
                             else discord.ButtonStyle.success,
                 emoji=bulb_emoji,
                 disabled=(self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" or \
@@ -586,7 +585,7 @@ class PlayerControl:
             self.guild_info(channel.guild.id).playinfo_view.clear_items()
             await self.info_generator._UpdateSongInfo(channel.guild.id)
             self.guild_info(channel.guild.id).playinfo_view.stop()
-        except:
+        except Exception as e:
             pass
 
         # reset values

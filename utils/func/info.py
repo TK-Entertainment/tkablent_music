@@ -47,7 +47,7 @@ class InfoGenerator:
         playlist = self.musicbot._playlist[guild_id]
 
         if len(playlist.order) == 0:
-            embed = discord.Embed(title=f"輸入 /play [URL/關鍵字] 來開始播放", description=f"**{song.author}**\n*🔴 直播*{notice}", colour=discord.Colour.from_rgb(255, 255, 255))
+            embed = discord.Embed(title=f"輸入 /play [URL/關鍵字] 來開始播放", colour=discord.Colour.from_rgb(255, 255, 255))
             if holiday == "xmas" or holiday == "xmaseve":
                 embed.set_author(name=f"🕗 | 歌曲均已播放完畢，等待指令", icon_url="https://i.imgur.com/c3X2KBD.png")
             else:
@@ -228,29 +228,32 @@ class InfoGenerator:
         return embed
 
     async def _UpdateSongInfo(self, guild_id: int):
-        self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
-        if len(self.musicbot._playlist[guild_id].order) == 1:
-            self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.gray
-            self.guild_info(guild_id).playinfo_view.skip.disabled = True
+        if len(self.musicbot._playlist[guild_id].order) == 0:
+            await self.guild_info(guild_id).playinfo.edit(embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
         else:
-            self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.blurple
-            self.guild_info(guild_id).playinfo_view.skip.disabled = False
-
-        if self.musicbot._playlist[guild_id].loop_state == LoopState.SINGLE:
-            self.guild_info(guild_id).playinfo_view.loop_control.label = f"ₛ {self.musicbot._playlist[guild_id].times} 次"
-        elif self.musicbot._playlist[guild_id].loop_state == LoopState.NOTHING:
-            self.guild_info(guild_id).playinfo_view.loop_control.emoji = repeat_emoji
-            self.guild_info(guild_id).playinfo_view.loop_control.label = ''
-            self.guild_info(guild_id).playinfo_view.loop_control.style = discord.ButtonStyle.danger
-
-        if self.musicbot._playlist[guild_id].current().audio_source == "soundcloud":
-            self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.gray
-            self.guild_info(guild_id).playinfo_view.suggest.disabled = True
-        else:
-            self.guild_info(guild_id).playinfo_view.suggest.disabled = False
-            if self.guild_info(guild_id).music_suggestion:
-                self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.green
+            self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
+            if len(self.musicbot._playlist[guild_id].order) == 1:
+                self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.gray
+                self.guild_info(guild_id).playinfo_view.skip.disabled = True
             else:
-                self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.danger
+                self.guild_info(guild_id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+                self.guild_info(guild_id).playinfo_view.skip.disabled = False
 
-        await self.guild_info(guild_id).playinfo.edit(embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
+            if self.musicbot._playlist[guild_id].loop_state == LoopState.SINGLE:
+                self.guild_info(guild_id).playinfo_view.loop_control.label = f"ₛ {self.musicbot._playlist[guild_id].times} 次"
+            elif self.musicbot._playlist[guild_id].loop_state == LoopState.NOTHING:
+                self.guild_info(guild_id).playinfo_view.loop_control.emoji = repeat_emoji
+                self.guild_info(guild_id).playinfo_view.loop_control.label = ''
+                self.guild_info(guild_id).playinfo_view.loop_control.style = discord.ButtonStyle.danger
+
+            if self.musicbot._playlist[guild_id].current().audio_source == "soundcloud":
+                self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.gray
+                self.guild_info(guild_id).playinfo_view.suggest.disabled = True
+            else:
+                self.guild_info(guild_id).playinfo_view.suggest.disabled = False
+                if self.guild_info(guild_id).music_suggestion:
+                    self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.green
+                else:
+                    self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.danger
+
+            await self.guild_info(guild_id).playinfo.edit(embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
