@@ -153,8 +153,7 @@ class PlayerControl:
 
             @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger, row=1)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.pong()
-                await interaction.message.delete()
+                await interaction.response.edit_message(content="點按「關閉這些訊息」來關閉此訊息")
                 self.stop()
 
             async def on_timeout(self):
@@ -244,8 +243,7 @@ class PlayerControl:
 
             @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
             async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.pong()
-                await interaction.message.delete()
+                await interaction.response.edit_message(content=content, view=None)
                 self.stop()
 
             async def on_timeout(self):
@@ -283,8 +281,6 @@ class PlayerControl:
                         self.choice = choice
                     if self.musicbot[interaction.guild.id].multitype_remembered and choice != 'whatever':
                         self.musicbot[interaction.guild.id].multitype_choice = choice
-                    await interaction.response.pong()
-                    await interaction.message.delete()
                     track = await self.get_track(interaction, search, self.choice)
                     await self.musicbot.play(interaction, track)
                     self.stop()
@@ -357,8 +353,9 @@ class PlayerControl:
             else:
                 if isinstance(channel, discord.Interaction):
                     await channel.response.send_message(msg)
+                    self.guild_info(channel.guild.id).playinfo = await channel.original_response()
                 else:
-                    await channel.send(msg)
+                    self.guild_info(channel.guild.id).playinfo = await channel.send(msg)
 
         class PlaybackControl(discord.ui.View):
 
@@ -379,14 +376,16 @@ class PlayerControl:
                 if len(self.musicbot._playlist[channel.guild.id].order) != 1:
                     self.skip.disabled = False
                     self.skip.style = discord.ButtonStyle.blurple
-                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                if self.guild_info(channel.guild.id).playinfo is not None:
+                    await self.guild_info(channel.guild.id).playinfo.edit(view=view)
 
             async def restore_shuffle(self):
                 await asyncio.sleep(3)
                 self.shuffle.emoji = shuffle_emoji
                 self.shuffle.disabled = False
                 self.shuffle.style = discord.ButtonStyle.blurple
-                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                if self.guild_info(channel.guild.id).playinfo is not None:
+                    await self.guild_info(channel.guild.id).playinfo.edit(view=view)
 
             async def suggestion_control(self, interaction, button):
                 if self.guild_info(channel.guild.id).music_suggestion:
@@ -540,14 +539,15 @@ class PlayerControl:
             @discord.ui.button(label='離開語音頻道' if isinstance(channel.guild.voice_client.channel, discord.VoiceChannel) else '離開舞台頻道',
                                 emoji=leave_emoji, style=discord.ButtonStyle.gray, row=2)
             async def leavech(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await interaction.response.pong()
                 await self.musicbot._leave(channel.guild)
+
                 self.leave.reset_value(channel.guild)
                 self.clear_items()
-                await channel.send(f'''
+                await self.guild_info(channel.guild.id).playinfo.edit(content=f'''
             **:outbox_tray: | 已離開語音/舞台頻道**
             {interaction.user.mention} 已讓我停止所有音樂並離開目前所在的語音/舞台頻道
-            ''')
-                await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+            ''', view=view, embed=None)
                 self.stop()
         
         self.guild_info(channel.guild.id).lastskip = False

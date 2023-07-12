@@ -275,5 +275,5 @@ class Queue:
             if op == 'button':
                 view.remove_item(view.done)
 
-            await interaction.response.send_message(embeds=embed, view=view, ephemeral=(op == 'button'))
+            await interaction.response.send_message(embed=embed, view=view, ephemeral=(op == 'button'))
             msg = await interaction.original_response()

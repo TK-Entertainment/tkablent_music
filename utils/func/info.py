@@ -91,7 +91,9 @@ class InfoGenerator:
         # Generate Embed Body
         voice_client: wavelink.Player = self.bot.get_guild(guild_id).voice_client
         if color_code != 'red' and color_code != 'green':
-            if self.guild_info(guild_id).skip:
+            if len(voice_client.channel.members) == 1 and voice_client.channel.members[0] == self.bot.user:
+                playing_state = "📤/⏸️ | 無人於頻道中，已暫停播放\n"
+            elif self.guild_info(guild_id).skip:
                 playing_state = "⏩ | 已跳過上個歌曲\n"
             else:
                 if voice_client.is_paused():
@@ -171,8 +173,14 @@ class InfoGenerator:
         if 'spotify' in song.uri and (color != 'green' or color != 'red'):
             embed.set_thumbnail(url=song.cover)
 
-        if song.audio_source == 'soundcloud' and (color_code != 'red' or color_code != 'green'):
-            embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能', inline=False)
+        if (song.audio_source == 'soundcloud' or song.audio_source == 'bilibili') \
+              and (color_code != 'red' or color_code != 'green'): #color code refer to behaviour
+                # red stands for delete information, green stands for add to queue notice
+            embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲暫時不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能', inline=False)
+
+        # will be deleted after testing
+        if song.audio_source == "bilibili" and "ce" in self.musicbot.bot_version:
+            embed_opt["footer"]["text"] = "bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed

@@ -819,16 +819,30 @@ class MusicCog(Player, commands.Cog):
         try:
             voice_client: wavelink.Player = member.guild.voice_client
             if len(voice_client.channel.members) == 1 and member != self.bot.user:
+                await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str('▶️')
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                self.ui_guild_info(member.guild.id).playinfo_view.skip.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.skip.style = discord.ButtonStyle.gray
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.gray
+                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
                 if not voice_client.is_paused():
-                    await self.ui.PlayerControl.PauseOnAllMemberLeave(self[member.guild.id].text_channel, member.guild.id)
                     await self._pause(member.guild)
-                else:
-                    self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
-                    self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
-                    await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
             elif len(voice_client.channel.members) > 1 and voice_client.is_paused() and member != self.bot.user and self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled:
+                await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                if not len(self._playlist[member.guild.id].order) == 1:
+                    self.ui_guild_info(member.guild.id).playinfo_view.skip.disabled = False
+                    self.ui_guild_info(member.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.disabled = False
+                if self.ui_guild_info(member.guild.id).music_suggestion:
+                    self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.green
+                else:
+                    self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.danger
+
                 await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
         except:
             pass

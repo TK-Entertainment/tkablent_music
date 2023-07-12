@@ -38,7 +38,6 @@ class GuildUIInfo:
         self.lastskip: bool = False
         self.mute: bool = False
         self.search: bool = False
-        self.minimized_info: Coroutine[Any, Any, discord.Message] = None
         self.lasterrorinfo: dict = {}
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
