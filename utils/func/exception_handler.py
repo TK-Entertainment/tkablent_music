@@ -81,7 +81,7 @@ class ExceptionHandler:
         else:
             if isinstance(message, discord.Interaction):
                 if message.response.is_done():
-                    msg = await message.channel.send(content, view=groupbutton)
+                    msg = await message.edit_original_response(content=content, view=groupbutton)
                 else:
                     msg = await message.response.send_message(content, view=groupbutton, ephemeral=True)
             else:

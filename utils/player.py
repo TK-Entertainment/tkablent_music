@@ -589,7 +589,7 @@ class MusicCog(Player, commands.Cog):
                     return
             else:
                 tracks = await self._get_track(interaction, search)
-                if isinstance(tracks, Exception):
+                if isinstance(tracks, Exception) or tracks is None:
                     await self.ui.Search.SearchFailed(interaction, search)
             if tracks == "NodeDisconnected":
                 await self.ui.ExceptionHandler.NodeDisconnectedMessage()
