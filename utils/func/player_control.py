@@ -524,7 +524,8 @@ class PlayerControl:
                         else discord.ButtonStyle.gray if self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" \
                             else discord.ButtonStyle.success,
                 emoji=bulb_emoji,
-                disabled=self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud")
+                disabled=(self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" or \
+                            self.musicbot._playlist[channel.guild.id].order[0].audio_source == "bilibili"))
             async def suggest(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.suggestion_control(interaction, button)
 
