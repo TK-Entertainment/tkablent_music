@@ -79,11 +79,47 @@ class GuildInfo:
         with open(fr"{os.getcwd()}/utils/data.json", 'w') as f:
             json.dump(data, f)
 
+class BiliBiliCache:
+    def __init__(self, guild_id):
+        self.bvid: str = ""
+        self._uri: str = ""
+
+    @property
+    def uri(self):
+        if self.uri is None:
+            self._uri = self.fetch('uri')
+        return self._uri
+
+    @uri.setter
+    def uri(self, value: str):
+        self._uri = value
+        self.update("uri", value)
+
+    def fetch(self, key: str) -> not None:
+        '''fetch from database'''
+        with open(fr"{os.getcwd()}/utils/bilibili_cache.json", 'r') as f:
+            data: dict = json.load(f)
+        if data.get(str(self.bvid)) is None or data[str(self.bvid)].get(key) is None:
+            return data['default'][key]
+        return data[str(self.bvid)][key]
+
+    def update(self, key: str, value: str) -> None:
+        '''update database'''
+
+        with open(fr"{os.getcwd()}/utils/data.json", 'r') as f:
+            data: dict = json.load(f)
+        if data.get(str(self.bvid)) is None:
+            data[str(self.bvid)] = dict()
+        data[str(self.bvid)][key] = value
+        with open(fr"{os.getcwd()}/utils/data.json", 'w') as f:
+            json.dump(data, f)
+
 class Player:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
+        self._bilibili_cache: Dict[str, BiliBiliCache] = dict()
         self._spotify: spotify.SpotifyClient = None
 
     def __getitem__(self, guild_id) -> GuildInfo:
@@ -621,30 +657,41 @@ class MusicCog(Player, commands.Cog):
                 url_split = search.split("/")
                 vid = url_split[4]
         
-        v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(page_index=0)
-        detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
-
-        data = detector.detect_all()
-        for t in data:
-            if isinstance(t, bilibili.video.AudioStreamDownloadURL):
-                raw_url = t.url.replace("&", "%26")
-                try:
-                    trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
-                except Exception as e:
-                    raw_url = None
-                    continue
-                break
-            else:
+        if self._bilibili_cache[vid].uri != "":
+            try:
+                trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+            except Exception as e:
                 raw_url = None
+                self._bilibili_cache[vid].uri = ""
         
-        if raw_url == None:
-            return None
+        if self._bilibili_cache[vid].uri == "":
+            v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
+            download_url_data = await v_data.get_download_url(page_index=0)
+            detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
-        try:
-            trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
-        except Exception as e:
-            return e
+            data = detector.detect_all()
+            for t in data:
+                if isinstance(t, bilibili.video.AudioStreamDownloadURL):
+                    raw_url = t.url.replace("&", "%26")
+                    try:
+                        trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+                    except Exception as e:
+                        raw_url = None
+                        continue
+                    break
+                else:
+                    raw_url = None
+            
+            if raw_url == None:
+                return None
+
+            try:
+                trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+            except Exception as e:
+                return e
+            
+            self._bilibili_cache[vid].uri = raw_url
+            
         track = trackinfo[0]
         vinfo = await v_data.get_info()
         track.author = vinfo['owner']['name']
@@ -809,6 +856,8 @@ class MusicCog(Player, commands.Cog):
             song = self._playlist[guild.id].current()
             try:
                 await payload.player.play(song)
+                if song.audio_source == "bilibili":
+                    self._bilibili_cache[song.identifier].uri = song.uri
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
