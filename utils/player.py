@@ -707,7 +707,7 @@ class MusicCog(Player, commands.Cog):
                 return e
             
             if self._bilibili_cache.get(vid) is None:
-                self._bilibili_cache.update(vid, BiliBiliCache(vid))
+                self._bilibili_cache[vid] = BiliBiliCache(vid)
             self._bilibili_cache[vid].uri = raw_url
             self._bilibili_cache[vid].timestamp = int(time.time())
             
