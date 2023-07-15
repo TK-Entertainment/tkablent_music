@@ -25,8 +25,7 @@ class GuildInfo:
         self._dsa: bool = None
         self._multitype_remembered: bool = None
         self._multitype_choice: str = None
-        self._timer_done: bool = False
-
+        self._timer_done: bool = None
 
     @property
     def data_survey_agreement(self):
@@ -80,59 +79,11 @@ class GuildInfo:
         with open(fr"{os.getcwd()}/utils/data.json", 'w') as f:
             json.dump(data, f)
 
-class BiliBiliCache:
-    def __init__(self, bvid):
-        self.bvid: str = bvid
-        self._uri: str = ""
-        self._timestamp: int = ""
-
-    @property
-    def uri(self):
-        if self.uri is None:
-            self._uri = self.fetch('uri')
-        return self._uri
-
-    @uri.setter
-    def uri(self, value: str):
-        self._uri = value
-        self.update("uri", value)
-
-    @property
-    def timestamp(self):
-        if self._timestamp is None:
-            self._timestamp = self.fetch('timestamp')
-        return self._timestamp
-
-    @timestamp.setter
-    def timestamp(self, value: int):
-        self._timestamp = value
-        self.update("timestamp", value)
-
-    def fetch(self, key: str) -> not None:
-        '''fetch from database'''
-        with open(fr"{os.getcwd()}/utils/bilibili_cache.json", 'r') as f:
-            data: dict = json.load(f)
-        if data.get(str(self.bvid)) is None or data[str(self.bvid)].get(key) is None:
-            return data['default'][key]
-        return data[str(self.bvid)][key]
-
-    def update(self, key: str, value: str) -> None:
-        '''update database'''
-
-        with open(fr"{os.getcwd()}/utils/data.json", 'r') as f:
-            data: dict = json.load(f)
-        if data.get(str(self.bvid)) is None:
-            data[str(self.bvid)] = dict()
-        data[str(self.bvid)][key] = value
-        with open(fr"{os.getcwd()}/utils/data.json", 'w') as f:
-            json.dump(data, f)
-
 class Player:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
-        self._bilibili_cache: Dict[str, BiliBiliCache] = dict()
         self._spotify: spotify.SpotifyClient = None
 
     def __getitem__(self, guild_id) -> GuildInfo:
@@ -288,7 +239,6 @@ class Player:
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: discord.Guild):
-        self[guild.id]._timer_done = False
         await asyncio.sleep(600.0)
         self[guild.id]._timer_done = True
         await self._leave(guild)
@@ -670,46 +620,30 @@ class MusicCog(Player, commands.Cog):
                 url_split = search.split("/")
                 vid = url_split[4]
         
-        if self._bilibili_cache.get(vid) is not None and self._bilibili_cache[vid].uri != "":
-            try:
-                trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
-            except Exception as e:
-                raw_url = None
-                self._bilibili_cache[vid].uri = ""
-                self._bilibili_cache[vid].timestamp = 0
-        
+        v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
+        download_url_data = await v_data.get_download_url(page_index=0)
+        detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
-        if (self._bilibili_cache.get(vid) is None or self._bilibili_cache[vid].uri == "") or \
-            (self._bilibili_cache.get(vid) is not None and (int(time.time()) - self._bilibili_cache[vid].timestamp >= 259200)):
-            v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-            download_url_data = await v_data.get_download_url(page_index=0)
-            detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
-
-            data = detector.detect_all()
-            for t in data:
-                if isinstance(t, bilibili.video.AudioStreamDownloadURL):
-                    raw_url = t.url.replace("&", "%26")
-                    try:
-                        trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
-                    except Exception as e:
-                        raw_url = None
-                        continue
-                    break
-                else:
+        data = detector.detect_all()
+        for t in data:
+            if isinstance(t, bilibili.video.AudioStreamDownloadURL):
+                raw_url = t.url.replace("&", "%26")
+                try:
+                    trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+                except Exception as e:
                     raw_url = None
-            
-            if raw_url == None:
-                return None
+                    continue
+                break
+            else:
+                raw_url = None
+        
+        if raw_url == None:
+            return None
 
-            try:
-                trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
-            except Exception as e:
-                return e
-            
-            if self._bilibili_cache.get(vid) is None:
-                self._bilibili_cache[vid] = BiliBiliCache(vid)
-            self._bilibili_cache[vid].uri = raw_url
-            self._bilibili_cache[vid].timestamp = int(time.time())
+        try:
+            trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+        except Exception as e:
+            return e
             
         track = trackinfo[0]
         vinfo = await v_data.get_info()
@@ -830,7 +764,7 @@ class MusicCog(Player, commands.Cog):
             return 
         guild = member.guild
         channel = self[guild.id].text_channel
-        if self[guild.id]._timer is not None and self[guild.id]._timer_done:
+        if self[guild.id]._timer_done:
             self[guild.id]._timer_done = False
             await self.ui.Leave.LeaveOnTimeout(channel)
         elif after.channel is None:
@@ -859,10 +793,10 @@ class MusicCog(Player, commands.Cog):
             self[guild.id]._refresh_msg_task = self._playlist[guild.id]._refresh_msg_task = None
 
         if len(self._playlist[guild.id].order) == 0:
-            self._start_timer(payload.player.guild)
-            if not ((self.ui_guild_info(guild.id).leaveoperation) or not (self[guild.id]._timer is not None and self[guild.id]._timer_done)):
+            if not ((self.ui_guild_info(guild.id).leaveoperation) or (self[guild.id]._timer_done)):
                 self.ui_guild_info(guild.id).leaveoperation = False
                 await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
+            self._start_timer(payload.player.guild)
             return
         else:
             self._playlist[guild.id]._refresh_msg_task = self[guild.id]._refresh_msg_task
@@ -875,8 +809,6 @@ class MusicCog(Player, commands.Cog):
             song = self._playlist[guild.id].current()
             try:
                 await payload.player.play(song)
-                if song.audio_source == "bilibili":
-                    self._bilibili_cache[song.identifier].uri = song.uri
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)

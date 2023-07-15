@@ -25,6 +25,7 @@ class Leave:
     def reset_value(self, guild):
         guild_info = self.guild_info(guild.id)
 
+        self.musicbot[guild.id]._timer_done = False
         guild_info.auto_stage_available = True
         guild_info.stage_topic_checked = False
         guild_info.stage_topic_exist = False
