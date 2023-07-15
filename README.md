@@ -7,7 +7,7 @@
 
 開發版 (Cutting Edge, ce) | *仍舊提供更新，供嘗鮮用戶使用*  
 *目前測試項目: 搜尋系統及使用者介面優化 (linkandui)*  
-*目前更新到 m.20230712.1.linkandui-ce*  
+*目前更新到 m.20230716.linkandui-ce*  
 
 前期開發版 (Alpha) | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
@@ -17,8 +17,8 @@
 
 ## 目前版本
 正式版(Stable): *m.20230611.1.e1-s*  
-測試版(Cutting Edge): *m.20230712.1.linkandui-ce*  
-源碼(Source Code): *d132b38 (20230712)*
+測試版(Cutting Edge): *m.20230716.linkandui-ce*  
+源碼(Source Code): *af16eed (20230716)*
   
 **最新更新日誌**  
 如需觀看更詳細的更新日誌，請點下方連結  
