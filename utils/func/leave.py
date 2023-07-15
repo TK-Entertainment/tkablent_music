@@ -1,15 +1,26 @@
 from typing import *
 from discord.ext import commands
 import discord
+import asyncio
 
 from .exception_handler import ExceptionHandler
+from .info import InfoGenerator
+from ..ui import LeaveType
 
 class Leave:
-    def __init__(self, exception_handler):
-        from ..ui import guild_info
+    def __init__(self, exception_handler, info_generator):
+        from ..ui import guild_info, bot, musicbot
 
         self.guild_info = guild_info
         self.exception_handler: ExceptionHandler = exception_handler
+        self.info_generator: InfoGenerator = info_generator
+        self.bot = bot
+        self.musicbot = musicbot
+
+    async def refresh_and_reset(self, guild: discord.Guild):
+        await asyncio.sleep(3)
+        await self.info_generator._UpdateSongInfo(guild.id)
+        self.reset_value(guild)
 
     def reset_value(self, guild):
         guild_info = self.guild_info(guild.id)
@@ -19,20 +30,37 @@ class Leave:
         guild_info.stage_topic_exist = False
         guild_info.skip = False
         guild_info.music_suggestion = False
+        guild_info.processing_msg = None
+        guild_info.suggestions = []
+        if self.musicbot._playlist[guild.id]._resuggest_task is not None:
+            self.musicbot._playlist[guild.id]._resuggest_task.cancel()
+            self.musicbot._playlist[guild.id]._resuggest_task = None
+        if self.musicbot._playlist[guild.id]._suggest_search_task is not None:
+            self.musicbot._playlist[guild.id]._suggest_search_task.cancel()
+            self.musicbot._playlist[guild.id]._suggest_search_task = None
+        guild_info.playinfo_view = None
+        guild_info.playinfo = None
 
     async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
-        self.reset_value(interaction.guild)
-        await interaction.response.send_message(f'''
-            **:outbox_tray: | 已離開語音/舞台頻道**
-            已停止所有音樂並離開目前所在的語音/舞台頻道
-            ''')
-    
-    async def LeaveOnTimeout(self, ctx: commands.Context) -> None:
-        await ctx.send(f'''
-            **:outbox_tray: | 等待超時**
-            機器人已閒置超過 10 分鐘
-            已停止所有音樂並離開目前所在的語音/舞台頻道
-            ''')
+        self.guild_info(interaction.guild.id).leaveoperation = True
+        if self.guild_info(interaction.guild.id).playinfo is not None:
+            self.guild_info(interaction.guild.id).playinfo_view.clear_items()
+            self.guild_info(interaction.guild.id).playinfo_view.stop()
+            await interaction.response.send_message("ㅤ", ephemeral=True)
+            await self.guild_info(interaction.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, leave=LeaveType.ByCommand), view=None)
+        else:
+            await interaction.response.send_message(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, leave=LeaveType.ByCommand))
+        self.bot.loop.create_task(self.refresh_and_reset(interaction.guild))
+
+    async def LeaveOnTimeout(self, channel: discord.TextChannel) -> None:
+        self.guild_info(channel.guild.id).leaveoperation = True
+        if self.guild_info(channel.guild.id).playinfo is not None:
+            self.guild_info(channel.guild.id).playinfo_view.clear_items()
+            self.guild_info(channel.guild.id).playinfo_view.stop()
+            await self.guild_info(channel.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=channel.guild.id, leave=LeaveType.ByTimeout), view=None)
+        else:
+            await channel.send(embed=self.info_generator._SongInfo(guild_id=channel.guild.id, leave=LeaveType.ByTimeout))
+        self.bot.loop.create_task(self.refresh_and_reset(channel.guild))
     
     async def LeaveFailed(self, interaction: discord.Interaction, exception) -> None:
         await self.exception_handler._CommonExceptionHandler(interaction, "LEAVEFAIL", exception)

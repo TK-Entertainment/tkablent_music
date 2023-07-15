@@ -7,6 +7,7 @@ import copy
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
+from ..ui import LeaveType
 from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
 
 class InfoGenerator:
@@ -40,18 +41,41 @@ class InfoGenerator:
         
         return holiday
 
-    def _SongInfo(self, guild_id: int, color_code: str = None, index: int = 0, removed = None):
+    def _SongInfo(
+            self, 
+            guild_id: int, 
+            color_code: str = None, 
+            index: int = 0, 
+            removed = None, 
+            leave: LeaveType = None, 
+            operator: discord.Member = None
+        ):
+
         holiday = self._isitholiday()
         embed_opt = copy.deepcopy(self.embed_opt)
 
         playlist = self.musicbot._playlist[guild_id]
 
         if len(playlist.order) == 0:
+            if isinstance(leave, LeaveType):
+                match leave:
+                    case LeaveType.ByCommand:
+                        txt = f"📤 | 已退出語音/舞台頻道"
+                    case LeaveType.ByButton:
+                        if operator.discriminator == "0":
+                            txt = f"📤 | 由 {operator.name} 要求退出語音/舞台頻道"
+                        else:
+                            txt = f"📤 | 由 {operator.name}#{operator.discriminator} 要求退出語音/舞台頻道"
+                    case LeaveType.ByTimeout:
+                            txt = f"📤/🕗 | 因機器人已閒置 10 分鐘，已自動退出"
+            else:
+                txt = f"🕗 | 歌曲均已播放完畢，等待指令"
+
             embed = discord.Embed(title=f"輸入 /play [URL/關鍵字] 來開始播放", colour=discord.Colour.from_rgb(255, 255, 255))
             if holiday == "xmas" or holiday == "xmaseve":
-                embed.set_author(name=f"🕗 | 歌曲均已播放完畢，等待指令", icon_url="https://i.imgur.com/c3X2KBD.png")
+                embed.set_author(name=txt, icon_url="https://i.imgur.com/c3X2KBD.png")
             else:
-                embed.set_author(name=f"🕗 | 歌曲均已播放完畢，等待指令", icon_url="https://i.imgur.com/p4vHa3y.png")
+                embed.set_author(name=txt, icon_url="https://i.imgur.com/p4vHa3y.png")
         else:
             if color_code == "red":
                 song = removed
@@ -177,7 +201,7 @@ class InfoGenerator:
             if 'spotify' in song.uri and (color != 'green' or color != 'red'):
                 embed.set_thumbnail(url=song.cover)
 
-            if (song.audio_source == 'soundcloud' or song.audio_source == 'bilibili') \
+            if (not self.musicbot._playlist.check_current_suggest_support(guild_id)) \
                 and (color_code != 'red' or color_code != 'green'): #color code refer to behaviour
                     # red stands for delete information, green stands for add to queue notice
                 embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲暫時不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能', inline=False)
@@ -229,7 +253,7 @@ class InfoGenerator:
 
     async def _UpdateSongInfo(self, guild_id: int):
         if len(self.musicbot._playlist[guild_id].order) == 0:
-            await self.guild_info(guild_id).playinfo.edit(embed=self._SongInfo(guild_id), view=self.guild_info(guild_id).playinfo_view)
+            await self.guild_info(guild_id).playinfo.edit(embed=self._SongInfo(guild_id), view=None)
         else:
             self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
             if len(self.musicbot._playlist[guild_id].order) == 1:
@@ -246,7 +270,7 @@ class InfoGenerator:
                 self.guild_info(guild_id).playinfo_view.loop_control.label = ''
                 self.guild_info(guild_id).playinfo_view.loop_control.style = discord.ButtonStyle.danger
 
-            if self.musicbot._playlist[guild_id].current().audio_source == "soundcloud":
+            if not self.musicbot._playlist.check_current_suggest_support(guild_id):
                 self.guild_info(guild_id).playinfo_view.suggest.style = discord.ButtonStyle.gray
                 self.guild_info(guild_id).playinfo_view.suggest.disabled = True
             else:

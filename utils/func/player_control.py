@@ -14,6 +14,7 @@ from .leave import Leave
 from ..ui import _sec_to_hms, pause_emoji, play_emoji, stop_emoji, skip_emoji, leave_emoji \
             , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji\
             , loading_emoji, shuffle_emoji, search_emoji, done_emoji, prevpage_emoji, nextpage_emoji
+from ..ui import LeaveType
 
 class PlayerControl:
     def __init__(self, exception_handler, info_generator, stage, queue, leave):
@@ -451,7 +452,7 @@ class PlayerControl:
                 self.guild_info(channel.guild.id).skip = True
                 await self.musicbot._skip(channel.guild)
 
-                if playlist.current().audio_source == "soundcloud" or playlist.current().audio_source == "bilibili":
+                if not self.musicbot._playlist.check_current_suggest_support(interaction.guild.id):
                     self.guild_info(channel.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.gray
                     self.guild_info(channel.guild.id).playinfo_view.suggest.disabled = True
                 else:
@@ -521,11 +522,10 @@ class PlayerControl:
             @discord.ui.button(
                 label='⬜ 推薦音樂' if not self.guild_info(channel.guild.id).music_suggestion else "✅ 推薦音樂", 
                 style=discord.ButtonStyle.danger if not self.guild_info(channel.guild.id).music_suggestion \
-                        else discord.ButtonStyle.gray if (self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" or self.musicbot._playlist[channel.guild.id].order[0].audio_source == "bilibili") \
+                        else discord.ButtonStyle.gray if not self.musicbot._playlist.check_current_suggest_support(channel.guild.id) \
                             else discord.ButtonStyle.success,
                 emoji=bulb_emoji,
-                disabled=(self.musicbot._playlist[channel.guild.id].order[0].audio_source == "soundcloud" or \
-                            self.musicbot._playlist[channel.guild.id].order[0].audio_source == "bilibili"))
+                disabled=not self.musicbot._playlist.check_current_suggest_support(channel.guild.id))
             async def suggest(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.suggestion_control(interaction, button)
 
@@ -542,13 +542,14 @@ class PlayerControl:
             async def leavech(self, interaction: discord.Interaction, button: discord.ui.Button):
                 await interaction.response.pong()
                 await self.musicbot._leave(channel.guild)
+                self.guild_info(interaction.guild.id).leaveoperation = True
 
-                self.leave.reset_value(channel.guild)
                 self.clear_items()
-                await self.guild_info(channel.guild.id).playinfo.edit(content=f'''
-            **:outbox_tray: | 已離開語音/舞台頻道**
-            {interaction.user.mention} 已讓我停止所有音樂並離開目前所在的語音/舞台頻道
-            ''', view=view, embed=None)
+                await self.guild_info(channel.guild.id).playinfo.edit(
+                    view=view, 
+                    embed=self.info_generator._SongInfo(guild_id=channel.guild.id, leave=LeaveType.ByButton, operator=interaction.user)
+                )
+                self.bot.loop.create_task(self.leave.refresh_and_reset(channel.guild))
                 self.stop()
         
         self.guild_info(channel.guild.id).lastskip = False

@@ -137,6 +137,15 @@ class Playlist:
     def init_spotify(self, spotify_id, spotify_secret):
         self.spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=spotify_id, client_secret=spotify_secret))
 
+    def check_current_suggest_support(self, guild_id) -> bool:
+        current = self[guild_id].current()
+        unsupported_source = [
+            'soundcloud',
+            'bilibili'
+        ]
+
+        return not (current.audio_source in unsupported_source)
+
     async def add_songs(self, guild_id, trackinfo: Union[wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist], requester):
         if len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
             if isinstance(trackinfo, list):
@@ -205,33 +214,65 @@ class Playlist:
             tracks.tracks.extend(trackinfo)
             return tracks
 
-    async def _process_resuggestion(self, guild, suggestion, ui_guild_info: GuildUIInfo):
+    async def _get_suggest_track(
+            self, 
+            suggestion: Dict[str, List[Dict]], 
+            index: int, ui_guild_info: GuildUIInfo, 
+            pre_process: bool) -> Optional[Union[wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]]:
+        
+        searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        suggested_track = None
+
+        for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
+            try:
+                suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=searchnode)
+                suggested_track = suggested_track[0]
+            except:
+                suggested_track = None
+                pass
+            if suggested_track is not None:
+                suggested_track.suggested = True
+                suggested_track.audio_source = 'youtube'
+                ui_guild_info.suggestions.append(suggested_track)
+
+                if pre_process:
+                    suggestion['index'] += 1
+        
+        return suggested_track
+
+    async def _get_suggest_list(self, guild: discord.Guild, playlist_index: int) -> Dict[str, List[Dict]]:
+        suggestion = self.ytapi.get_watch_playlist(
+            videoId=self[guild.id].order[playlist_index].identifier, 
+            limit=5
+        )
+        
+        suggestion['index'] = 13
+
+        return suggestion
+
+    async def _process_resuggestion(self, guild, suggestion, ui_guild_info: GuildUIInfo) -> None:
         playlist_index = 1
         suggested_track = None
-        searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        
 
         if len(ui_guild_info.suggestions) != 0:
             # check first one first
             if ui_guild_info.suggestions[0].title in ui_guild_info.previous_titles:
                 print(f'[Suggestion] {ui_guild_info.suggestions[0].title} has played before in {guild.id}, resuggested')
                 ui_guild_info.suggestions.pop(0)
+
                 while suggested_track is None:
-                    for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
-                        try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode)
-                            suggested_track = suggested_track[0]
-                        except:
-                            suggested_track = None
-                            pass
-                        if suggested_track is not None:
-                            suggested_track.suggested = True
-                            suggested_track.audio_source = 'youtube'
-                            ui_guild_info.suggestions.append(suggested_track)
-                            suggestion['index'] += 1
-                            break
-                    if suggested_track is None:
-                        suggestion = self.ytapi.get_watch_playlist(videoId=self[guild.id].order[playlist_index].identifier, limit=5)
-                        suggestion['index'] = 13
+                    suggested_track = await self._get_suggest_track(
+                        suggestion, 
+                        suggestion['index'], 
+                        ui_guild_info, 
+                        pre_process=True
+                    )
+
+                    if suggested_track is not None:
+                        break
+                    else:
+                        suggestion = await self._get_suggest_list(guild, playlist_index)
                         playlist_index += 1
 
         self[guild.id]._suggest_search_task = await asyncio.wait_for(self._search_for_suggestion(guild, suggestion, ui_guild_info), None)
@@ -243,50 +284,40 @@ class Playlist:
                 print(f'[Suggestion] {track.title} has played before in {guild.id}, resuggested')
                 ui_guild_info.suggestions.pop(i)
                 while suggested_track is None:
-                    for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
-                        try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][suggestion['index']]['videoId'], node=searchnode)
-                            suggested_track = suggested_track[0]
-                        except:
-                            suggested_track = None
-                            pass
-                        if suggested_track is not None:
-                            suggested_track.suggested = True
-                            suggested_track.audio_source = 'youtube'
-                            ui_guild_info.suggestions.append(suggested_track)
-                            suggestion['index'] += 1
-                            break
-                    if suggested_track is None:
-                        suggestion = self.ytapi.get_watch_playlist(videoId=self[guild.id].order[playlist_index].identifier, limit=5)
-                        suggestion['index'] = 13
+                    suggested_track = await self._get_suggest_track(
+                            suggestion, 
+                            suggestion['index'], 
+                            ui_guild_info, 
+                            pre_process=True
+                        )
+                    
+                    if suggested_track is not None:
+                        break
+                    else:
+                        suggestion = await self._get_suggest_list(guild, playlist_index)
                         playlist_index += 1
 
     async def _search_for_suggestion(self, guild, suggestion, ui_guild_info: GuildUIInfo):
-        indexlist = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         playlist_index = 1
         suggested_track = None
-        searchnode = wavelink.NodePool.get_node(id="SearchNode")
 
         if len(ui_guild_info.suggestions) == 0:
 
             print(f'[Suggestion] Started to fetch 12 suggestions for {guild.id}')
 
             while suggested_track is None:
-                for index in indexlist:
-                    for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
-                        try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][index]['videoId'], node=searchnode)
-                            suggested_track = suggested_track[0]
-                        except:
-                            suggested_track = None
-                            pass
-                        if suggested_track is not None:
-                            suggested_track.suggested = True
-                            suggested_track.audio_source = 'youtube'
-                            ui_guild_info.suggestions.append(suggested_track)
-                    if suggested_track is None:
-                        suggestion = self.ytapi.get_watch_playlist(videoId=self[guild.id].order[playlist_index].identifier, limit=5)
-                        suggestion['index'] = 13
+                for index in range(2, 13, 1):
+                    suggested_track = await self._get_suggest_track(
+                            suggestion, 
+                            index, 
+                            ui_guild_info, 
+                            pre_process=False
+                        )
+                    
+                    if suggested_track is not None:
+                        break
+                    else:
+                        suggestion = await self._get_suggest_list(guild, playlist_index)
                         playlist_index += 1
         
     async def process_suggestion(self, guild: discord.Guild, ui_guild_info: GuildUIInfo):
@@ -294,6 +325,7 @@ class Playlist:
             if len(self[guild.id].order) == 2 and not self[guild.id].order[-1].suggested:
                 return
 
+            # If bot 
             if (self[guild.id].loop_state != LoopState.NOTHING):
                 if self[guild.id].loop_state != LoopState.PLAYLIST:
                     if len(self[guild.id].order) == 2 and (self[guild.id].order[-1].suggested):
@@ -309,33 +341,31 @@ class Playlist:
                             ui_guild_info.previous_titles.remove(self[guild.id].order[-1].title)
                             self.pop(guild.id, -1)
                             return
+
             suggested_track = None
-            searchnode = wavelink.NodePool.get_node(id="SearchNode")
 
             if self[guild.id].current().title not in ui_guild_info.previous_titles:
                 ui_guild_info.previous_titles.append(self[guild.id].current().title)
             
             if len(ui_guild_info.suggestions) == 0:
                 index = 1
+                suggestion = ui_guild_info.suggestions_source = self.ytapi.get_watch_playlist(videoId=self[guild.id].current().identifier, limit=5)
+                ui_guild_info.suggestions_source['index'] = 13
+
                 while suggested_track is None:
-                    suggestion = ui_guild_info.suggestions_source = self.ytapi.get_watch_playlist(videoId=self[guild.id].current().identifier, limit=5)
-                    ui_guild_info.suggestions_source['index'] = 13
-                    for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
-                        try:
-                            suggested_track = await trackmethod.search(suggestion['tracks'][1]['videoId'], node=searchnode)
-                            suggested_track = suggested_track[0]
-                        except:
-                            suggested_track = None
-                            pass
-                        if suggested_track is not None:
-                            suggested_track.suggested = True
-                            suggested_track.audio_source = 'youtube'
-                            ui_guild_info.suggestions.append(suggested_track)
-                            if self[guild.id]._refresh_msg_task is not None:
-                                self[guild.id]._refresh_msg_task.cancel()
-                                self[guild.id]._refresh_msg_task = None
-                            break
-                    if suggested_track is None:
+                    suggested_track = await self._get_suggest_track(
+                            suggestion, 
+                            index, 
+                            ui_guild_info, 
+                            pre_process=False
+                        )
+                    
+                    if suggested_track is not None:
+                        if self[guild.id]._refresh_msg_task is not None:
+                            self[guild.id]._refresh_msg_task.cancel()
+                            self[guild.id]._refresh_msg_task = None
+                        break
+                    else:
                         index += 1
 
             if self[guild.id]._resuggest_task is not None:

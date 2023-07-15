@@ -2,6 +2,7 @@ from typing import *
 import discord
 from discord.ext import commands
 import datetime
+from enum import Enum, auto
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -36,9 +37,9 @@ class GuildUIInfo:
         self.stage_topic_checked: bool = False
         self.skip: bool = False
         self.lastskip: bool = False
-        self.mute: bool = False
         self.search: bool = False
         self.lasterrorinfo: dict = {}
+        self.leaveoperation: bool = False
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
@@ -47,6 +48,11 @@ class GuildUIInfo:
         self.searchmsg: Coroutine[Any, Any, discord.Message] = None
         self.previous_titles: list[str] = []
         self.suggestions: list = []
+
+class LeaveType(Enum):
+    ByCommand = auto()
+    ByButton = auto()
+    ByTimeout = auto()
 
 bot_version: str = None
 musicbot: MusicCog = None
@@ -144,7 +150,7 @@ class UI:
         # Leave #
         #########
         from .func.leave import Leave
-        self.Leave = Leave(self.ExceptionHandler)
+        self.Leave = Leave(self.ExceptionHandler, self._InfoGenerator)
     
         ##########
         # Search #
