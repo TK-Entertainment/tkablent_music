@@ -24,6 +24,7 @@ class GuildInfo:
         self._dsa: bool = None
         self._multitype_remembered: bool = None
         self._multitype_choice: str = None
+        self._timer_done: bool = False
 
 
     @property
@@ -238,7 +239,9 @@ class Player:
         self[guild.id]._timer = self.bot.loop.create_task(coro)
     
     async def _timer(self, guild: discord.Guild):
-        await asyncio.sleep(10.0)
+        self[guild.id]._timer_done = False
+        await asyncio.sleep(600.0)
+        self[guild.id]._timer_done = True
         await self._leave(guild)
     
     def _cleanup(self, guild: discord.Guild):
@@ -761,7 +764,8 @@ class MusicCog(Player, commands.Cog):
             return 
         guild = member.guild
         channel = self[guild.id].text_channel
-        if self[guild.id]._timer is not None and (self[guild.id]._timer._state == 'PENDING' and after.channel is None):
+        if self[guild.id]._timer is not None and self[guild.id]._timer_done:
+            self[guild.id]._timer_done = False
             await self.ui.Leave.LeaveOnTimeout(channel)
         elif after.channel is None:
             await self._leave(member.guild)
@@ -790,7 +794,7 @@ class MusicCog(Player, commands.Cog):
 
         if len(self._playlist[guild.id].order) == 0:
             self._start_timer(payload.player.guild)
-            if not ((self.ui_guild_info(guild.id).leaveoperation) or not (self[guild.id]._timer is not None and self[guild.id]._timer.done())):
+            if not ((self.ui_guild_info(guild.id).leaveoperation) or not (self[guild.id]._timer is not None and self[guild.id]._timer_done)):
                 self.ui_guild_info(guild.id).leaveoperation = False
                 await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
             return
