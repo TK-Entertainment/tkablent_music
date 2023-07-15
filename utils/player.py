@@ -2,6 +2,7 @@ from typing import *
 import asyncio, json, os
 import dotenv
 import validators
+import time
 
 import discord
 from discord.ext import commands
@@ -80,9 +81,10 @@ class GuildInfo:
             json.dump(data, f)
 
 class BiliBiliCache:
-    def __init__(self, guild_id):
-        self.bvid: str = ""
+    def __init__(self, bvid):
+        self.bvid: str = bvid
         self._uri: str = ""
+        self._timestamp: int = ""
 
     @property
     def uri(self):
@@ -94,6 +96,17 @@ class BiliBiliCache:
     def uri(self, value: str):
         self._uri = value
         self.update("uri", value)
+
+    @property
+    def timestamp(self):
+        if self._timestamp is None:
+            self._timestamp = self.fetch('timestamp')
+        return self._timestamp
+
+    @timestamp.setter
+    def timestamp(self, value: int):
+        self._timestamp = value
+        self.update("timestamp", value)
 
     def fetch(self, key: str) -> not None:
         '''fetch from database'''
@@ -657,14 +670,17 @@ class MusicCog(Player, commands.Cog):
                 url_split = search.split("/")
                 vid = url_split[4]
         
-        if self._bilibili_cache[vid].uri != "":
+        if self._bilibili_cache.get(vid) is not None and self._bilibili_cache[vid].uri != "":
             try:
                 trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
             except Exception as e:
                 raw_url = None
                 self._bilibili_cache[vid].uri = ""
+                self._bilibili_cache[vid].timestamp = 0
         
-        if self._bilibili_cache[vid].uri == "":
+
+        if (self._bilibili_cache.get(vid) is None or self._bilibili_cache[vid].uri == "") or \
+            (self._bilibili_cache.get(vid) is not None and (int(time.time()) - self._bilibili_cache[vid].timestamp >= 259200)):
             v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
             download_url_data = await v_data.get_download_url(page_index=0)
             detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
@@ -690,7 +706,10 @@ class MusicCog(Player, commands.Cog):
             except Exception as e:
                 return e
             
+            if self._bilibili_cache.get(vid) is None:
+                self._bilibili_cache.update(vid, BiliBiliCache(vid))
             self._bilibili_cache[vid].uri = raw_url
+            self._bilibili_cache[vid].timestamp = int(time.time())
             
         track = trackinfo[0]
         vinfo = await v_data.get_info()
