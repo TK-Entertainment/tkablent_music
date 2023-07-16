@@ -739,7 +739,7 @@ class MusicCog(Player, commands.Cog):
             if quick_search:
                 method = [wavelink.YouTubeTrack]
             else:
-                method = [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack, wavelink.SoundCloudTrack]
+                method = [wavelink.YouTubeTrack, wavelink.YouTubeMusicTrack, wavelink.SoundCloudTrack]
 
             if choice == 'playlist' or 'list' in search:
                 data = await wavelink.YouTubePlaylist.search(search, node=searchnode)
