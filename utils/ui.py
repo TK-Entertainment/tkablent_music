@@ -54,6 +54,10 @@ class LeaveType(Enum):
     ByButton = auto()
     ByTimeout = auto()
 
+class StopType(Enum):
+    ByCommand = auto()
+    ByButton = auto()
+
 bot_version: str = None
 musicbot: MusicCog = None
 bot: commands.Bot = None

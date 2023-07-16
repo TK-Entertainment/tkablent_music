@@ -237,6 +237,8 @@ class Playlist:
 
                 if pre_process:
                     suggestion['index'] += 1
+
+                break
         
         return suggested_track
 

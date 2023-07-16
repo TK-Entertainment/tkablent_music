@@ -14,7 +14,7 @@ from .leave import Leave
 from ..ui import _sec_to_hms, pause_emoji, play_emoji, stop_emoji, skip_emoji, leave_emoji \
             , repeat_emoji, repeat_sing_emoji, bulb_emoji, queue_emoji, end_emoji\
             , loading_emoji, shuffle_emoji, search_emoji, done_emoji, prevpage_emoji, nextpage_emoji
-from ..ui import LeaveType
+from ..ui import LeaveType, StopType
 
 class PlayerControl:
     def __init__(self, exception_handler, info_generator, stage, queue, leave):
@@ -334,6 +334,13 @@ class PlayerControl:
         await interaction.response.send_message(content, view=view, ephemeral=True)
         msg = await interaction.original_response()
 
+    async def stop_refresh(self, guild):
+        await asyncio.sleep(3)
+        await self.info_generator._UpdateSongInfo(guild.id)
+        self.guild_info(guild.id).playinfo = None
+        self.guild_info(guild.id).playinfo_view = None
+        self.guild_info(guild.id).leaveoperation = False
+
     async def PlayingMsg(self, channel: Union[discord.TextChannel, discord.Interaction]):
         playlist = self.musicbot._playlist[channel.guild.id]
 
@@ -367,6 +374,7 @@ class PlayerControl:
             queue = self.queue
             leave = self.leave
             guild_info = self.guild_info
+            stop_refresh = self.stop_refresh
 
             def __init__(self, *, timeout=60):
                 super().__init__(timeout=None)
@@ -436,11 +444,15 @@ class PlayerControl:
             async def stop_action(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.musicbot._stop(channel.guild)
                 self.guild_info(channel.guild.id).music_suggestion = False
-                await interaction.response.send_message(f'''
-            **:stop_button: | 停止播放**
-            歌曲已由 {interaction.user.mention} 停止播放
-            *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
-            ''')
+                self.guild_info(interaction.guild.id).leaveoperation = True
+
+                self.clear_items()
+                await self.guild_info(channel.guild.id).playinfo.edit(
+                    view=view, 
+                    embed=self.info_generator._SongInfo(guild_id=channel.guild.id, operation=StopType.ByButton, operator=interaction.user)
+                )
+                
+                self.bot.loop.create_task(self.stop_refresh(interaction.guild))
                 self.stop()
 
             @discord.ui.button(
@@ -547,7 +559,7 @@ class PlayerControl:
                 self.clear_items()
                 await self.guild_info(channel.guild.id).playinfo.edit(
                     view=view, 
-                    embed=self.info_generator._SongInfo(guild_id=channel.guild.id, leave=LeaveType.ByButton, operator=interaction.user)
+                    embed=self.info_generator._SongInfo(guild_id=channel.guild.id, operation=LeaveType.ByButton, operator=interaction.user)
                 )
                 self.bot.loop.create_task(self.leave.refresh_and_reset(channel.guild))
                 self.stop()
@@ -673,11 +685,15 @@ class PlayerControl:
     # Stop #####################################################
 
     async def StopSucceed(self, interaction: discord.Interaction) -> None:
-        await interaction.response.send_message(f'''
-            **:stop_button: | 停止播放**
-            歌曲已停止播放
-            *輸入 **{self.bot.command_prefix}play** 以重新開始播放*
-            ''')
+        self.guild_info(interaction.guild.id).leaveoperation = True
+        if self.guild_info(interaction.guild.id).playinfo is not None:
+            self.guild_info(interaction.guild.id).playinfo_view.clear_items()
+            self.guild_info(interaction.guild.id).playinfo_view.stop()
+            await interaction.response.send_message("ㅤ", ephemeral=True)
+            await self.guild_info(interaction.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, operation=StopType.ByCommand), view=None)
+        else:
+            await interaction.response.send_message(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, operation=StopType.ByCommand))
+        self.bot.loop.create_task(self.stop_refresh(interaction.guild))
     
     async def StopFailed(self, interaction: discord.Interaction, exception) -> None:
         await self.exception_handler._CommonExceptionHandler(interaction, "STOPFAIL", exception)

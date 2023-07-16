@@ -7,7 +7,7 @@ import copy
 
 import wavelink
 from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
-from ..ui import LeaveType
+from ..ui import LeaveType, StopType
 from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
 
 class InfoGenerator:
@@ -47,7 +47,7 @@ class InfoGenerator:
             color_code: str = None, 
             index: int = 0, 
             removed = None, 
-            leave: LeaveType = None, 
+            operation: LeaveType = None, 
             operator: discord.Member = None
         ):
 
@@ -57,8 +57,8 @@ class InfoGenerator:
         playlist = self.musicbot._playlist[guild_id]
 
         if len(playlist.order) == 0:
-            if isinstance(leave, LeaveType):
-                match leave:
+            if isinstance(operation, LeaveType):
+                match operation:
                     case LeaveType.ByCommand:
                         txt = f"📤 | 已退出語音/舞台頻道"
                     case LeaveType.ByButton:
@@ -68,6 +68,15 @@ class InfoGenerator:
                             txt = f"📤 | 由 {operator.name}#{operator.discriminator} 要求退出語音/舞台頻道"
                     case LeaveType.ByTimeout:
                             txt = f"📤/🕗 | 因機器人已閒置 10 分鐘，已自動退出"
+            elif isinstance(operation, StopType):
+                match operation:
+                    case StopType.ByCommand:
+                        txt = f"⏹️ | 已停止播放歌曲並清除待播清單"
+                    case StopType.ByButton:
+                        if operator.discriminator == "0":
+                            txt = f"⏹️ | 由 {operator.name} 要求停止播放歌曲並清除待播清單"
+                        else:
+                            txt = f"⏹️ | 由 {operator.name}#{operator.discriminator} 要求停止播放歌曲並清除待播清單"
             else:
                 txt = f"🕗 | 歌曲均已播放完畢，等待指令"
 

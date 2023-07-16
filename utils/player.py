@@ -2,7 +2,7 @@ from typing import *
 import asyncio, json, os
 import dotenv
 import validators
-import time
+import requests
 
 import discord
 from discord.ext import commands
@@ -85,6 +85,7 @@ class Player:
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self._spotify: spotify.SpotifyClient = None
+        self._cache: dict = dict()
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
@@ -259,10 +260,11 @@ class MusicCog(Player, commands.Cog):
         self.bot_version = bot_version
 
     async def resolve_ui(self):   
-        from .ui import UI, auto_stage_available, guild_info
+        from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
         self.ui = UI(self, self.bot_version)
         self.auto_stage_available = auto_stage_available
         self.ui_guild_info = guild_info
+        self._sec_to_hms = _sec_to_hms
         from .ui import groupbutton
         self.groupbutton = groupbutton
 
@@ -578,9 +580,42 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()  
 
+    async def get_search_suggest(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
+        if validators.url(current) or current == "":
+            return []
+        else:
+            tracks = await self._get_track(interaction, current)
+            result = []
+
+            for i in range(len(tracks)):
+                if i == 16:
+                    break
+
+                if self._cache.get(tracks[i].identifier) is not None:
+                    result.append(app_commands.Choice(name=f"{self._cache[tracks[i].identifier]['title']} | {self._cache[tracks[i].identifier]['author']} | {self._cache[tracks[i].identifier]['length']}", value=f"https://www.youtube.com/watch?v={tracks[i].identifier}"))
+                    continue
+
+                if isinstance(tracks[i], str):
+                    tracks.pop(i)
+                    continue
+
+                if len(tracks[i].title) > 40:
+                    tracks[i].title = tracks[i].title[:40] + "..."
+
+                if len(tracks[i].author) > 10:
+                    tracks[i].author = tracks[i].author[:10] + "..."
+
+                length = self._sec_to_hms(seconds=(tracks[i].length)/1000, format="symbol")
+
+                result.append(app_commands.Choice(name=f"{tracks[i].title} | {tracks[i].author} | {length}", value=f"https://www.youtube.com/watch?v={tracks[i].identifier}"))
+                self._cache[tracks[i].identifier] = dict(title=tracks[i].title, author=tracks[i].author, length=length)
+
+            return result
+
     @app_commands.command(name='play', description='🎶 | 想聽音樂？來這邊點歌吧~')
     @app_commands.describe(search='欲播放之影片網址或關鍵字 (支援 SoundCloud / Spotify / BiliBili(單曲))')
     @app_commands.rename(search='影片網址或關鍵字')
+    @discord.app_commands.autocomplete(search=get_search_suggest)
     async def _i_play(self, interaction: discord.Interaction, search: str):
         if validators.url(search):
             if "list" in search and "watch" in search and ("youtube" in search or "youtu.be" in search):
