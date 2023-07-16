@@ -230,7 +230,7 @@ class Player:
             self[guild.id]._timer = None
         self._start_timer(guild)
         
-        if not vc.is_playing():
+        if not vc.is_playing() and len(self._playlist[guild.id].order) > 0:
             await vc.play(self._playlist[guild.id].current())
 
     def _start_timer(self, guild: discord.Guild):
@@ -584,7 +584,7 @@ class MusicCog(Player, commands.Cog):
         if validators.url(current) or current == "":
             return []
         else:
-            tracks = await self._get_track(interaction, current)
+            tracks = await self._get_track(interaction, current, quick_search=True)
             result = []
 
             for i in range(len(tracks)):
@@ -628,9 +628,6 @@ class MusicCog(Player, commands.Cog):
                 tracks = await self._get_track(interaction, search)
                 if isinstance(tracks, Exception) or tracks is None:
                     await self.ui.Search.SearchFailed(interaction, search)
-            if tracks == "NodeDisconnected":
-                await self.ui.ExceptionHandler.NodeDisconnectedMessage()
-                return
             await self.play(interaction, tracks)
         else:
             tracks = await self._get_track(interaction, search)
@@ -690,10 +687,8 @@ class MusicCog(Player, commands.Cog):
 
         return track
 
-    async def _get_track(self, interaction: discord.Interaction, search: str, choice="videoonly"):
+    async def _get_track(self, interaction: discord.Interaction, search: str, choice="videoonly", quick_search=False):
         searchnode = wavelink.NodePool.get_node(id="SearchNode")
-        if searchnode.status != wavelink.NodeStatus.CONNECTED:
-            return "NodeDisconnected"
         await interaction.response.defer(ephemeral=True ,thinking=True)
         if ('bilibili' in search or 'b23.tv' in search) and validators.url(search):
             trackinfo = await self._get_bilibili_track(interaction, search)
@@ -711,11 +706,16 @@ class MusicCog(Player, commands.Cog):
                 self.ui_guild_info(interaction.guild.id).processing_msg = await self.ui.Search.SearchInProgress(interaction)
 
             searchnode = wavelink.NodePool.get_node(id="SearchNode")
-            tracks = await spotify.SpotifyTrack.search(search, node=searchnode, type=searchtype, return_first=True)
+            try:
+                tracks = await spotify.SpotifyTrack.search(search, node=searchnode)
+            except:
+                tracks = None
 
             if tracks is None:
                 trackinfo = None
             else:
+                if searchtype == spotify.SpotifySearchType.track:
+                    tracks = tracks[0]
                 trackinfo = self._playlist.spotify_info_process(search, tracks, searchtype)
         else:
             if "https://www.youtube.com/" in search or "https://youtu.be/" in search:
@@ -735,14 +735,20 @@ class MusicCog(Player, commands.Cog):
                 url = search
 
             trackinfo = []
+
+            if quick_search:
+                method = [wavelink.YouTubeTrack]
+            else:
+                method = [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack, wavelink.SoundCloudTrack]
+
             if choice == 'playlist' or 'list' in search:
                 data = await wavelink.YouTubePlaylist.search(search, node=searchnode)
                 if data is not None:
                     trackinfo = data
             else:
-                for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack, wavelink.SoundCloudTrack]:
+                for trackmethod in method:
                     try:
-                        # SearchableTrack.search(query, node, return_first)
+                        # SearchableTrack.search(query, node)
                         data = await trackmethod.search(url, node=searchnode)
                         if data is not None:
                             trackinfo.extend(data)
@@ -756,16 +762,16 @@ class MusicCog(Player, commands.Cog):
         if trackinfo is None:
             await self.ui.Search.SearchFailed(interaction, search)
             return None
-        elif not isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist, wavelink.GenericTrack]):
+        elif not isinstance(trackinfo, Union[spotify.SpotifyTrack, SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist, wavelink.GenericTrack]):
             if len(trackinfo) == 0:
                 await self.ui.Search.SearchFailed(interaction, search)
                 return None
 
         if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
-            tracklist = trackinfo.tracks
+            tracklist = trackinfo
             if isinstance(trackinfo, wavelink.YouTubePlaylist):
                 tracklist.append('YTPL')
-        elif isinstance(trackinfo, wavelink.GenericTrack):
+        elif isinstance(trackinfo, Union[wavelink.GenericTrack, spotify.SpotifyTrack]):
             pass
         else:
             tracklist = trackinfo
@@ -775,9 +781,19 @@ class MusicCog(Player, commands.Cog):
             trackinfo.suggested = False
             trackinfo.audio_source = "bilibili"
             tracklist = trackinfo
+        elif isinstance(trackinfo, spotify.SpotifyTrack):
+            trackinfo.suggested = False
+            trackinfo.audio_source = "youtube"
+            trackinfo.is_stream = False
+            tracklist = trackinfo
+        elif isinstance(tracklist, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
+            for track in tracklist.tracks:
+                trackinfo.suggested = False
+                trackinfo.audio_source = "youtube"
+                trackinfo.is_stream = False
         else:
             for track in tracklist:
-                if track == "YTorSC" or track == "YTPL":
+                if (track == "YTorSC" or track == "YTPL"):
                     break
                 track.suggested = False
                 if isinstance(track, wavelink.YouTubeTrack):

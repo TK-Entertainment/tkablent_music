@@ -6,6 +6,7 @@ import datetime
 import copy
 
 import wavelink
+from wavelink.ext import spotify
 from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
 from ..ui import LeaveType, StopType
 from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
@@ -146,7 +147,7 @@ class InfoGenerator:
                 playing_state = ""
                 notice = ""
                     
-            if song.is_stream:
+            if not isinstance(song, spotify.SpotifyTrack) and song.is_stream:
                 embed = discord.Embed(title=f"{song.title}", description=f"**{song.author}**\n*🔴 直播*{notice}", colour=color)
             else:
                 time_string = self._sec_to_hms((song.length)/1000, "zh")
@@ -162,7 +163,7 @@ class InfoGenerator:
                 else:
                     embed.set_author(name=f"{playing_state}這首歌由 {song.requester.name}#{song.requester.discriminator} 點播", icon_url=song.requester.display_avatar)
 
-            if song.is_stream: 
+            if not isinstance(song, spotify.SpotifyTrack) and song.is_stream: 
                 if color_code == None: 
                     embed.add_field(name="結束播放", value=f"點擊 ⏩ **跳過** / ⏹️ **停止播放**\n來結束播放此直播", inline=True)
             

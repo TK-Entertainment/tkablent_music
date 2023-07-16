@@ -69,7 +69,7 @@ class Queue:
             else:
                 if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist]) and self.guild_info(interaction.guild.id).processing_msg is not None:
                     processing_msg = self.guild_info(interaction.guild.id).processing_msg
-                    await interaction.edit_response(content=msg, embed=embed)
+                    await interaction.edit_original_response(content=msg, embed=embed)
                 else:
                     await interaction.channel.send(msg, embed=embed)
         try:
