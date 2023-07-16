@@ -20,20 +20,20 @@ class Queue:
         self.info_generator: InfoGenerator = info_generator
 
     # Add to queue
-    async def Embed_AddedToQueue(self, interaction: discord.Interaction, trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search, is_ytpl) -> None:
+    async def Embed_AddedToQueue(self, interaction: discord.Interaction, trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist], requester: Optional[discord.User], is_search) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[interaction.guild.id]
         if len(playlist.order) == 1:
             return
-        if (len(playlist.order) > 1 and is_search) or is_ytpl or (isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])):
+        if (len(playlist.order) > 1 and is_search) or (isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist])):
             if is_search:
                 msg = f'''
             **:white_check_mark: | 搜尋成功**
             以下歌曲已加入待播清單中
             '''
             else:
-                if isinstance(trackinfo, SpotifyPlaylist) or is_ytpl:
+                if isinstance(trackinfo, Union[SpotifyPlaylist, wavelink.YouTubePlaylist]):
                     type_string = '播放清單'
                 elif isinstance(trackinfo, SpotifyAlbum):
                     type_string = 'Spotify 專輯'
@@ -43,7 +43,7 @@ class Queue:
             以下{type_string}已加入待播清單中
             '''
 
-            embed = self.info_generator._PlaylistInfo(trackinfo, requester, is_ytpl)
+            embed = self.info_generator._PlaylistInfo(trackinfo, requester)
         else:
             index = len(playlist.order) - 1
 

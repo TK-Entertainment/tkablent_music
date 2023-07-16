@@ -282,8 +282,10 @@ class PlayerControl:
                         self.choice = choice
                     if self.musicbot[interaction.guild.id].multitype_remembered and choice != 'whatever':
                         self.musicbot[interaction.guild.id].multitype_choice = choice
+                    await msg.edit(content="<a:Loading:1011280276325924915> 處理中，請稍候...", view=None)
                     track = await self.get_track(interaction, search, self.choice)
                     await self.musicbot.play(interaction, track)
+                    await msg.edit(content="⠀", view=None)
                     self.stop()
                 else:
                     if button.label == '⬜ 記住我的選擇':
@@ -313,15 +315,6 @@ class PlayerControl:
                 style=discord.ButtonStyle.danger if not musicbot[interaction.guild.id].multitype_remembered else discord.ButtonStyle.success)
             async def remember(self, interaction: discord.Interaction, button: discord.ui.Button):            
                 await self.toggle(interaction, button, 'remember_choice')
-
-            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
-            async def done(self, interaction: discord.Interaction, button: discord.ui.Button):
-                if self.musicbot[interaction.guild.id].multitype_remembered and \
-                    self.musicbot[interaction.guild.id].multitype_choice == "":
-                    self.musicbot[interaction.guild.id].multitype_remembered = False
-                await interaction.response.pong()
-                await interaction.message.delete()
-                self.stop()
 
             async def on_timeout(self):
                 if self.musicbot[interaction.guild.id].multitype_remembered and \

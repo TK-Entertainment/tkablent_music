@@ -223,12 +223,12 @@ class InfoGenerator:
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed
 
-    def _PlaylistInfo(self, playlist: Union[SpotifyAlbum, wavelink.YouTubePlaylist], requester: discord.User, is_ytpl=False):
+    def _PlaylistInfo(self, playlist: Union[SpotifyAlbum, wavelink.YouTubePlaylist], requester: discord.User):
         # Generate Embed Body
-        if isinstance(playlist, list) and not is_ytpl:
+        if isinstance(playlist, list):
             title = f"{search_emoji} | 選取的搜尋歌曲"
             url = None
-        elif is_ytpl:
+        elif isinstance(playlist, wavelink.YouTubePlaylist):
             title = f":newspaper: | 音樂播放清單"
             url = None
         else:

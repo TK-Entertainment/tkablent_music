@@ -538,7 +538,6 @@ class MusicCog(Player, commands.Cog):
         try: 
             if isinstance(trackinfo, list):
                 is_search = trackinfo[-1] == 'Search'
-                is_ytpl = trackinfo[-1] == 'YTPL'
                 if trackinfo[-1] == 'Search' or trackinfo[-1] == 'YTPL':
                     trackinfo.pop(-1)
             else:
@@ -550,7 +549,7 @@ class MusicCog(Player, commands.Cog):
             await self.ui.Search.SearchFailed(interaction, e)
             return
         # If queue has more than 1 songs, then show the UI
-        await self.ui.Queue.Embed_AddedToQueue(interaction, trackinfo, requester=interaction.user, is_search=is_search, is_ytpl=is_ytpl)
+        await self.ui.Queue.Embed_AddedToQueue(interaction, trackinfo, requester=interaction.user, is_search=is_search)
 
     async def play(self, interaction: discord.Interaction, trackinfo: Union[
                                 wavelink.GenericTrack,
@@ -689,7 +688,8 @@ class MusicCog(Player, commands.Cog):
 
     async def _get_track(self, interaction: discord.Interaction, search: str, choice="videoonly", quick_search=False):
         searchnode = wavelink.NodePool.get_node(id="SearchNode")
-        await interaction.response.defer(ephemeral=True ,thinking=True)
+        if not quick_search:
+            await interaction.response.defer(ephemeral=True ,thinking=True)
         if ('bilibili' in search or 'b23.tv' in search) and validators.url(search):
             trackinfo = await self._get_bilibili_track(interaction, search)
             if isinstance(trackinfo, Exception):
@@ -705,7 +705,6 @@ class MusicCog(Player, commands.Cog):
             if ('album' in search or 'artist' in search or 'playlist' in search):
                 self.ui_guild_info(interaction.guild.id).processing_msg = await self.ui.Search.SearchInProgress(interaction)
 
-            searchnode = wavelink.NodePool.get_node(id="SearchNode")
             try:
                 tracks = await spotify.SpotifyTrack.search(search, node=searchnode)
             except:
@@ -741,8 +740,8 @@ class MusicCog(Player, commands.Cog):
             else:
                 method = [wavelink.YouTubeTrack, wavelink.YouTubeMusicTrack, wavelink.SoundCloudTrack]
 
-            if choice == 'playlist' or 'list' in search:
-                data = await wavelink.YouTubePlaylist.search(search, node=searchnode)
+            if choice == 'playlist' or 'list' in url:
+                data = await wavelink.YouTubePlaylist.search(url, node=searchnode)
                 if data is not None:
                     trackinfo = data
             else:
@@ -769,8 +768,6 @@ class MusicCog(Player, commands.Cog):
 
         if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
             tracklist = trackinfo
-            if isinstance(trackinfo, wavelink.YouTubePlaylist):
-                tracklist.append('YTPL')
         elif isinstance(trackinfo, Union[wavelink.GenericTrack, spotify.SpotifyTrack]):
             pass
         else:
@@ -790,10 +787,9 @@ class MusicCog(Player, commands.Cog):
             for track in tracklist.tracks:
                 trackinfo.suggested = False
                 trackinfo.audio_source = "youtube"
-                trackinfo.is_stream = False
         else:
             for track in tracklist:
-                if (track == "YTorSC" or track == "YTPL"):
+                if (track == "YTorSC"):
                     break
                 track.suggested = False
                 if isinstance(track, wavelink.YouTubeTrack):
