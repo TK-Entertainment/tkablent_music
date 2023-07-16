@@ -21,7 +21,7 @@ class Help:
     def _HelpEmbedPlayback(self, page: int) -> discord.Embed:
         embed = discord.Embed(title=":regional_indicator_q: | 指令說明 | 播放相關指令", description="若遇到錯誤可以先閱讀訊息所提示的方法來排錯喔", colour=0xF2F3EE)
         if page == 1:
-            embed.add_field(name="/mtsetup", value="管理對於混合式連結的機器人預設動作", inline=False)
+            embed.add_field(name="/playwith", value="管理對於混合式連結的機器人預設動作", inline=False)
             embed.add_field(name="/play [URL/關鍵字]", value="開始播放指定歌曲(輸入關鍵字會啟動搜尋)\n**支援網址點歌平台:**\nSoundcloud / Spotify / Bilibili (目前僅支援單曲)\n**【！】若遇到錯誤 SEARCH_OR_PLAYING_FAILED**\n可能是您提供的網址有誤、該影片暫時不可用、關鍵字搜尋不到任何影片或機器人暫時出現問題導致", inline=False)
             embed.add_field(name="/np", value="顯示目前播放歌曲資訊 (如果控制面板被刷掉可以用這個ww)\n*【注意】輸入後，原控制面板會清除*\n**【！】若輸入後沒反應**\n*可能因目前沒有播放歌曲導致*", inline=False)
             embed.add_field(name="/pause", value="暫停目前歌曲播放\n**【！】若遇到錯誤 PAUSEFAIL**\n*可能目前沒在播放歌曲，或目前歌曲已經被暫停導致*", inline=False)
