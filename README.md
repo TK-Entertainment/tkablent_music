@@ -5,7 +5,7 @@
 用 Python 製作的 Discord 音樂機器人  
 ## 邀請機器人
 **邀請穩定版機器人** (後輟為 -s)  
-[![](https://dcbadge.vercel.app/api/shield/1018410580870176788?bot=true)]()  
+[![](https://dcbadge.vercel.app/api/shield/1018410580870176788?bot=true)](https://discord.com/oauth2/authorize?client_id=1018410580870176788&permissions=2201184336&scope=bot%20applications.commands)  
   
 **邀請測試版機器人** (後輟為 -ce)  
 > **Warning** | **此機器人運行為測試版軟體**  
