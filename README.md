@@ -50,7 +50,7 @@
 
 ## 最新更新日誌 
 如需觀看更詳細的 Github commits 日誌，請點下方連結  
-[m.20230611-s...m.20230716.e2-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230611-s...m.20230716.e2-s)
+[m.20230611.1-s...m.20230716.e2-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230716.e2-s)
 
 ```diff
 =========================================
