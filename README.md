@@ -135,7 +135,7 @@ Shared under MIT License
 *檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 如何對專案貢獻
 **若遇到了些什麼問題**  
-可以先到 [支援伺服器](https://discord.gg/9qrpGh4e7V) 或 [提交 Issue](https://github.com/TK-Entertainment/tkablent_music/issues)  
+可以先到 [支援伺服器](https://discord.gg/9qrpGh4e7V) 提問或 [提交 Issue](https://github.com/TK-Entertainment/tkablent_music/issues)  
   
 **若有修改的建議**  
 可以運用 Fork 來建立分支或點擊此 Repo 右上角 Code 中的 Download ZIP 來下載原始碼  
