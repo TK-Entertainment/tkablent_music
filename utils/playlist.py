@@ -137,6 +137,24 @@ class Playlist:
     def init_spotify(self, spotify_id, spotify_secret):
         self.spotify = spotipy.Spotify(client_credentials_manager=SpotifyClientCredentials(client_id=spotify_id, client_secret=spotify_secret))
 
+    async def get_best_searchnode(self) -> wavelink.Node:
+        searchnode_1 = wavelink.NodePool.get_node(id="SearchNode_1")
+        searchnode_2 = wavelink.NodePool.get_node(id="SearchNode_2")
+        
+        # decide from the cpu usage
+        node_1_stats = await searchnode_1._send(method="GET", path="stats")
+        node_2_stats = await searchnode_2._send(method="GET", path="stats")
+
+        node_1_avgload = (node_1_stats["cpu"]["systemLoad"] + node_1_stats["cpu"]["lavalinkLoad"]) / 2
+        node_2_avgload = (node_2_stats["cpu"]["systemLoad"] + node_2_stats["cpu"]["lavalinkLoad"]) / 2
+
+        if node_1_avgload > node_2_avgload:
+            return searchnode_2
+        elif node_1_avgload < node_2_avgload:
+            return searchnode_1
+        else:
+            return random.choice([searchnode_1, searchnode_2])
+
     def check_current_suggest_support(self, guild_id) -> bool:
         current = self[guild_id].current()
         unsupported_source = [
@@ -220,7 +238,7 @@ class Playlist:
             index: int, ui_guild_info: GuildUIInfo, 
             pre_process: bool) -> Optional[Union[wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]]:
         
-        searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        searchnode = await self.get_best_searchnode()
         suggested_track = None
 
         for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:

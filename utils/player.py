@@ -1,8 +1,8 @@
 from typing import *
-import asyncio, json, os
+import asyncio, json, os, time
 import dotenv
 import validators
-import requests
+import random
 
 import discord
 from discord.ext import commands
@@ -85,7 +85,25 @@ class Player:
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self._spotify: spotify.SpotifyClient = None
-        self._cache: dict = dict()
+        self._cache: dict = None
+
+    def fetch_cache(self) -> None:
+        '''fetch from database'''
+        with open(fr"{os.getcwd()}/utils/search_cache.json", 'r') as f:
+            self._cache = json.load(f)
+
+    def update_cache(self, identifier: str, title: str, length: str, timestamp) -> None:
+        '''update database'''
+        with open(fr"{os.getcwd()}/utils/search_cache.json", 'r') as f:
+            data: dict = json.load(f)
+        if data.get(identifier) is not None:
+            data[identifier]['title'] = title
+            data[identifier]['length'] = length
+            data[identifier]['timestamp'] = timestamp
+        else:
+            data[identifier] = self._cache[identifier] = dict(title=title, length=length, timestamp=timestamp)
+        with open(fr"{os.getcwd()}/utils/search_cache.json", 'w') as f:
+            json.dump(data, f)
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
@@ -93,6 +111,8 @@ class Player:
         return self._guilds_info[guild_id] 
 
     async def _create_daemon(self):
+        self.fetch_cache()
+
         TW_HOST = os.getenv('WAVELINK_TW_HOST')
         LOCAL_SEARCH_HOST_1 = os.getenv('WAVELINK_SEARCH_HOST_1')
         LOCAL_SEARCH_HOST_2 = os.getenv('WAVELINK_SEARCH_HOST_2')
@@ -117,13 +137,13 @@ class Player:
         )
         searchhost_1 = wavelink.Node(
             id="SearchNode_1",
-            uri=f"http://{SEARCH_HOST_1}:{SEARCH_PORT_1}",
+            uri=f"http://{LOCAL_SEARCH_HOST_1}:{SEARCH_PORT_1}",
             use_http=True,
             password=PASSWORD,
         )
         searchhost_2 = wavelink.Node(
             id="SearchNode_2",
-            uri=f"http://{SEARCH_HOST_2}:{SEARCH_PORT_2}",
+            uri=f"http://{LOCAL_SEARCH_HOST_2}:{SEARCH_PORT_2}",
             use_http=True,
             password=PASSWORD,
         )
@@ -166,7 +186,7 @@ class Player:
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
         if voice_client is None:
-            await channel.connect(cls=wavelink.Player(nodes=mainplayhost))
+            await channel.connect(cls=wavelink.Player(nodes=[mainplayhost]))
 
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
@@ -579,35 +599,51 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()  
 
+    async def _save_to_cache(self, data) -> None:
+        await asyncio.sleep(3)
+        for identifier in data.keys():
+            title = data[identifier]['title']
+            length = data[identifier]['length']
+            timestamp = data[identifier]['timestamp']
+            
+            self.update_cache(identifier, title, length, timestamp)
+
     async def get_search_suggest(self, interaction: discord.Interaction, current: str) -> List[app_commands.Choice[str]]:
         if validators.url(current) or current == "":
             return []
         else:
             tracks = await self._get_track(interaction, current, quick_search=True)
             result = []
+            data = {}
 
             for i in range(len(tracks)):
                 if i == 16:
                     break
 
                 if self._cache.get(tracks[i].identifier) is not None:
-                    result.append(app_commands.Choice(name=f"{self._cache[tracks[i].identifier]['title']} | {self._cache[tracks[i].identifier]['author']} | {self._cache[tracks[i].identifier]['length']}", value=f"https://www.youtube.com/watch?v={tracks[i].identifier}"))
-                    continue
+                    expired = (int(time.time()) - self._cache.get(tracks[i].identifier)["timestamp"]) >= 2592000
+
+                    if not expired:
+                        result.append(app_commands.Choice(name=f"{self._cache[tracks[i].identifier]['title']} | {self._cache[tracks[i].identifier]['length']}", value=f"https://www.youtube.com/watch?v={tracks[i].identifier}"))
+                        continue
 
                 if isinstance(tracks[i], str):
                     tracks.pop(i)
                     continue
 
-                if len(tracks[i].title) > 40:
-                    tracks[i].title = tracks[i].title[:40] + "..."
-
-                if len(tracks[i].author) > 10:
-                    tracks[i].author = tracks[i].author[:10] + "..."
-
                 length = self._sec_to_hms(seconds=(tracks[i].length)/1000, format="symbol")
 
-                result.append(app_commands.Choice(name=f"{tracks[i].title} | {tracks[i].author} | {length}", value=f"https://www.youtube.com/watch?v={tracks[i].identifier}"))
-                self._cache[tracks[i].identifier] = dict(title=tracks[i].title, author=tracks[i].author, length=length)
+                left_name_length = 70 - len(f" | {length}")
+
+                if len(tracks[i].title) >= left_name_length+len(" ..."):
+                    tracks[i].title = tracks[i].title[:left_name_length] + " ..."
+
+                result.append(app_commands.Choice(name=f"{tracks[i].title} | {length}", value=f"https://www.youtube.com/watch?v={tracks[i].identifier}"))
+                
+                timestamp = int(time.time())
+                data[tracks[i].identifier] = dict(title=tracks[i].title, length=length, timestamp=timestamp)
+
+            self.bot.loop.create_task(self._save_to_cache(data))
 
             return result
 
@@ -632,15 +668,8 @@ class MusicCog(Player, commands.Cog):
             tracks = await self._get_track(interaction, search)
             await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
-    def get_best_searchnode(self) -> wavelink.Node:
-        searchnode_1 = wavelink.NodePool.get_node(id="SearchNode_1")
-        searchnode_2 = wavelink.NodePool.get_node(id="SearchNode_2")
-        
-        # decide from the cpu usage
-        node_1_cpu_stat = searchnode_1._send()
-
     async def _get_bilibili_track(self, interaction: discord.Interaction, search: str):
-        searchnode = 
+        searchnode = await self._playlist.get_best_searchnode()
         if "BV" in search and "https://www.bilibili.com/" not in search:
             vid = search
         else:
@@ -694,7 +723,7 @@ class MusicCog(Player, commands.Cog):
         return track
 
     async def _get_track(self, interaction: discord.Interaction, search: str, choice="videoonly", quick_search=False):
-        searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        searchnode = await self._playlist.get_best_searchnode()
         if not quick_search:
             await interaction.response.defer(ephemeral=True ,thinking=True)
         if ('bilibili' in search or 'b23.tv' in search) and validators.url(search):

@@ -370,6 +370,8 @@ class PlayerControl:
             stop_refresh = self.stop_refresh
 
             def __init__(self, *, timeout=60):
+                self.skip_task = None
+                self.shuffle_task = None
                 super().__init__(timeout=None)
 
             async def restore_skip(self):
@@ -380,6 +382,8 @@ class PlayerControl:
                     self.skip.style = discord.ButtonStyle.blurple
                 if self.guild_info(channel.guild.id).playinfo is not None:
                     await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                
+                self.skip_task = None
 
             async def restore_shuffle(self):
                 await asyncio.sleep(3)
@@ -388,6 +392,8 @@ class PlayerControl:
                 self.shuffle.style = discord.ButtonStyle.blurple
                 if self.guild_info(channel.guild.id).playinfo is not None:
                     await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+
+                self.shuffle_task = None
 
             async def suggestion_control(self, interaction, button):
                 if self.guild_info(channel.guild.id).music_suggestion:
@@ -414,11 +420,13 @@ class PlayerControl:
                         self.guild_info(channel.guild.id).playinfo_view.skip.disabled = False
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
+                await self.toggle(interaction, button, "done")
 
             @discord.ui.button(
                 emoji=pause_emoji if not voice_client.is_paused() else play_emoji, 
                 style=discord.ButtonStyle.blurple)
             async def playorpause(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, "toggle")
                 if self.voice_client.is_paused():
                     if self.musicbot[interaction.guild.id]._timer is not None:
                         self.musicbot[interaction.guild.id]._timer.cancel()
@@ -432,9 +440,11 @@ class PlayerControl:
 
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
+                await self.toggle(interaction, button, "done")
 
             @discord.ui.button(emoji=stop_emoji, style=discord.ButtonStyle.blurple)
             async def stop_action(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, "toggle")
                 await self.musicbot._stop(channel.guild)
                 self.guild_info(channel.guild.id).music_suggestion = False
                 self.guild_info(interaction.guild.id).leaveoperation = True
@@ -454,6 +464,7 @@ class PlayerControl:
                 disabled=len(musicbot._playlist[channel.guild.id].order) == 1
                 )
             async def skip(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, "toggle")
                 self.guild_info(channel.guild.id).skip = True
                 await self.musicbot._skip(channel.guild)
 
@@ -473,13 +484,14 @@ class PlayerControl:
                     self.guild_info(channel.guild.id).playinfo_view.skip.emoji = loading_emoji
                     self.guild_info(channel.guild.id).playinfo_view.skip.disabled = True
                     self.guild_info(channel.guild.id).playinfo_view.skip.style = discord.ButtonStyle.gray
-                    self.bot.loop.create_task(self.guild_info(channel.guild.id).playinfo_view.restore_skip())
+                    self.skip_task = self.bot.loop.create_task(self.guild_info(channel.guild.id).playinfo_view.restore_skip())
                     view = self.guild_info(channel.guild.id).playinfo_view
                 else:
                     embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
                     view = None
 
                 await interaction.response.edit_message(embed=embed, view=view)
+                await self.toggle(interaction, button, "done")
 
             @discord.ui.button(
                 emoji=shuffle_emoji, 
@@ -487,13 +499,15 @@ class PlayerControl:
                 style=discord.ButtonStyle.gray if len(musicbot._playlist[channel.guild.id].order) < 3 else discord.ButtonStyle.blurple,
                 )
             async def shuffle(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, "toggle")
                 self.musicbot._playlist[channel.guild.id].shuffle()
                 self.shuffle.emoji = done_emoji
                 self.shuffle.disabled = True
                 self.shuffle.style = discord.ButtonStyle.success
-                await interaction.response.edit_message(view=view)
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
-                self.bot.loop.create_task(self.restore_shuffle())
+                self.shuffle_task = self.bot.loop.create_task(self.restore_shuffle())
+                await interaction.response.edit_message(view=view)
+                await self.toggle(interaction, button, "done")
 
             @discord.ui.button(
                 emoji=repeat_emoji if musicbot._playlist[channel.guild.id].loop_state == LoopState.PLAYLIST \
@@ -503,6 +517,7 @@ class PlayerControl:
                 style=discord.ButtonStyle.danger if musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING \
                                                     else discord.ButtonStyle.success)
             async def loop_control(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, "toggle")
                 if self.musicbot._playlist[channel.guild.id].loop_state == LoopState.NOTHING:
                     self.musicbot._playlist[channel.guild.id].loop_state = LoopState.PLAYLIST
                     button.emoji = repeat_emoji
@@ -523,6 +538,29 @@ class PlayerControl:
 
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
+                await self.toggle(interaction, button, "done")
+
+            async def toggle(self, interaction: discord.Interaction, button: discord.ui.Button, operation: str):
+                if operation == 'toggle':
+                    button.disabled = True
+
+                    msg: discord.InteractionMessage = interaction.message
+                    await msg.edit(view=view)
+
+                elif operation == 'done':
+                    button.disabled = False
+
+                    if not self.suggest.disabled and not self.musicbot._playlist.check_current_suggest_support(channel.guild.id):
+                        self.suggest.disabled = True
+                    
+                    if not self.suggest.disabled and len(self.musicbot._playlist[interaction.guild.id].order) == 1 and self.skip_task is None:
+                        self.skip.disabled = True
+                    
+                    if not self.suggest.disabled and len(self.musicbot._playlist[channel.guild.id].order) < 3 and self.shuffle_task is None:
+                        self.shuffle.disabled = True
+                    
+                    msg: discord.InteractionMessage = interaction.message
+                    await msg.edit(view=view)
 
             @discord.ui.button(
                 label='⬜ 推薦音樂' if not self.guild_info(channel.guild.id).music_suggestion else "✅ 推薦音樂", 
@@ -532,6 +570,7 @@ class PlayerControl:
                 emoji=bulb_emoji,
                 disabled=not self.musicbot._playlist.check_current_suggest_support(channel.guild.id))
             async def suggest(self, interaction: discord.Interaction, button: discord.ui.Button):            
+                await self.toggle(interaction, button, "toggle")
                 await self.suggestion_control(interaction, button)
 
             @discord.ui.button(label='搜尋/新增歌曲', emoji=search_emoji, style=discord.ButtonStyle.green)
@@ -545,6 +584,7 @@ class PlayerControl:
             @discord.ui.button(label='離開語音頻道' if isinstance(channel.guild.voice_client.channel, discord.VoiceChannel) else '離開舞台頻道',
                                 emoji=leave_emoji, style=discord.ButtonStyle.gray, row=2)
             async def leavech(self, interaction: discord.Interaction, button: discord.ui.Button):
+                await self.toggle(interaction, button, "toggle")
                 await interaction.response.pong()
                 await self.musicbot._leave(channel.guild)
                 self.guild_info(interaction.guild.id).leaveoperation = True
