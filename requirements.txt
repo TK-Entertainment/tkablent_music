@@ -1,6 +1,8 @@
 requests
-discord.py[voice]
+discord>=2.3.1
 python_dotenv
 spotipy
-wavelink
 ytmusicapi
+
+# wavelink>=2.6.0
+# bilibili-api-python>=15.5.1

@@ -94,10 +94,11 @@ class Player:
 
     async def _create_daemon(self):
         TW_HOST = os.getenv('WAVELINK_TW_HOST')
-        US_HOST = os.getenv('WAVELINK_US_HOST')
-        SEARCH_HOST = os.getenv('WAVELINK_SEARCH_HOST')
+        LOCAL_SEARCH_HOST_1 = os.getenv('WAVELINK_SEARCH_HOST_1')
+        LOCAL_SEARCH_HOST_2 = os.getenv('WAVELINK_SEARCH_HOST_2')
         PORT = os.getenv('WAVELINK_PORT')
-        SEARCH_PORT = os.getenv('WAVELINK_SEARCH_PORT')
+        SEARCH_PORT_1 = os.getenv('WAVELINK_SEARCH_PORT_1')
+        SEARCH_PORT_2 = os.getenv('WAVELINK_SEARCH_PORT_2')
         PASSWORD = os.getenv('WAVELINK_PWD')
         SPOTIFY_ID = os.getenv('SPOTIFY_ID')
         SPOTIFY_SECRET = os.getenv('SPOTIFY_SECRET')
@@ -109,20 +110,20 @@ class Player:
         
         self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
         mainplayhost = wavelink.Node(
-            id="US_PlayBackNode",
-            uri=f"http://{US_HOST}:{PORT}",
-            use_http=True,
-            password=PASSWORD,
-        )
-        altplayhost = wavelink.Node(
             id="TW_PlayBackNode",
             uri=f"http://{TW_HOST}:{PORT}",
             use_http=True,
             password=PASSWORD,
         )
-        searchhost = wavelink.Node(
-            id="SearchNode",
-            uri=f"http://{SEARCH_HOST}:{SEARCH_PORT}",
+        searchhost_1 = wavelink.Node(
+            id="SearchNode_1",
+            uri=f"http://{SEARCH_HOST_1}:{SEARCH_PORT_1}",
+            use_http=True,
+            password=PASSWORD,
+        )
+        searchhost_2 = wavelink.Node(
+            id="SearchNode_2",
+            uri=f"http://{SEARCH_HOST_2}:{SEARCH_PORT_2}",
             use_http=True,
             password=PASSWORD,
         )
@@ -146,7 +147,7 @@ class Player:
 
         await wavelink.NodePool.connect(
             client=self.bot,
-            nodes=[mainplayhost, altplayhost, searchhost],
+            nodes=[mainplayhost, searchhost_1, searchhost_2],
             spotify=self._spotify
         )
 
@@ -163,10 +164,9 @@ class Player:
 
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
-        mainplayhost = wavelink.NodePool.get_node(id="US_PlayBackNode")
-        altplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
+        mainplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
         if voice_client is None:
-            await channel.connect(cls=wavelink.Player(nodes=[mainplayhost, altplayhost]))
+            await channel.connect(cls=wavelink.Player(nodes=mainplayhost))
 
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
@@ -632,8 +632,15 @@ class MusicCog(Player, commands.Cog):
             tracks = await self._get_track(interaction, search)
             await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
+    def get_best_searchnode(self) -> wavelink.Node:
+        searchnode_1 = wavelink.NodePool.get_node(id="SearchNode_1")
+        searchnode_2 = wavelink.NodePool.get_node(id="SearchNode_2")
+        
+        # decide from the cpu usage
+        node_1_cpu_stat = searchnode_1._send()
+
     async def _get_bilibili_track(self, interaction: discord.Interaction, search: str):
-        searchnode = wavelink.NodePool.get_node(id="SearchNode")
+        searchnode = 
         if "BV" in search and "https://www.bilibili.com/" not in search:
             vid = search
         else:
