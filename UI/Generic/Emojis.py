@@ -1,0 +1,26 @@
+import discord
+from enum import Enum
+
+class Emoji(Enum):
+    FirstPage = discord.PartialEmoji.from_str('⏪')
+    PrevPage = discord.PartialEmoji.from_str('⬅️')
+    NextPage = discord.PartialEmoji.from_str('➡️')
+    Skip = LastPage = discord.PartialEmoji.from_str('⏩')
+    Pause = discord.PartialEmoji.from_str('⏸️')
+    Play = discord.PartialEmoji.from_str('▶️')
+    Stop = discord.PartialEmoji.from_str('⏹️')
+    Repeat = discord.PartialEmoji.from_str('🔁')
+    SingleRepeat = discord.PartialEmoji.from_str('🔂')
+    Shuffle = discord.PartialEmoji.from_str('🔀')
+    Bulb = discord.PartialEmoji.from_str('💡')
+    Queue = discord.PartialEmoji.from_str('🗒️')
+    Leave = discord.PartialEmoji.from_str("📤")
+    Search = discord.PartialEmoji.from_str("🔎")
+    End = discord.PartialEmoji.from_str('❎')
+    Done = discord.PartialEmoji.from_str('✅')
+    Loading = discord.PartialEmoji.from_str('<a:loading:696701361504387212>')
+    Caution = discord.PartialEmoji.from_str('⚠️')
+    YouTube = discord.PartialEmoji.from_str('<:youtube:1010812724009242745>')
+    SoundCloud = discord.PartialEmoji.from_str('<:soundcloud:1010812662155837511>')
+    Spotify = discord.PartialEmoji.from_str('<:spotify:1010844746647883828>')
+    Rescue = discord.PartialEmoji.from_str('🛟')

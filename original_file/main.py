@@ -5,14 +5,6 @@ import discord
 from discord.ext import commands
 import wavelink
 
-import logging
-
-logging.basicConfig(
-    filename=f"{os.getcwd()}/logs/tkablent.log",
-    format='%(asctime)s %(message)s',
-    filemode='w'
-)
-
 print(f'''
 Current Version
 {sys.version}

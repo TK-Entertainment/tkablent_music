@@ -8,55 +8,9 @@ from enum import Enum, auto
 cdt = datetime.datetime.now().date()
 year = cdt.strftime("%Y")
 
-def _sec_to_hms(seconds, format) -> str:
-    sec = int(seconds%60); min = int(seconds//60%60); hr = int(seconds//60//60%24); day = int(seconds//86400)
-    if format == "symbol":
-        if day != 0:
-            return "{}{}:{}{}:{}{}:{}{}".format("0" if day < 10 else "", day, "0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-        if hr != 0:
-            return "{}{}:{}{}:{}{}".format("0" if hr < 10 else "", hr, "0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-        else:
-            return "{}{}:{}{}".format("0" if min < 10 else "", min, "0" if sec < 10 else "", sec)
-    elif format == "zh":
-        if day != 0:
-            return f"{day} 天 {hr} 小時 {min} 分 {sec} 秒"
-        elif hr != 0: 
-            return f"{hr} 小時 {min} 分 {sec} 秒"
-        elif min != 0:
-            return f"{min} 分 {sec} 秒"
-        elif sec != 0:
-            return f"{sec} 秒"
+
 
 from .player import MusicCog
-
-class GuildUIInfo:
-    def __init__(self, guild_id):
-        self.guild_id: int = guild_id
-        self.auto_stage_available: bool = True
-        self.stage_topic_exist: bool = False
-        self.stage_topic_checked: bool = False
-        self.skip: bool = False
-        self.lastskip: bool = False
-        self.search: bool = False
-        self.lasterrorinfo: dict = {}
-        self.leaveoperation: bool = False
-        self.playinfo: Coroutine[Any, Any, discord.Message] = None
-        self.playinfo_view: discord.ui.View = None
-        self.processing_msg: discord.Message = None
-        self.music_suggestion: bool = False
-        self.suggestions_source = None
-        self.searchmsg: Coroutine[Any, Any, discord.Message] = None
-        self.previous_titles: list[str] = []
-        self.suggestions: list = []
-
-class LeaveType(Enum):
-    ByCommand = auto()
-    ByButton = auto()
-    ByTimeout = auto()
-
-class StopType(Enum):
-    ByCommand = auto()
-    ByButton = auto()
 
 bot_version: str = None
 musicbot: MusicCog = None
@@ -64,44 +18,8 @@ bot: commands.Bot = None
 embed_opt = None
 _guild_ui_info = dict()
 
-firstpage_emoji = discord.PartialEmoji.from_str('⏪')
-prevpage_emoji = discord.PartialEmoji.from_str('⬅️')
-nextpage_emoji = discord.PartialEmoji.from_str('➡️')
-skip_emoji = lastpage_emoji = discord.PartialEmoji.from_str('⏩')
-pause_emoji = discord.PartialEmoji.from_str('⏸️')
-play_emoji = discord.PartialEmoji.from_str('▶️')
-stop_emoji = discord.PartialEmoji.from_str('⏹️')
-skip_emoji = discord.PartialEmoji.from_str('⏩')
-repeat_emoji = discord.PartialEmoji.from_str('🔁')
-repeat_sing_emoji = discord.PartialEmoji.from_str('🔂')
-shuffle_emoji = discord.PartialEmoji.from_str('🔀')
-bulb_emoji = discord.PartialEmoji.from_str('💡')
-queue_emoji = discord.PartialEmoji.from_str('🗒️')
-leave_emoji = discord.PartialEmoji.from_str("📤")
-search_emoji = discord.PartialEmoji.from_str("🔎")
-end_emoji = discord.PartialEmoji.from_str('❎')
-done_emoji = discord.PartialEmoji.from_str('✅')
-loading_emoji = discord.PartialEmoji.from_str('<a:loading:696701361504387212>')
-caution_emoji = discord.PartialEmoji.from_str('⚠️')
-youtube_emoji = discord.PartialEmoji.from_str('<:youtube:1010812724009242745>')
-soundcloud_emoji = discord.PartialEmoji.from_str('<:soundcloud:1010812662155837511>')
-spotify_emoji = discord.PartialEmoji.from_str('<:spotify:1010844746647883828>')
-rescue_emoji = discord.PartialEmoji.from_str('🛟')
 
-@staticmethod
-def guild_info(guild_id) -> GuildUIInfo:
-    if _guild_ui_info.get(guild_id) is None:
-        _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
-    return _guild_ui_info[guild_id]
 
-def auto_stage_available(guild_id: int):
-    return guild_info(guild_id).auto_stage_available
-
-class GroupButton(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-        Button = discord.ui.Button(emoji=rescue_emoji, style=discord.ButtonStyle.link, url="https://discord.gg/9qrpGh4e7V", label="支援群組")
-        self.add_item(Button)
 
 class UI:
     def __init__(self, music_bot, botversion):
