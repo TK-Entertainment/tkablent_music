@@ -1,138 +1,26 @@
-# TKablent
-[![TKablent 支援伺服器](https://discordapp.com/api/guilds/1010564921005707335/widget.png?style=shield)](https://discord.gg/9qrpGh4e7V)
-[![最新更新](https://img.shields.io/github/release/tk-entertainment/tkablent_music.svg)](https://github.com/tk-entertainment/tkablent_music/releases/latest)
-[![CodeFactor](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/badge)](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music)  
-用 Python 製作的 Discord 音樂機器人  
-## 邀請機器人
-**邀請穩定版機器人** (後輟為 -s)  
-[![](https://dcbadge.vercel.app/api/shield/1018410580870176788?bot=true)](https://discord.com/oauth2/authorize?client_id=1018410580870176788&permissions=2201184336&scope=bot%20applications.commands)  
+# TKablent | Structure Revolution (structure_rev)
+此為 TKablent 機器人組件架構改造計畫之分支，極為不穩定  
+若要查看目前的穩定版或測試版的相關資訊，可以到 [master](https://github.com/TK-Entertainment/tkablent_music) 分支來了解更多  
+
+## 專案目的
+主要要徹底的讓功能及程式碼模組化，降低維護的成本及新增功能的難度  
+並加上了本地化的支援，讓機器人可以不只有中文的版本  
+修改錯誤字串時能更簡單的完成
+
+## 架構介紹
+**Helper**: 放置相關操作 Storage 區的模組 (如寫入及讀取等等)  
+**Misc**: 放置雜物 (一些定義及全機器人共用的數值等等)  
+**Player**: 核心程式區 (指令區域)  
+**Storage**: 機器人的資料儲存模組  
+**Tasks**: 管理背景工作的模組  
   
-**邀請測試版機器人** (後輟為 -ce)  
-> **Warning** | **此機器人運行為測試版軟體**  
-> 可能會極度不穩定 (遇到許多奇怪的問題)，甚至不定時重開，但能在第一時間取得新增的功能及特性
-> 若想要取得最新的功能，可以考慮看看，也希望使用此版本的使用者可以多多提交 Bug 回饋
-  
-> **Note** | **測試版機器人相關策略**  
-> 此機器人會限制在 100 個伺服器 (因未驗證)，故每次完成一個測試階段 (即測試項目改變時)，機器人將會自動退出伺服器  
-> 若要再使用者，機器人會在退出後留下訊息，上方有按鈕可供快速加入，請在機器人滿人前加入，感謝
-  
-[![](https://dcbadge.vercel.app/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
-## 開發狀態
-源碼 (Source Code):   
-*e9e1870 (20230716)*
+**UI**: 放置所有使用者介面相關的模組  
+--| *以下為各模組子資料夾中的檔案*  
+--| ***Button***: 放置按鈕相關模組  
+--| ***...Embed***: Embed 生成模組  
+--| ***...View***: View 生成模組 (按鈕/選單框架)  
+--| ***...Enums***: 子模組專用數值區
 
-穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.e2-s*  
-
-開發版 (Cutting Edge, ce) | *仍舊提供更新，供嘗鮮用戶使用*  
-*目前測試項目: 搜尋系統及使用者介面優化 (linkandui)*  
-*目前更新到 m.20230716.1.linkandui-ce*  
-
-前期開發版 (Alpha) | *已於 20220813 停止更新，由 Cutting Edge 代替*  
-*最後更新到 Alpha 20220424 Update*  
-
-內部開發版 (Confidential) | *已於 20220410 停止更新，由 Alpha 代替*  
-*最後更新到 # Build 20220410-2*
-
-## 版本命名規則
-**[functioncode].[releasedate].[subversion].[testsubject]-[releasetype]**  
-  
-**functioncode**:  
-代表發行的功能類型，音樂功能為 **m**，未來會在發行其他功能時另有表格參考  
-**releasedate**:  
-主要的分版方法，表有較重大功能更新或修復，依當下發行之時間日期作為版號，格式為 **YYYYMMDD**  
-**subversion**:  
-副要的分版方法，表較小的修復及功能更新或同日發布之多次更新，若為一般更新以數字迭代 (從 **1** 開始)，若為緊急更新則以 **e[版號]** 迭代  
-**testsubject**:  
-代表測試項目，僅在 releasetype 為 ce (Cutting Edge 測試版) 時會出現，會填入該次測試項目的 Codename  
-**releasetype**:  
-代表發行類型，穩定版為 **s**，測試版為 **ce**
-
-## 最新更新日誌 
-如需觀看更詳細的 Github commits 日誌，請點下方連結  
-[m.20230611.1-s...m.20230716.e2-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230716.e2-s)
-
-```diff
-=========================================
-Codename TKablent | Version Stable
-Copyright 2022-present @ TK Entertainment
-Shared under MIT License
-=========================================
-# Version m.20230716.e2-s (緊急修復更新, e9e1870)
-!【緊急修復】修正使用待播清單管理功能時 (如 /move, /swap)，會遇到錯誤的問題
-=> 因在更新套件時有部分程式碼尚未轉換成新版格式，導致執行指令時會出現錯誤
-=> 在此版本已經修復此問題
-
-# Version m.20230716.e1-s (緊急修復更新, bd78cb2)
-!【緊急修復】修正點播部分播放清單時，無法正常點播的問題
-=> 在此版本已經修復此問題
-
-!【修正】新版 /help 文件中，填寫指令名稱錯誤
-=> /mtsetup --> /playwith
-=> 在此版本已經修復此問題
-
-# Version m.20230716-s
-## From Cutting Edge | m.20230629.linkandui-ce
-!【優化】刪除部分棄用模組 (1898988 / 1cb3ea5)
-=> 因傳統指令已於 **m.20221211-s** 結束支援，我們正式從程式碼刪除轉換模組，以減少機器人執行開銷及加快些許速度
-=> utils.Command (Contexts and Interaction handler) deprecated in this release
-!【套件】更新依賴套件並修改語法 (PR #18 / #19) 
-=> Wavelink version bumped to v2.5.1
-!【優化】優化搜尋/點歌模組 (1cb3ea5)
-=> 優化及改善搜尋之準確性，並還原了些許功能
-
-## From Cutting Edge | m.20230708.linkandui-ce
-!【優化】修正點歌系統排錯問題 (482b161)
-=> 點歌指令在接收點播之字串時，以往機器人無法很好的辨別傳入的是否為網址而導致機器人當機
-=> 在此版本已經修復此問題
-
-## From Cutting Edge | m.20230711.linkandui-ce
-!【改變】重新設計播放介面的排版 (0c724dd)
-=> 上圖為目前設計，下圖為新設計，有任何更改的設計建議也可以到 Issue 跟我們說呦
-!【優化】優化維護播放之系統 (0c724dd)
-=> 從迴圈修改為 Event listener 的方式來維護歌曲播放
-=> 可能會增進一點效能(?
-!【修正】修正自動退出之計時啟動問題 (265717c) / (ca19022) / (138434f)
-=> 重新調整自動退出的計時器之啟動時機，以正常地在未播放歌曲的十分鐘後自動推出
-=> 以減少機器人伺服器端的效能開銷
-!【修正】修正 /seek 及 /restart 指令無法使用的問題 (9edb743)
-!【修正】修正 /seek 之時間顯示異常的問題 (9edb743)
-=> 因套件更新後，原回傳值為秒，更新後變為毫秒，導致轉換出現問題
-=> 在此版本已經修復此問題
-!【優化】部分指令之提示已轉換成 Ephemeral (僅傳送者看得到) 的格式 (9edb743)
-=> 目前執行失敗、/restart及/seek指令之提示皆改為此種形式
-=> 未來會將所有提示改為該格式
-
-## From Cutting Edge | m.20230712.linkandui-ce
-!【修正】修正部分時候搜尋失敗的問題 (fe837cc)
-=> 部分歌曲名稱或作者名稱過長，導致搜尋結果模組出問題
-=> 此版本已修正此問題
-!【修正】修正混和連結無法記住設定的問題** (fe837cc)
-
-## From Cutting Edge | m.20230712.1.linkandui-ce
-!【改變】重新設計無人暫停的介面 (226a2d8)
-=> 有任何更改的設計建議也可以到 Issue 跟我們說呦
-!【修復】修正無法透過按鈕退出語音頻道的問題 (226a2d8)
-!【修復】修正無法透過按鈕調用待播清單列表的問題 (226a2d8)
-!【修復】修正無人暫停後，控制按鈕的部分行為 (226a2d8)
-=> 無人在頻道，機器人暫停後，現在會停用「播放/暫停」、「跳過」及「自動建議控制」按鍵
-=> 並在有人重新進入頻道後，跳過會正常依是否有可供跳過的歌曲來正常重新啟用/保持停用
-
-## From Cutting Edge | m.20230716.linkandui-ce
-!【改變】重新設計 /help 求助介面 (64d2be3)
-=> 這玩意是很久之前做的，已經太久沒更新了
-=> 順便寫成比較好閱讀的樣子，也附上了相關排錯指引
-=> 同時也修改成了只有執行者能看到的形式
-!【改變】退出語音頻道的訊息整合到播放介面中 (via DynEmbed) (64d2be3)
-=> 這個概念一樣是來自於 DynEmbed，盡量將所有訊息整合在單一介面來減少刷頻的問題
-!【改變】完成播放的訊息整合到播放介面中 (via DynEmbed) (64d2be3)
-=> 概念同上，在退出語音頻道的訊息傳出後 3 秒即會變成此訊息
-!【優化】優化部分程式碼 (推薦系統)** (64d2be3)
-=> Done DRY programming on suggestion system
-=> _get_suggest_track(...) / _process_resuggestion(...) / _search_for_suggestion (...) @ utils\playlist.py
-=> Reference: https://github.com/TK-Entertainment/tkablent_music/commit/64d2be3b9e43089a5db49e50591a91e0ccc17697
-```  
-*檢視完整更新日誌，請點 [完整更新日誌](https://github.com/TK-Entertainment/tkablent/blob/main/CHANGELOG.md)*
 ## 如何對專案貢獻
 **若遇到了些什麼問題**  
 可以先到 [支援伺服器](https://discord.gg/9qrpGh4e7V) 提問或 [提交 Issue](https://github.com/TK-Entertainment/tkablent_music/issues)  
