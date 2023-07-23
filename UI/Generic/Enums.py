@@ -9,46 +9,32 @@ class StopType(Enum):
     ByCommand = auto()
     ByButton = auto()
 
-class HelpEmbedStrings(Enum):
-    Basic = {
-        "title": "基本指令",
-        "texts": {
-              "/help": "你目前就正在用這個喔，輸入會列出指令說明",
-              "/join": "將機器人加入到您目前所在的語音頻道\n**【！】若遇到錯誤 JOINFAIL**\n*可能是您沒有加入到任一語音頻道中，或是機器人無權限加入該頻道導致*",
-              "/leave": "使機器人離開其所在的語音頻道\n**【！】若遇到錯誤 LEAVEFAIL**\n*可能是機器人並沒有加入到任一語音頻道中導致*"
-        }
-    }
+class UIModule(Enum):
+    ExceptionHandler = "ExceptionHandler"
+    Help = "Help"
+    InfoGenerator = "Info"
+    Join = "Join"
+    Leave = "Leave"
+    PlayerControl = "PlayerControl"
+    QueueControl = "QueueControl"
+    Queue = "Queue"
+    Search = "Search"
+    Stage = "Stage"
+    Misc = "Misc"
 
-    Playback_1 = {
-        "title": "播放相關指令",
-        "texts": {
-            "/playwith": "管理對於混合式連結的機器人預設動作",
-            "/play [URL/關鍵字]": "開始播放指定歌曲(輸入關鍵字會啟動搜尋)\n**支援網址點歌平台:**\nSoundcloud / Spotify / Bilibili (目前僅支援單曲)\n**【！】若遇到錯誤 SEARCH_OR_PLAYING_FAILED**\n可能是您提供的網址有誤、該影片暫時不可用、關鍵字搜尋不到任何影片或機器人暫時出現問題導致",
-            "/np": "顯示目前播放歌曲資訊 (如果控制面板被刷掉可以用這個ww)\n*【注意】輸入後，原控制面板會清除*\n**【！】若輸入後沒反應**\n*可能因目前沒有播放歌曲導致*",
-            "/pause": "暫停目前歌曲播放\n**【！】若遇到錯誤 PAUSEFAIL**\n*可能目前沒在播放歌曲，或目前歌曲已經被暫停導致*",
-            "/resume": "繼續播放已暫停的歌曲\n**【！】若遇到錯誤 RESUMEFAIL**\n*可能目前沒在播放歌曲，或目前歌曲未被暫停導致*",
-            "/skip": "跳過目前的歌曲\n**【！】若遇到錯誤 SKIPFAIL**\n*可能目前沒在播放歌曲導致*"
-        }
-    }
+class Holiday(Enum):
+    XmasEve = auto()
+    Xmas = auto()
+    NewYearEve = auto()
+    NewYear = auto()
+    ChineseNewYear = auto()
+    NONE = auto()
 
-    Playback_2 = {
-        "title": "播放相關指令",
-        "texts": {
-            "/stop": "停止歌曲並清除所有待播清單中的歌曲\n**【！】若遇到錯誤 STOPFAIL**\n*可能因目前沒在播放歌曲導致*",
-            "/seek [秒/時間戳]": "快轉至指定時間\n*參數支援: 秒 (如: 2) / 時間戳 (如: 0:02)*\n**【！】若遇到錯誤 SEEKFAIL**\n*可能因輸入的跳轉時間無效(格式錯誤)或目前沒在播放歌曲導致*",
-            "/restart": "重新播放目前歌曲\n**【！】若遇到錯誤 REPLAYFAIL**\n*可能因目前沒在播放歌曲導致*",
-            "/loop [次數]": "切換單曲循環開關 (輸入次數則可指定單曲播放幾次)\n**【！】若遇到錯誤 LOOPFAIL_SIG**\n*可能因指定的重複次數無效 (小於0一類的) 或目前沒在播放歌曲導致*",
-            "/wholeloop": "切換全待播清單循環開關"
-        }
-    }
+class ColorCode(Enum):
+    Red = auto()
+    Green = auto()
+    NONE = auto()
 
-    Queue = {
-        "title": "待播清單相關指令",
-        "texts": {
-            "/queue": "顯示待播歌曲列表",
-            "/shuffle": "隨機排列待播歌曲列表\n**【！】若遇到錯誤 SHUFFLEFAIL**\n*可能是因目前待播清單無歌曲導致*",
-            "/remove [順位數]": "移除指定待播歌曲 (順位數可以依 /queue 顯示的代號輸入)\n**【注意】建議歌曲是不能移除的，嘗試移除會導致錯誤 REMOVEFAIL**\n**【！】若遇到錯誤 REMOVEFAIL**\n*可能是因輸入的順位數無效 (根本沒這首歌) 或目前待播清單無歌曲導致*",
-            "/swap [順位數1] [順位數2]": "交換指定待播歌曲順序 ([順位數1] <-> [順位數2])\n**【注意】建議歌曲是不能交換的，嘗試交換會導致錯誤 SWAPFAIL**\n**【！】若遇到錯誤 SWAPFAIL**\n*可能是因輸入的順位數無效 (根本沒這首歌) 或目前待播清單無歌曲導致*",
-            "/move [原順位數] [目標順位數]": "移動指定待播歌曲至指定順序 ([原順位數] -> [目標順位數])\n**【注意】建議歌曲是不能移動的，嘗試移動會導致錯誤 MOVEFAIL**\n**【！】若遇到錯誤 MOVEFAIL**\n*可能是因輸入的順位數無效 (根本沒這首歌) 或目前待播清單無歌曲導致*"
-        }
-    }
+class Language(Enum):
+    zh_tw = "zh_tw"
+    en_us = "en_us"

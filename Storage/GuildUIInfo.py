@@ -20,3 +20,9 @@ class GuildUIInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildUIInfo_Storage(guild_id)
         return self._guilds_info[guild_id] 
+
+    def delete(self, guild_id):
+        if self._guilds_info.get(guild_id) is not None:
+            self._guilds_info.pop(guild_id, None)
+
+guild_ui_info = GuildUIInfo()

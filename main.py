@@ -1,11 +1,13 @@
 from typing import *
 import os, dotenv, sys, asyncio
-
 import discord
 from discord.ext import commands
 import wavelink
-
 import logging
+
+from .Player.CoreCog import PlayerCog
+
+
 
 logging.basicConfig(
     filename=f"{os.getcwd()}/logs/tkablent.log",
@@ -38,7 +40,7 @@ intents = discord.Intents.default()
 intents.message_content = False
 bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, status=status)
 
-from utils import *
+asyncio.run(bot.add_cog(PlayerCog(bot)))
 
 precenses = [
     discord.Game(f'需要幫助? | {bot.command_prefix}help'),
@@ -60,10 +62,6 @@ async def on_ready():
     await bot.add_cog(MusicCog(bot, bot_version))
     await bot.add_cog(HelperCog(bot))
     await bot.tree.sync()
-
-    cog: MusicCog = bot.cogs['MusicCog']
-    await cog.resolve_ui()
-    await cog._create_daemon()
 
     print(f'''
         =========================================

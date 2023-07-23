@@ -1,11 +1,22 @@
 import discord
 
-from ..Misc.Enums import HelpEmbedStrings
+from .HelpEnums import HelpEmbedStrings
+from Generic.Enums import Language, UIModule
+from Generic.Essentials import essentials
 
 class HelpEmbed(discord.Embed):
-    def __init__(self, type: HelpEmbedStrings):
-        title = type.value["title"]
-        super().__init__(title=f":regional_indicator_q: | 指令說明 | {title}", description="若遇到錯誤可以先閱讀訊息所提示的方法來排錯喔", colour=0xF2F3EE)
+    def __init__(self, type: HelpEmbedStrings, lang: Language):
+        strings = essentials.get_language_dict(lang, UIModule.Help)
         
-        for cmd, desc in type.value["texts"]:
+        title = strings["Help.Title"]
+        subtitle = type.value["title"]
+        description = strings["Help.Description"]
+
+        super().__init__(
+            title=f":regional_indicator_q: | {title} | {subtitle}", 
+            description=description, 
+            colour=0xF2F3EE
+        )
+        
+        for cmd, desc in type.value["texts"].items():
             self.add_field(name=cmd, value=desc, inline=False)

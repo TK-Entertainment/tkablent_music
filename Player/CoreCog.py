@@ -1,37 +1,21 @@
 from typing import *
-import asyncio, json, os, time
-import dotenv
+import asyncio, time
 import validators
-import random
-
 import discord
 from discord.ext import commands
 from discord import app_commands
-
 import bilibili_api as bilibili
 import wavelink
 from wavelink.ext import spotify
-from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
 
+from Helper.PlayerHelper import PlayerHelper
+from Tasks.TaskStopper import task_stopper
 
-
-
-
-class MusicCog(Player, commands.Cog):
-    def __init__(self, bot: commands.Bot, bot_version):
-        Player.__init__(self, bot)
+class PlayerCog(commands.Cog):
+    def __init__(self, bot: commands.Bot):
         commands.Cog.__init__(self)
+        self.player_helper = PlayerHelper(bot)
         self.bot: commands.Bot = bot
-        self.bot_version = bot_version
-
-    async def resolve_ui(self):   
-        from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
-        self.ui = UI(self, self.bot_version)
-        self.auto_stage_available = auto_stage_available
-        self.ui_guild_info = guild_info
-        self._sec_to_hms = _sec_to_hms
-        from .ui import groupbutton
-        self.groupbutton = groupbutton
 
     @app_commands.command(name='help', description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):

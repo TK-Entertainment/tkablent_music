@@ -1,5 +1,8 @@
 from datetime import datetime
 import os
+import json
+
+from .Enums import UIModule, Language, Holiday
 
 class Essentials:
     def __init__(self):
@@ -43,10 +46,33 @@ class Essentials:
             bot_name = "TKablent"
 
         return {
-            'footer': {
-                'text': f"{additional}{bot_name} | 版本: {self.bot_version}\nCopyright @ {year} TK Entertainment",
-                'icon_url': "https://i.imgur.com/wApgX8J.png"
-            },
+            'text': f"{additional}{bot_name} | 版本: {self.bot_version}\nCopyright @ {year} TK Entertainment",
+            'icon_url': "https://i.imgur.com/wApgX8J.png"
         }
+    
+    def get_language_dict(self, lang: Language, module: UIModule):
+        with open(fr"{os.getcwd()}/Languages/{lang.value}/{module.value}.json", 'r', encoding="utf8") as f:
+            localized_string: dict = json.load(f)
+        
+        return localized_string
+
+    def isitholiday(self) -> Holiday:
+        month = datetime.now().month
+        day = datetime.now().day
+
+        if month == 12 and day == 24:
+            holiday = Holiday.XmasEve
+        elif month == 12 and day == 25:
+            holiday = Holiday.Xmas
+        elif month == 12 and day == 31:
+            holiday = Holiday.NewYearEve
+        elif month == 1 and day == 1:
+            holiday = Holiday.NewYear
+        elif (month >= 1 and month <= 2 and day >= 21) or (month >= 2 and month <= 3 and day <= 20):
+            holiday = Holiday.ChineseNewYear
+        else:
+            holiday = Holiday.NONE
+        
+        return holiday
     
 essentials = Essentials()
