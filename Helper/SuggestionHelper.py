@@ -3,7 +3,7 @@ import wavelink
 import discord
 import asyncio
 
-from .NodeHelper import node_helper
+from Helper.NodeHelper import node_helper
 
 from Storage.GuildPlayerInfo import GuildInfo_Storage
 from Misc.Enums import LoopState

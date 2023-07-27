@@ -25,43 +25,7 @@ class InfoGenerator:
 
 
 
-    def _PlaylistInfo(self, playlist: Union[SpotifyAlbum, wavelink.YouTubePlaylist], requester: discord.User):
-        # Generate Embed Body
-        if isinstance(playlist, list):
-            title = f"{search_emoji} | 選取的搜尋歌曲"
-            url = None
-        elif isinstance(playlist, wavelink.YouTubePlaylist):
-            title = f":newspaper: | 音樂播放清單"
-            url = None
-        else:
-            title = f"{spotify_emoji} | {playlist.name}"
-            url = playlist.uri
 
-        color = discord.Colour.from_rgb(97, 219, 83)
-        embed = discord.Embed(title=title, url=url, colour=color)
-        if requester.discriminator == "0":
-            embed.set_author(name=f"此播放清單由 {requester.name} 點播", icon_url=requester.display_avatar)
-        else:
-            embed.set_author(name=f"此播放清單由 {requester.name}#{requester.discriminator} 點播", icon_url=requester.display_avatar)
-
-        pllist: str = ""
-        if isinstance(playlist, list):
-            tracklist = playlist
-        else:
-            tracklist = playlist.tracks
-        for i, track in enumerate(tracklist):
-            pllist += f"{i+1}. {track.title}\n"
-            if i == 1: 
-                break
-        if len(tracklist) > 2:
-            pllist += f"...還有 {len(tracklist)-2} 首歌"
-        
-        embed.add_field(name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False)
-        if isinstance(playlist, Union[SpotifyPlaylist, SpotifyAlbum]):
-            embed.set_thumbnail(url=playlist.thumbnail)
-        embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
-
-        return embed
 
     async def _UpdateSongInfo(self, guild_id: int):
         if len(self.musicbot._playlist[guild_id].order) == 0:

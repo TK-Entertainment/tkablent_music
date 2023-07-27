@@ -2,7 +2,7 @@ from datetime import datetime
 import os
 import json
 
-from .Enums import UIModule, Language, Holiday
+from UI.Generic.Enums import UIModule, Language, Holiday
 
 class Essentials:
     def __init__(self):

@@ -1,7 +1,7 @@
 from enum import Enum
 
-from Generic.Enums import Language, UIModule
-from Generic.Essentials import essentials
+from UI.Generic.Enums import Language, UIModule
+from UI.Generic.Essentials import essentials
 
 class HelpEmbedStrings(Enum):
     def __call__(self, lang: Language):

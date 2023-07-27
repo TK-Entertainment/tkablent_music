@@ -1,8 +1,8 @@
 import discord
 
-from .HelpEnums import HelpEmbedStrings
-from Generic.Enums import Language, UIModule
-from Generic.Essentials import essentials
+from UI.Help.HelpEnums import HelpEmbedStrings
+from UI.Generic.Enums import Language, UIModule
+from UI.Generic.Essentials import essentials
 
 class HelpEmbed(discord.Embed):
     def __init__(self, type: HelpEmbedStrings, lang: Language):

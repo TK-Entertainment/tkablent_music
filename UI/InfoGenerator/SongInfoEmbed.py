@@ -155,8 +155,6 @@ class SongInfo(discord.Embed):
                         inline=True
                     )
             
-            
-                embed_opt['footer']['text'] = stateicon + "\n" + embed_opt['footer']['text'] 
 
             queuelist: str = ""
 

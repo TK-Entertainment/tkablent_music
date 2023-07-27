@@ -5,7 +5,7 @@ import dotenv
 import asyncio
 import os
 
-from .NodeHelper import node_helper
+from Helper.NodeHelper import node_helper
 
 from Storage.PlaylistStorage import playlist_storage
 from Storage.GuildPlayerInfo import guild_player_info

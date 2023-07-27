@@ -1,10 +1,10 @@
 import discord
 
-from Generic.GroupButton import GroupButton
-from Generic.Essentials import essentials
-from Generic.Enums import Language, UIModule
-from .HelpEmbed import HelpEmbed
-from .HelpEnums import HelpEmbedStrings
+from UI.Generic.GroupButton import GroupButton
+from UI.Generic.Essentials import essentials
+from UI.Generic.Enums import Language, UIModule
+from UI.Help.HelpEmbed import HelpEmbed
+from UI.Help.HelpEnums import HelpEmbedStrings
 
 class Help(discord.ui.View):
     def __init__(self, *, timeout=60, msg: discord.InteractionMessage = None, lang: Language=Language.zh_tw):

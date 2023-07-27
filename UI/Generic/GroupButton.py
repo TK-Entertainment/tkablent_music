@@ -2,9 +2,9 @@ import discord
 import os
 import json
 
-from .Emojis import Emoji
-from .Enums import Language, UIModule
-from .Essentials import essentials
+from UI.Generic.Emojis import Emoji
+from UI.Generic.Enums import Language, UIModule
+from UI.Generic.Essentials import essentials
 
 class GroupButton_View(discord.ui.View):
     def __init__(self, lang: Language):
