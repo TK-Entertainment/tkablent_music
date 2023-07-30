@@ -1,4 +1,5 @@
 # TKablent | Structure Revolution (structure_rev)
+[![CodeFactor](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/badge/structure_rev)](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/overview/structure_rev)
 此為 TKablent 機器人組件架構改造計畫之分支，極為不穩定  
 若要查看目前的穩定版或測試版的相關資訊，可以到 [master](https://github.com/TK-Entertainment/tkablent_music) 分支來了解更多  
 
