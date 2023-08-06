@@ -18,7 +18,7 @@ branch = 'master'
 if production:
     status = discord.Status.online
     production_status = 's' # ce for cutting edge, s for stable
-    bot_version = f'm.20230716.1-{production_status}'
+    bot_version = f'm.20230716.3-{production_status}'
 else:
     status = discord.Status.dnd
     bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
@@ -28,7 +28,7 @@ TOKEN = os.getenv('TOKEN')
 
 intents = discord.Intents.default()
 intents.message_content = False
-bot = commands.Bot(command_prefix=prefix, intents=intents, help_command=None, status=status)
+bot = commands.AutoShardedBot(command_prefix=prefix, intents=intents, help_command=None, status=status)
 
 from utils import *
 
@@ -46,9 +46,16 @@ async def precense_update():
             await bot.change_presence(activity=precense)
             await asyncio.sleep(10)
 
+async def count_total():
+    total_count = 0
+    for guild in bot.guilds:
+        total_count += guild.member_count
+    print(f"[Statistics] Bot is now serving {total_count} users in {len(bot.guilds)} guilds.")
+
 @bot.event
 async def on_ready():
     bot.loop.create_task(precense_update())
+    bot.loop.create_task(count_total())
     await bot.add_cog(MusicCog(bot, bot_version))
     await bot.add_cog(HelperCog(bot))
     await bot.tree.sync()

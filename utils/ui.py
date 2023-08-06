@@ -198,6 +198,10 @@ class UI:
         from .func.player_control import PlayerControl
         self.PlayerControl = PlayerControl(self.ExceptionHandler, self._InfoGenerator, self.Stage, self.Queue, self.Leave)
 
+        # Survey Section
+        from .func.survey import Survey
+        self.Survey = Survey()
+
         ##########
         # Volume # Deprecated for now (might be used in the future)
         ##########

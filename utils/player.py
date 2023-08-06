@@ -290,6 +290,7 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name='help', description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):
+        await self.ui.Survey.SendSurvey(interaction) # 202308 Survey
         await self.ui.Help.Help(interaction)
 
     ##############################################
@@ -420,12 +421,14 @@ class MusicCog(Player, commands.Cog):
     
     @app_commands.command(name='np', description='▶️ | 查看現在在播放什麼!')
     async def nowplaying(self, interaction: discord.Interaction):
+        await self.ui.Survey.SendSurvey(interaction) # 202308 Survey
         await self.ui.PlayerControl.NowPlaying(interaction)
 
     ##############################################
 
     @app_commands.command(name='stop', description='⏹️ | 停止音樂並清除待播清單')
     async def stop(self, interaction: discord.Interaction):
+        await self.ui.Survey.SendSurvey(interaction) # 202308 Survey
         try:
             await self._stop(interaction.guild)
             await self.ui.PlayerControl.StopSucceed(interaction)
@@ -652,6 +655,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.rename(search='影片網址或關鍵字')
     @discord.app_commands.autocomplete(search=get_search_suggest)
     async def _i_play(self, interaction: discord.Interaction, search: str):
+        await self.ui.Survey.SendSurvey(interaction) # 202308 Survey
         if validators.url(search):
             if "list" in search and "watch" in search and ("youtube" in search or "youtu.be" in search):
                 if self[interaction.guild.id].multitype_remembered:
@@ -825,14 +829,15 @@ class MusicCog(Player, commands.Cog):
                 trackinfo.audio_source = "youtube"
         else:
             for track in tracklist:
-                if (track == "YTorSC"):
-                    break
-                track.suggested = False
                 if isinstance(track, wavelink.YouTubeTrack):
                     track.audio_source = "youtube"
-                else:
+                    track.suggested = False
+                elif isinstance(track, wavelink.SoundCloudTrack):
                     track.audio_source = "soundcloud"
-
+                    track.suggested = False
+                elif (track == "YTorSC"):
+                    break
+                    
         return tracklist
 
     ##############################
