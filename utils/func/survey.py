@@ -150,7 +150,7 @@ class Survey:
                     pass
                 self.stop()
 
-        embed = discord.Embed(title="📝 | 使用者意見調查", description="感謝貴伺服器使用 TKablent\n我們在近期突破了 600 人大關，故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價")
+        embed = discord.Embed(title="📝 | 使用者意見調查", description="感謝貴伺服器使用 TKablent\n近期機器人已被超過 600 伺服器所使用，故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價")
         embed.set_footer(text="此問卷所收集的內容僅會提供給兩位TKE的開發者做為參考\n蒐集之資料會依據【隱私權政策】處理")
         view = SurveyBody()
 
