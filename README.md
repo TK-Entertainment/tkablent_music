@@ -22,14 +22,14 @@
 [![](https://dcbadge.vercel.app/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
 ## 開發狀態
 源碼 (Source Code):   
-*e9e1870 (20230716)*
+*db85fd3 (20230806)*
 
 穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.e2-s*  
+*目前更新到 m.20230716.3-s*  
 
 開發版 (Cutting Edge, ce) | *仍舊提供更新，供嘗鮮用戶使用*  
 *目前測試項目: 搜尋系統及使用者介面優化 (linkandui)*  
-*目前更新到 m.20230716.1.linkandui-ce*  
+*目前更新到 m.20230806.linkandui-ce*  
 
 前期開發版 (Alpha) | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
@@ -53,7 +53,7 @@
 
 ## 最新更新日誌 
 如需觀看更詳細的 Github commits 日誌，請點下方連結  
-[m.20230611.1-s...m.20230716.e2-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230716.e2-s)
+[m.20230611.1-s...m.20230806.linkandui-ce](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230806.linkandui-ce)
 
 ```diff
 =========================================
@@ -61,6 +61,24 @@ Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
 Shared under MIT License
 =========================================
+# Version m.20230716.3-s (2179adc)
+## From Cutting Edge | m.20230806.linkandui-ce
+## m.20230716.2-s skipped as it's a internal test version
++【問卷】開始 2023/08 滿意度調查
+=> 此更新後，機器人將會在執行指令時提示可以填寫滿意度的表單，歡迎各位使用者給予我們意見！
+!【優化】對於要求過多的處理
+=> 目前已經嘗試對要求過多的問題進行處理，將會再觀察情況進行進一步優化
+
+# Version m.20230716.1-s (6d3c90b)
+## From Cutting Edge | m.20230721.linkandui-ce
+!【優化】增加獨立播放伺服器，並對搜尋伺服器做負載平衡
+=> 現有一播放伺服器 (不進行搜尋，專供穩定播放) 及 兩台搜尋伺服器 (進行負載平衡)
+!【優化】對於指令搜尋候選字功能進行速度上的優化及部分改進
+=> 增加緩存來減少搜尋的次數，及透過搜尋伺服器的負載平衡來加快搜尋速度
+=> 候選字刪去音樂作者名稱，讓音樂名稱可以顯示得更長
+!【修正】修正在開啟/關閉推薦功能時，多次觸發造成錯誤
+=> 當有人按下某個按鈕，機器人正在處理之時，該按鈕會暫時停用以防止多次觸發
+
 # Version m.20230716.e2-s (緊急修復更新, e9e1870)
 !【緊急修復】修正使用待播清單管理功能時 (如 /move, /swap)，會遇到錯誤的問題
 => 因在更新套件時有部分程式碼尚未轉換成新版格式，導致執行指令時會出現錯誤
