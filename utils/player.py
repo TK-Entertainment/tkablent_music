@@ -3,6 +3,7 @@ import asyncio, json, os, time
 import dotenv
 import validators
 import random
+import shutil
 
 import discord
 from discord.ext import commands
@@ -91,26 +92,58 @@ class Player:
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self._spotify: spotify.SpotifyClient = None
         self._cache: dict = None
+        
+        self._cache_path = rf"{os.getcwd()}/utils/search_cache.json"
+        self._bak_cache_path = rf"{os.getcwd()}/utils/search_cache.json.bak"
 
     def fetch_cache(self) -> None:
         """fetch from database"""
-        with open(rf"{os.getcwd()}/utils/search_cache.json", "r") as f:
-            self._cache = json.load(f)
+        try:
+            with open(self._cache_path, "r") as f:
+                self._cache = json.load(f)
+            
+            shutil.copyfile(self._cache_path, self._bak_cache_path)
+        except json.decoder.JSONDecodeError:
+            with open(self._bak_cache_path, "r") as bak_f:
+                self._cache = json.load(bak_f)
+            
+            shutil.copyfile(self._bak_cache_path, self._cache_path)
 
     def update_cache(self, identifier: str, title: str, length: str, timestamp) -> None:
         """update database"""
-        with open(rf"{os.getcwd()}/utils/search_cache.json", "r") as f:
-            data: dict = json.load(f)
+        try:
+            with open(self._cache_path, "r") as f:   
+                data: dict = json.load(f)
+
+            shutil.copyfile(self._cache_path, self._bak_cache_path)
+        except json.decoder.JSONDecodeError:
+            with open(self._bak_cache_path, "r") as bak_f:
+                data = json.load(bak_f)
+            
+            shutil.copyfile(self._bak_cache_path, self._cache_path)
+
         if data.get(identifier) is not None:
             data[identifier]["title"] = title
             data[identifier]["length"] = length
             data[identifier]["timestamp"] = timestamp
         else:
-            data[identifier] = self._cache[identifier] = dict(
+            data[identifier] = dict(
                 title=title, length=length, timestamp=timestamp
             )
-        with open(rf"{os.getcwd()}/utils/search_cache.json", "w") as f:
+        with open(self._cache_path, "w") as f:
             json.dump(data, f)
+
+        # self test json file
+        try:
+            with open(self._cache_path, "r") as f:
+                json.load(f)
+            
+            self._cache[identifier] = dict(
+                title=title, length=length, timestamp=timestamp
+            )
+                
+        except json.decoder.JSONDecodeError: # revert if file fucked up
+            shutil.copyfile(self._bak_cache_path, self._cache_path)
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:

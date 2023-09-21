@@ -19,8 +19,8 @@ branch = "master"
 
 if production:
     status = discord.Status.online
-    production_status = "s"  # ce for cutting edge, s for stable
-    bot_version = f"m.20230716.3-{production_status}"
+    production_status = "ce"  # ce for cutting edge, s for stable
+    bot_version = f"m.20230921.linkandui-{production_status}"
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
