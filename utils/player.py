@@ -650,7 +650,6 @@ class MusicCog(Player, commands.Cog):
             wavelink.GenericTrack,
             wavelink.SoundCloudTrack,
         ],
-        is_search=False,
     ):
         # Try to make bot join author's channel
         voice_client: wavelink.Player = interaction.guild.voice_client
