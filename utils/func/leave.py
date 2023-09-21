@@ -7,6 +7,7 @@ from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
 from ..ui import LeaveType
 
+
 class Leave:
     def __init__(self, exception_handler, info_generator):
         from ..ui import guild_info, bot, musicbot
@@ -48,9 +49,18 @@ class Leave:
             self.guild_info(interaction.guild.id).playinfo_view.clear_items()
             self.guild_info(interaction.guild.id).playinfo_view.stop()
             await interaction.response.send_message("ㅤ", ephemeral=True)
-            await self.guild_info(interaction.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, operation=LeaveType.ByCommand), view=None)
+            await self.guild_info(interaction.guild.id).playinfo.edit(
+                embed=self.info_generator._SongInfo(
+                    guild_id=interaction.guild.id, operation=LeaveType.ByCommand
+                ),
+                view=None,
+            )
         else:
-            await interaction.response.send_message(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, operation=LeaveType.ByCommand))
+            await interaction.response.send_message(
+                embed=self.info_generator._SongInfo(
+                    guild_id=interaction.guild.id, operation=LeaveType.ByCommand
+                )
+            )
         self.bot.loop.create_task(self.refresh_and_reset(interaction.guild))
 
     async def LeaveOnTimeout(self, channel: discord.TextChannel) -> None:
@@ -58,10 +68,21 @@ class Leave:
         if self.guild_info(channel.guild.id).playinfo is not None:
             self.guild_info(channel.guild.id).playinfo_view.clear_items()
             self.guild_info(channel.guild.id).playinfo_view.stop()
-            await self.guild_info(channel.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=channel.guild.id, operation=LeaveType.ByTimeout), view=None)
+            await self.guild_info(channel.guild.id).playinfo.edit(
+                embed=self.info_generator._SongInfo(
+                    guild_id=channel.guild.id, operation=LeaveType.ByTimeout
+                ),
+                view=None,
+            )
         else:
-            await channel.send(embed=self.info_generator._SongInfo(guild_id=channel.guild.id, operation=LeaveType.ByTimeout))
+            await channel.send(
+                embed=self.info_generator._SongInfo(
+                    guild_id=channel.guild.id, operation=LeaveType.ByTimeout
+                )
+            )
         self.bot.loop.create_task(self.refresh_and_reset(channel.guild))
-    
+
     async def LeaveFailed(self, interaction: discord.Interaction, exception) -> None:
-        await self.exception_handler._CommonExceptionHandler(interaction, "LEAVEFAIL", exception)
+        await self.exception_handler._CommonExceptionHandler(
+            interaction, "LEAVEFAIL", exception
+        )

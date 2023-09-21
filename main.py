@@ -5,40 +5,45 @@ import discord
 from discord.ext import commands
 import wavelink
 
-print(f'''
+print(
+    f"""
 Current Version
 {sys.version}
-''')
+"""
+)
 
 production = True
-prefix = '/'
+prefix = "/"
 
-branch = 'master'
+branch = "master"
 
 if production:
     status = discord.Status.online
-    production_status = 's' # ce for cutting edge, s for stable
-    bot_version = f'm.20230716.3-{production_status}'
+    production_status = "s"  # ce for cutting edge, s for stable
+    bot_version = f"m.20230716.3-{production_status}"
 else:
     status = discord.Status.dnd
-    bot_version = f'LOCAL DEVELOPMENT / {branch} Branch\nMusic Function'
+    bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
 
 dotenv.load_dotenv()
-TOKEN = os.getenv('TOKEN')
+TOKEN = os.getenv("TOKEN")
 
 intents = discord.Intents.default()
 intents.message_content = False
-bot = commands.AutoShardedBot(command_prefix=prefix, intents=intents, help_command=None, status=status)
+bot = commands.AutoShardedBot(
+    command_prefix=prefix, intents=intents, help_command=None, status=status
+)
 
 from utils import *
 
 precenses = [
-    discord.Game(f'需要幫助? | {bot.command_prefix}help'),
-    discord.Game(f'來點音樂? | {bot.command_prefix}play'),
-    discord.Game('迷因、幹話、美好的事物'),
-    discord.Game('為平淡的生活增添更多色彩'),
-    discord.Game(f'TKablent | {bot_version}'),
+    discord.Game(f"需要幫助? | {bot.command_prefix}help"),
+    discord.Game(f"來點音樂? | {bot.command_prefix}play"),
+    discord.Game("迷因、幹話、美好的事物"),
+    discord.Game("為平淡的生活增添更多色彩"),
+    discord.Game(f"TKablent | {bot_version}"),
 ]
+
 
 async def precense_update():
     while True:
@@ -46,11 +51,15 @@ async def precense_update():
             await bot.change_presence(activity=precense)
             await asyncio.sleep(10)
 
+
 async def count_total():
     total_count = 0
     for guild in bot.guilds:
         total_count += guild.member_count
-    print(f"[Statistics] Bot is now serving {total_count} users in {len(bot.guilds)} guilds.")
+    print(
+        f"[Statistics] Bot is now serving {total_count} users in {len(bot.guilds)} guilds."
+    )
+
 
 @bot.event
 async def on_ready():
@@ -60,11 +69,12 @@ async def on_ready():
     await bot.add_cog(HelperCog(bot))
     await bot.tree.sync()
 
-    cog: MusicCog = bot.cogs['MusicCog']
+    cog: MusicCog = bot.cogs["MusicCog"]
     await cog.resolve_ui()
     await cog._create_daemon()
 
-    print(f'''
+    print(
+        f"""
         =========================================
         Codename TKablent | Branch {branch}
         Copyright 2022-present @ TK Entertainment
@@ -80,20 +90,26 @@ async def on_ready():
         That means bot is online without any problem.
         若此訊息下方沒有任何錯誤訊息
         即代表此機器人已成功開機
-    ''')
+    """
+    )
+
 
 @bot.event
 async def on_wavelink_node_ready(node: wavelink.Node):
-    print(f'''
+    print(
+        f"""
         Wavelink 音樂處理伺服器已準備完畢
 
         伺服器名稱: {node.id}
-    ''')
+    """
+    )
+
 
 try:
     bot.run(TOKEN)
 except AttributeError:
-    print(f'''
+    print(
+        f"""
     =========================================
     Codename TKablent | Branch {branch}
     Copyright 2022-present @ TK Entertainment
@@ -110,4 +126,5 @@ except AttributeError:
     It looks like your TOKEN is invaild
     Please make sure that your Discord Bot TOKEN is already in .env file
     and it's a VAILD TOKEN.
-    ''')
+    """
+    )
