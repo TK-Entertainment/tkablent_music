@@ -157,12 +157,8 @@ class Playlist:
 
     def check_current_suggest_support(self, guild_id) -> bool:
         current = self[guild_id].current()
-        unsupported_source = [
-            'soundcloud',
-            'bilibili'
-        ]
 
-        return not (current.audio_source in unsupported_source)
+        return not (isinstance(current, Union[wavelink.GenericTrack, wavelink.SoundCloudTrack]))
 
     async def add_songs(self, guild_id, trackinfo: Union[wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist], requester):
         if len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
@@ -175,7 +171,6 @@ class Playlist:
             if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
                 for track in trackinfo.tracks:
                     track.requester = requester
-                    track.audio_source = 'youtube'
                     track.suggested = False
                 self[guild_id].order.extend(trackinfo.tracks)
             else:
@@ -250,7 +245,6 @@ class Playlist:
                 pass
             if suggested_track is not None:
                 suggested_track.suggested = True
-                suggested_track.audio_source = 'youtube'
                 ui_guild_info.suggestions.append(suggested_track)
 
                 if pre_process:
@@ -341,7 +335,7 @@ class Playlist:
                         playlist_index += 1
         
     async def process_suggestion(self, guild: discord.Guild, ui_guild_info: GuildUIInfo):
-        if (ui_guild_info.music_suggestion) and self[guild.id].current().audio_source == 'youtube' and len(self[guild.id].order) <= 2:
+        if (ui_guild_info.music_suggestion) and isinstance(self[guild.id].current(), Union[wavelink.YouTubeTrack, wavelink.YouTubeMusicTrack]) and len(self[guild.id].order) <= 2:
             if len(self[guild.id].order) == 2 and not self[guild.id].order[-1].suggested:
                 return
 

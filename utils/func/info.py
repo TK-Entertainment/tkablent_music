@@ -217,7 +217,7 @@ class InfoGenerator:
                 embed.add_field(name=f"{caution_emoji} | 自動歌曲推薦已暫時停用", value=f'此歌曲暫時不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能', inline=False)
 
             # will be deleted after testing
-            if song.audio_source == "bilibili" and "ce" in self.musicbot.bot_version:
+            if isinstance(song, wavelink.GenericTrack) and "ce" in self.musicbot.bot_version:
                 embed_opt["footer"]["text"] = "bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))

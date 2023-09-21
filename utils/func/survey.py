@@ -9,7 +9,7 @@ import time
 class Survey:
     def __init__(self):
         from ..ui import musicbot, auto_stage_available, guild_info
-        self.enabled = True
+        self.enabled = False
 
         self.survey_name = "202308_usual"
 

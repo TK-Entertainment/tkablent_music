@@ -88,7 +88,6 @@ class PlayerControl:
                     songlist = []
                     for i in self.values:
                         songlist.append(result[int(i)])
-                    songlist.append('Search')
                     await self.musicbot.play(interaction, songlist)
                 else:
                     option_index = int(self.values[0])

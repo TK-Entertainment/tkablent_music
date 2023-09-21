@@ -559,13 +559,7 @@ class MusicCog(Player, commands.Cog):
 
         # Call search function
         try: 
-            if isinstance(trackinfo, list):
-                is_search = trackinfo[-1] == 'Search'
-                if trackinfo[-1] == 'Search' or trackinfo[-1] == 'YTPL':
-                    trackinfo.pop(-1)
-            else:
-                is_search = False
-                is_ytpl = False
+            is_search = isinstance(trackinfo, list) and (not isinstance(trackinfo, wavelink.YouTubePlaylist))
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
             # If search failed, sent to handler
@@ -577,11 +571,8 @@ class MusicCog(Player, commands.Cog):
     async def play(self, interaction: discord.Interaction, trackinfo: Union[
                                 wavelink.GenericTrack,
                                 wavelink.SoundCloudTrack,
-                            ]):
+                            ], is_search=False):
         # Try to make bot join author's channel
-        if isinstance(trackinfo, list):
-            if trackinfo[-1] != 'Search' and trackinfo[-1] != "YTPL":
-                trackinfo.pop(-1)
         voice_client: wavelink.Player = interaction.guild.voice_client
         if isinstance(voice_client, wavelink.Player) and \
             interaction.user.voice is None:
@@ -806,37 +797,22 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.Search.SearchFailed(interaction, search)
                 return None
 
-        if isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
+        if not isinstance(trackinfo, Union[wavelink.GenericTrack, spotify.SpotifyTrack]):
             tracklist = trackinfo
-        elif isinstance(trackinfo, Union[wavelink.GenericTrack, spotify.SpotifyTrack]):
-            pass
-        else:
-            tracklist = trackinfo
-            tracklist.append('YTorSC')
 
         if isinstance(trackinfo, wavelink.GenericTrack):
-            trackinfo.suggested = False
-            trackinfo.audio_source = "bilibili"
+            trackinfo.suggested = False   
             tracklist = trackinfo
         elif isinstance(trackinfo, spotify.SpotifyTrack):
             trackinfo.suggested = False
-            trackinfo.audio_source = "youtube"
             trackinfo.is_stream = False
             tracklist = trackinfo
         elif isinstance(tracklist, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]):
             for track in tracklist.tracks:
-                trackinfo.suggested = False
-                trackinfo.audio_source = "youtube"
+                track.suggested = False
         else:
             for track in tracklist:
-                if isinstance(track, wavelink.YouTubeTrack):
-                    track.audio_source = "youtube"
-                    track.suggested = False
-                elif isinstance(track, wavelink.SoundCloudTrack):
-                    track.audio_source = "soundcloud"
-                    track.suggested = False
-                elif (track == "YTorSC"):
-                    break
+                track.suggested = False
                     
         return tracklist
 
