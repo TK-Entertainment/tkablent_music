@@ -136,7 +136,9 @@ class Player:
             with open(self._cache_path, "r") as f:
                 json.load(f)
 
-            self._cache[identifier] = dict(title=title, length=length, timestamp=timestamp)
+            self._cache[identifier] = dict(
+                title=title, length=length, timestamp=timestamp
+            )
 
         except json.decoder.JSONDecodeError:  # revert if file fucked up
             shutil.copyfile(self._bak_cache_path, self._cache_path)
