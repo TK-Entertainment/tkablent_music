@@ -92,7 +92,7 @@ class Player:
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self._spotify: spotify.SpotifyClient = None
         self._cache: dict = None
-        
+
         self._cache_path = rf"{os.getcwd()}/utils/search_cache.json"
         self._bak_cache_path = rf"{os.getcwd()}/utils/search_cache.json.bak"
 
@@ -101,25 +101,25 @@ class Player:
         try:
             with open(self._cache_path, "r") as f:
                 self._cache = json.load(f)
-            
+
             shutil.copyfile(self._cache_path, self._bak_cache_path)
         except json.decoder.JSONDecodeError:
             with open(self._bak_cache_path, "r") as bak_f:
                 self._cache = json.load(bak_f)
-            
+
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
     def update_cache(self, identifier: str, title: str, length: str, timestamp) -> None:
         """update database"""
         try:
-            with open(self._cache_path, "r") as f:   
+            with open(self._cache_path, "r") as f:
                 data: dict = json.load(f)
 
             shutil.copyfile(self._cache_path, self._bak_cache_path)
         except json.decoder.JSONDecodeError:
             with open(self._bak_cache_path, "r") as bak_f:
                 data = json.load(bak_f)
-            
+
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
         if data.get(identifier) is not None:
@@ -127,9 +127,7 @@ class Player:
             data[identifier]["length"] = length
             data[identifier]["timestamp"] = timestamp
         else:
-            data[identifier] = dict(
-                title=title, length=length, timestamp=timestamp
-            )
+            data[identifier] = dict(title=title, length=length, timestamp=timestamp)
         with open(self._cache_path, "w") as f:
             json.dump(data, f)
 
@@ -137,12 +135,12 @@ class Player:
         try:
             with open(self._cache_path, "r") as f:
                 json.load(f)
-            
+
             self._cache[identifier] = dict(
                 title=title, length=length, timestamp=timestamp
             )
-                
-        except json.decoder.JSONDecodeError: # revert if file fucked up
+
+        except json.decoder.JSONDecodeError:  # revert if file fucked up
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
     def __getitem__(self, guild_id) -> GuildInfo:
