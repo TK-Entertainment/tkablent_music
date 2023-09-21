@@ -136,9 +136,7 @@ class Player:
             with open(self._cache_path, "r") as f:
                 json.load(f)
 
-            self._cache[identifier] = dict(
-                title=title, length=length, timestamp=timestamp
-            )
+            self._cache[identifier] = dict(title=title, length=length, timestamp=timestamp)
 
         except json.decoder.JSONDecodeError:  # revert if file fucked up
             shutil.copyfile(self._bak_cache_path, self._cache_path)
@@ -197,9 +195,6 @@ class Player:
         valid = await self._bilibilic.check_valid()
 
         print(f"[BiliBili API] Cookie valid: {valid}")
-
-        # if valid:
-        #     await self.bot.loop.create_task(self._refresh_sessdata())
 
         self._spotify = spotify.SpotifyClient(
             client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET
