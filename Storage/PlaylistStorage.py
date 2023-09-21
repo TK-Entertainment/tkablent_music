@@ -37,7 +37,7 @@ class PlaylistStorage:
             client_credentials_manager=SpotifyClientCredentials(client_id=spotify_id, client_secret=spotify_secret)
         )
 
-    def check_current_suggest_support(self, guild_id) -> bool:
+    def check_current_suggest_support(self, guild_id: int) -> bool:
         current = self[guild_id].current()
         unsupported_source = [
             'soundcloud',
