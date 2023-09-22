@@ -3,19 +3,19 @@
 > 此處為純文字更新日誌，若要查看完成含圖片的分版日誌  
 > 可到 [Releases](https://github.com/TK-Entertainment/tkablent_music/releases) 查看
 
-目前總共發布 44 個版本  
-穩定版 (Stable, s) 共 10 版 | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.3-s*  
+目前總共發布 46 個版本  
+穩定版 (Stable, s) 共 11 版 | *正在提供更新，更新周期較慢*  
+*目前更新到 m.20230716.4-s*  
 
-開發版 (Cutting Edge, ce) 共 20 版 | *仍舊提供更新，供嘗鮮用戶使用*  
-*目前更新到 m.20230806.linkandui-ce*  
+開發版 (Cutting Edge, ce) 共 21 版 | *仍舊提供更新，供嘗鮮用戶使用*  
+*目前更新到 m.20230922.linkandui-ce*  
 
 前期開發版 (Alpha) 共 7 版 | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
 
 內部開發版 (Confidential) 共 8 版 | *已於 20220410 停止更新，由 Alpha 代替*  
 *最後更新到 # Build 20220410-2*
-# August 2023
+# September 2023
 ```
 =========================================
 Codename TKablent | Version Stable
@@ -23,6 +23,21 @@ Copyright 2022-present @ TK Entertainment
 Shared under MIT license
 =========================================
 ```
+## Version m.20230716.4-s (PR [#20](https://github.com/TK-Entertainment/tkablent_music/pull/20))
+#### From Cutting Edge | m.20230922.linkandui-ce
+```diff
+!【問卷】結束 2023/08 滿意度調查 
+=> 感謝您們的回覆，我們已收到您的意見及想法
+
+!【優化】增加程式可靠性
+=> 刪除部分以字串作為辨識的程式段，以邏輯判斷為主
+=> 順應修復以往以字串辨識時，Wavelink 會發生 NotImplemented 錯誤的問題
+
+!【優化】新增緩存損毀時，相應的應對方式
+=> 採A/B Copy的方式，在A Copy損毀時，以B Copy作為備援並還原之
+```
+
+# August 2023
 ## Version m.20230716.3-s ([2179adc](https://github.com/TK-Entertainment/tkablent_music/blob/m.20230806.linkandui-ce/2179adcd4a09a6fa425e72ae2e58e561b63b7b16))
 #### From Cutting Edge | m.20230806.linkandui-ce
 > **ℹ️ 注意**  
