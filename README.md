@@ -22,14 +22,14 @@
 [![](https://dcbadge.vercel.app/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
 ## 開發狀態
 源碼 (Source Code):   
-*db85fd3 (20230806)*
+*be3d87a (20230922)*
 
 穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.3-s*  
+*目前更新到 m.20230716.4-s*  
 
 開發版 (Cutting Edge, ce) | *仍舊提供更新，供嘗鮮用戶使用*  
 *目前測試項目: 搜尋系統及使用者介面優化 (linkandui)*  
-*目前更新到 m.20230806.linkandui-ce*  
+*目前更新到 m.20230922.linkandui-ce*  
 
 前期開發版 (Alpha) | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
@@ -53,7 +53,7 @@
 
 ## 最新更新日誌 
 如需觀看更詳細的 Github commits 日誌，請點下方連結  
-[m.20230611.1-s...m.20230806.linkandui-ce](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230806.linkandui-ce)
+[m.20230611.1-s...m.20230922.linkandui-ce](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230922.linkandui-ce)
 
 ```diff
 =========================================
@@ -61,6 +61,16 @@ Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
 Shared under MIT License
 =========================================
+# Version m.20230716.4-s (PR #20)
+## From Cutting Edge | m.20230922.linkandui-ce
+!【問卷】結束 2023/08 滿意度調查 
+=> 感謝您們的回覆，我們已收到您的意見及想法
+!【優化】增加程式可靠性
+=> 刪除部分以字串作為辨識的程式段，以邏輯判斷為主
+=> 順應修復以往以字串辨識時，Wavelink 會發生 NotImplemented 錯誤的問題
+!【優化】新增緩存損毀時，相應的應對方式
+=> 採A/B Copy的方式，在A Copy損毀時，以B Copy作為備援並還原之
+
 # Version m.20230716.3-s (2179adc)
 ## From Cutting Edge | m.20230806.linkandui-ce
 ## m.20230716.2-s skipped as it's a internal test version
