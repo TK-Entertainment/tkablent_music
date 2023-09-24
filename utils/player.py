@@ -539,7 +539,7 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name="shuffle", description="🔀 | 隨機排序目前的待播清單")
     async def shuffle(self, interaction: discord.Interaction):
-        if len(self._playlist[interaction.guild.id]) < 2:
+        if len(self._playlist[interaction.guild.id].order) < 2:
             await self.ui.PlayerControl.ShuffleFailed(interaction)
         self._playlist[interaction.guild.id].shuffle()
 
