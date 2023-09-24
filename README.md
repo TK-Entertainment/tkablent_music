@@ -3,19 +3,23 @@
 [![最新更新](https://img.shields.io/github/release/tk-entertainment/tkablent_music.svg)](https://github.com/tk-entertainment/tkablent_music/releases/latest)
 [![CodeFactor](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/badge)](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music)  
 用 Python 製作的 Discord 音樂機器人  
-> **ℹ️ 注意 | 目前程式碼正在重新建構中...**  
+
+> **Note**  
 > 目前程式碼架構正在重構中，正式版/測試版更新會變得較不積極  
 > 詳請可見 [structure_rev](https://github.com/TK-Entertainment/tkablent_music/tree/structure_rev) 分支，敬請諒解
+
 ## 邀請機器人
 **邀請穩定版機器人** (後輟為 -s)  
 [![](https://dcbadge.vercel.app/api/shield/1018410580870176788?bot=true)](https://discord.com/oauth2/authorize?client_id=1018410580870176788&permissions=2201184336&scope=bot%20applications.commands)  
   
 **邀請測試版機器人** (後輟為 -ce)  
-> **⚠️ 警告 | 此機器人運行為測試版軟體**  
+> **Warning**  
+> **此機器人運行的是測試版軟體**  
 > 可能會極度不穩定 (遇到許多奇怪的問題)，甚至不定時重開，但能在第一時間取得新增的功能及特性
 > 若想要取得最新的功能，可以考慮看看，也希望使用此版本的使用者可以多多提交 Bug 回饋
   
-> **ℹ️ 注意 | 測試版機器人相關策略**  
+> **Important**  
+> **關於測試版機器人的相關策略**  
 > 此機器人會限制在 100 個伺服器 (因未驗證)，故每次完成一個測試階段 (即測試項目改變時)，機器人將會自動退出伺服器  
 > 若要再使用者，機器人會在退出後留下訊息，上方有按鈕可供快速加入，請在機器人滿人前加入，感謝
   
