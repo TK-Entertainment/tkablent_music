@@ -1,10 +1,14 @@
 import discord
 import wavelink
+import asyncio
 
 from UI.Generic.Emojis import Emoji
+from UI.Generic.Enums import LeaveType
 from UI.InfoGenerator.SongInfoEmbed import SongInfo
 
+from Storage.GuildUIInfo import guild_ui_info
 from Storage.GuildPlayInfo import guild_play_info
+from Storage.GuildPlayerInfo import guild_player_info
 from Storage.PlaylistStorage import playlist_storage
 
 from Misc.Enums import LoopState
@@ -14,8 +18,38 @@ class UICore:
         self.Info = InfoCommand()
         self.Join = JoinCommand() 
 
+    async def refresh_and_reset(self, guild: discord.Guild, player: wavelink.Player) -> None:
+        await asyncio.sleep(3)
+        await self.Info.UpdateSongInfo(guild.id, player)
+        self.reset_value(guild)
+
+    def reset_value(self, guild) -> None:
+        ui_info = guild_ui_info[guild.id]
+        play_info = guild_play_info[guild.id]
+        player_info = guild_player_info[guild.id]
+
+        if player_info._resuggest_task is not None:
+            player_info._resuggest_task.cancel()
+        if player_info._suggest_search_task is not None:
+            player_info._suggest_search_task.cancel()
+        player_info._timer_done = False
+        player_info.music_suggestion = False
+        player_info.suggestions = []
+        player_info._resuggest_task = None
+        player_info._suggest_search_task = None
+
+
+        play_info.skip = False
+        play_info.playinfo = None
+        play_info.playinfo_view = None
+
+        ui_info.auto_stage_available = True
+        ui_info.stage_topic_checked = False
+        ui_info.stage_topic_exist = False
+        ui_info.processing_msg = None
+
 class InfoCommand:
-    async def UpdateSongInfo(self, guild_id: int, voice_client: wavelink.Player):
+    async def UpdateSongInfo(self, guild_id: int, voice_client: wavelink.Player) -> None:
         playlist = playlist_storage[guild_id]
         guild_info = guild_play_info[guild_id]
 
@@ -110,11 +144,36 @@ class JoinCommand:
             **:hushed: | 我已經加入頻道囉**
             不需要再把我加入同一個頻道囉
             *若要更換頻道
-            輸入 **{self.bot.command_prefix}leave** 以離開原有頻道
-            然後使用 **{self.bot.command_prefix}join 加入新的頻道***
+            輸入 **/leave** 以離開原有頻道
+            然後使用 **/join 加入新的頻道***
                 ''', ephemeral=True)
         return
     
     async def JoinFailed(self, interaction: discord.Interaction, exception) -> None:
         await self.exception_handler._CommonExceptionHandler(interaction, "JOINFAIL", exception)
         return
+    
+class LeaveCommand:
+    async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
+        self.guild_info(interaction.guild.id).leaveoperation = True
+        if self.guild_info(interaction.guild.id).playinfo is not None:
+            self.guild_info(interaction.guild.id).playinfo_view.clear_items()
+            self.guild_info(interaction.guild.id).playinfo_view.stop()
+            await interaction.response.send_message("ㅤ", ephemeral=True)
+            await self.guild_info(interaction.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, operation=LeaveType.ByCommand), view=None)
+        else:
+            await interaction.response.send_message(embed=self.info_generator._SongInfo(guild_id=interaction.guild.id, operation=LeaveType.ByCommand))
+        self.bot.loop.create_task(self.refresh_and_reset(interaction.guild))
+
+    async def LeaveOnTimeout(self, channel: discord.TextChannel) -> None:
+        self.guild_info(channel.guild.id).leaveoperation = True
+        if self.guild_info(channel.guild.id).playinfo is not None:
+            self.guild_info(channel.guild.id).playinfo_view.clear_items()
+            self.guild_info(channel.guild.id).playinfo_view.stop()
+            await self.guild_info(channel.guild.id).playinfo.edit(embed=self.info_generator._SongInfo(guild_id=channel.guild.id, operation=LeaveType.ByTimeout), view=None)
+        else:
+            await channel.send(embed=self.info_generator._SongInfo(guild_id=channel.guild.id, operation=LeaveType.ByTimeout))
+        self.bot.loop.create_task(self.refresh_and_reset(channel.guild))
+    
+    async def LeaveFailed(self, interaction: discord.Interaction, exception) -> None:
+        await self.exception_handler._CommonExceptionHandler(interaction, "LEAVEFAIL", exception)
