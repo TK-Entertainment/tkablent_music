@@ -1,3 +1,5 @@
+<img src="https://i.imgur.com/wApgX8J.png" height=64 width=64></img>
+### A Project of TK Entertainment
 # TKablent
 [![TKablent 支援伺服器](https://discordapp.com/api/guilds/1010564921005707335/widget.png?style=shield)](https://discord.gg/9qrpGh4e7V)
 [![最新更新](https://img.shields.io/github/release/tk-entertainment/tkablent_music.svg)](https://github.com/tk-entertainment/tkablent_music/releases/latest)
