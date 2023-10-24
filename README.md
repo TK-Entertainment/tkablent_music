@@ -182,5 +182,13 @@ Shared under MIT License
 **TKablent 開發計畫**  
 本專案依 **MIT License** 授權  
 授權詳細內容請參 **LICENSE** 檔案
-## 作者
-By TK Entertainment / Kevinowo GrandTiger
+## 貢獻者
+### TK Entertainment
+#### Kevinowo
+- 使用者互動介面 (UI) 設計
+- 新版核心設計 (based on Lavalink)
+
+#### GrandTiger
+- 機器人最初架構設計
+- 核心播放架構設計
+- 部分演算法改善工作
