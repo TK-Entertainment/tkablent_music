@@ -293,6 +293,10 @@ class InfoGenerator:
                     "bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
                 )
 
+        embed_opt["footer"]["text"] = (
+            embed_opt["footer"]["text"] + "\n播放伺服器由 404 Network Information Co. 提供支援"
+        )
+
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
         return embed
 
