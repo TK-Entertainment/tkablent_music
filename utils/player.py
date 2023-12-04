@@ -109,7 +109,7 @@ class Player:
 
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
-    def update_cache(self, identifier: str, title: str, length: str, timestamp) -> None:
+    async def update_cache(self, new_data: dict) -> None:
         """update database"""
         try:
             with open(self._cache_path, "r") as f:
@@ -122,12 +122,21 @@ class Player:
 
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
-        if data.get(identifier) is not None:
-            data[identifier]["title"] = title
-            data[identifier]["length"] = length
-            data[identifier]["timestamp"] = timestamp
-        else:
-            data[identifier] = dict(title=title, length=length, timestamp=timestamp)
+        for identifier in new_data.keys():
+            if data.get(identifier) is not None:
+                data[identifier]["title"] = new_data[identifier]["title"]
+                data[identifier]["length"] = new_data[identifier]["length"]
+                data[identifier]["timestamp"] = new_data[identifier]["timestamp"]
+            else:
+                data[identifier] = dict(
+                    title=new_data[identifier]["title"],
+                    length=new_data[identifier]["length"],
+                    timestamp=new_data[identifier]["timestamp"],
+                )
+
+            # Pause here to prevent asyncio thread lockdown
+            await asyncio.sleep(0.1)
+
         with open(self._cache_path, "w") as f:
             json.dump(data, f)
 
@@ -136,9 +145,8 @@ class Player:
             with open(self._cache_path, "r") as f:
                 json.load(f)
 
-            self._cache[identifier] = dict(
-                title=title, length=length, timestamp=timestamp
-            )
+            # if json is okay, then update in memory cache
+            self._cache = data
 
         except json.decoder.JSONDecodeError:  # revert if file fucked up
             shutil.copyfile(self._bak_cache_path, self._cache_path)
@@ -673,15 +681,6 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
 
-    async def _save_to_cache(self, data) -> None:
-        await asyncio.sleep(3)
-        for identifier in data.keys():
-            title = data[identifier]["title"]
-            length = data[identifier]["length"]
-            timestamp = data[identifier]["timestamp"]
-
-            self.update_cache(identifier, title, length, timestamp)
-
     async def get_search_suggest(
         self, interaction: discord.Interaction, current: str
     ) -> List[app_commands.Choice[str]]:
@@ -736,7 +735,10 @@ class MusicCog(Player, commands.Cog):
                     title=tracks[i].title, length=length, timestamp=timestamp
                 )
 
-            self.bot.loop.create_task(self._save_to_cache(data))
+                # Pause for a while to prevent asyncio thread lockdown
+                await asyncio.sleep(0.1)
+
+            self.bot.loop.create_task(self.update_cache(data))
 
             return result
 
