@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> 本分支負責之項目: **Structure Revolution (structure_rev)** **目前已為拋棄狀態**  
+> 將不會再發布更新
+>   
+> **【原因】**  
+> *版本差距過大導致內部代碼已過時，難以繼續維護。將在未來升級內核時同步施作*
+>   
+> 查看最新版本請至 [Release 分支](https://github.com/TK-Entertainment/tkablent_music/)
+
 # TKablent | Structure Revolution (structure_rev)
 [![CodeFactor](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/badge/structure_rev)](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/overview/structure_rev)
 此為 TKablent 機器人組件架構改造計畫之分支，極為不穩定  
