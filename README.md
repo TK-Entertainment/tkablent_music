@@ -6,10 +6,6 @@
 [![CodeFactor](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music/badge)](https://www.codefactor.io/repository/github/tk-entertainment/tkablent_music)  
 用 Python 製作的 Discord 音樂機器人  
 
-> **Note**  
-> 目前程式碼架構正在重構中，正式版/測試版更新會變得較不積極  
-> 詳請可見 [structure_rev](https://github.com/TK-Entertainment/tkablent_music/tree/structure_rev) 分支，敬請諒解
-
 ## 邀請機器人
 **邀請穩定版機器人** (後輟為 -s)  
 [![](https://dcbadge.vercel.app/api/shield/1018410580870176788?bot=true)](https://discord.com/oauth2/authorize?client_id=1018410580870176788&permissions=2201184336&scope=bot%20applications.commands)  
