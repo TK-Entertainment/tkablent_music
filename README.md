@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> 本分支負責之項目: **Wavelink Migration to 2.0 (wavelink-2.0-depend)** **目前已完成開發且併入**  
+> 未來更新及維護將直接併入主線 (Release)
+>   
+> **【相關 Pull Request】**  
+> [Pull Request #18](https://github.com/TK-Entertainment/tkablent_music/pull/18) / [Pull Request #19](https://github.com/TK-Entertainment/tkablent_music/pull/19)  
+>   
+> 查看最新版本請至 [Release 分支](https://github.com/TK-Entertainment/tkablent_music/)
+
 # 內部代號 TKablent
 用 Python 製作的 Discord 音樂機器人
 
