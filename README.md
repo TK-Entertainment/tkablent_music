@@ -1,7 +1,10 @@
 > [!IMPORTANT]
 > 本分支負責之項目: **DynEmbed Structure Evolution** **目前已為拋棄狀態**  
-> 將不會再發布更新  
-> 原因: **已透過其他方式實現該功能**  
+> 將不會再發布更新
+>   
+> **【原因】**  
+> *已透過其他方式實現該功能*  
+>   
 > 查看最新版本請至 [Release 分支](https://github.com/TK-Entertainment/tkablent_music/)
 
 # 內部代號 TKablent
