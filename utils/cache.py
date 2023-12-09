@@ -16,12 +16,12 @@ class CacheWorker:
         """fetch from database"""
         try:
             with open(self._cache_path, "rb") as f:
-                self._cache = json_decode(f.read())
+                self._cache: dict = json_decode(f.read())
             
             shutil.copyfile(self._cache_path, self._bak_cache_path)
         except DecodeError:
             with open(self._bak_cache_path, "rb") as bak_f:
-                self._cache = json_decode(bak_f.read(), type)
+                self._cache: dict = json_decode(bak_f.read(), type)
 
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
@@ -30,9 +30,7 @@ class CacheWorker:
         try:
             with open(self._cache_path, "rb") as f:
                 if debug: print("[DEBUG | Cache Module] Loading Cache from disk")
-
                 data = json_decode(f.read())
-
                 if debug: print("[DEBUG | Cache Module] Cache file okay!")
 
             shutil.copyfile(self._cache_path, self._bak_cache_path)
@@ -62,7 +60,7 @@ class CacheWorker:
                 )
 
             # Pause here to prevent asyncio thread lockdown
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.02)
 
         with open(self._cache_path, "wb"):
             # clear whole cache file

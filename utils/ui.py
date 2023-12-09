@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 import datetime
 from enum import Enum, auto
+from .storage import GuildUIInfo
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -51,27 +52,6 @@ def _sec_to_hms(seconds, format) -> str:
 
 
 from .player import MusicCog
-
-class GuildUIInfo:
-    def __init__(self, guild_id):
-        self.guild_id: int = guild_id
-        self.auto_stage_available: bool = True
-        self.stage_topic_exist: bool = False
-        self.stage_topic_checked: bool = False
-        self.skip: bool = False
-        self.lastskip: bool = False
-        self.search: bool = False
-        self.lasterrorinfo: dict = {}
-        self.leaveoperation: bool = False
-        self.playinfo: Coroutine[Any, Any, discord.Message] = None
-        self.playinfo_view: discord.ui.View = None
-        self.processing_msg: discord.Message = None
-        self.music_suggestion: bool = False
-        self.suggestions_source = None
-        self.searchmsg: Coroutine[Any, Any, discord.Message] = None
-        self.previous_titles: list[str] = []
-        self.suggestions: list = []
-
 
 class LeaveType(Enum):
     ByCommand = auto()
@@ -249,10 +229,19 @@ class UI:
             self.Leave,
         )
 
-        # Survey Section
+        ##########
+        # Survey #
+        ##########
         from .ui_comp.survey import Survey
 
         self.Survey = Survey()
+
+        #############
+        # Changelog #
+        #############
+        from .ui_comp.changelog import Changelogs
+
+        self.Changelogs = Changelogs()
 
         ##########
         # Volume # Deprecated for now (might be used in the future)

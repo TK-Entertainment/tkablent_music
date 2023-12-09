@@ -2,7 +2,6 @@ from typing import *
 import asyncio, json, os, time
 import dotenv
 import validators
-from .cache import CacheWorker
 
 import discord
 from discord.ext import commands
@@ -12,76 +11,10 @@ import bilibili_api as bilibili
 import wavelink
 from wavelink.ext import spotify
 from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
+from .storage import GuildInfo
+from .cache import CacheWorker
 
 INF = int(1e18)
-
-
-class GuildInfo:
-    def __init__(self, guild_id):
-        self.guild_id: int = guild_id
-        self.text_channel: discord.TextChannel = None
-        self._task: asyncio.Task = None
-        self._refresh_msg_task: asyncio.Task = None
-        self._timer: asyncio.Task = None
-        self._dsa: bool = None
-        self._multitype_remembered: bool = None
-        self._multitype_choice: str = None
-        self._timer_done: bool = None
-
-    @property
-    def data_survey_agreement(self):
-        if self._dsa is None:
-            self._dsa = self.fetch("dsa")
-        return self._dsa
-
-    @data_survey_agreement.setter
-    def data_survey_agreement(self, value: bool):
-        self._dsa = value
-        self.update("dsa", value)
-
-    @property
-    def multitype_remembered(self):
-        if self._multitype_remembered is None:
-            self._multitype_remembered = self.fetch("multitype_remembered")
-        return self._multitype_remembered
-
-    @multitype_remembered.setter
-    def multitype_remembered(self, value: bool):
-        self._multitype_remembered = value
-        self.update("multitype_remembered", value)
-
-    @property
-    def multitype_choice(self):
-        if self._multitype_choice is None:
-            self._multitype_choice = self.fetch("multitype_choice")
-        return self._multitype_choice
-
-    @multitype_choice.setter
-    def multitype_choice(self, value: str):
-        self._multitype_choice = value
-        self.update("multitype_choice", value)
-
-    def fetch(self, key: str) -> not None:
-        """fetch from database"""
-        with open(rf"{os.getcwd()}/utils/data.json", "r") as f:
-            data: dict = json.load(f)
-        if (
-            data.get(str(self.guild_id)) is None
-            or data[str(self.guild_id)].get(key) is None
-        ):
-            return data["default"][key]
-        return data[str(self.guild_id)][key]
-
-    def update(self, key: str, value: str) -> None:
-        """update database"""
-
-        with open(rf"{os.getcwd()}/utils/data.json", "r") as f:
-            data: dict = json.load(f)
-        if data.get(str(self.guild_id)) is None:
-            data[str(self.guild_id)] = dict()
-        data[str(self.guild_id)][key] = value
-        with open(rf"{os.getcwd()}/utils/data.json", "w") as f:
-            json.dump(data, f)
 
 class Player:
     def __init__(self, bot: commands.Bot):
@@ -304,6 +237,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.command(name="help", description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         await self.ui.Help.Help(interaction)
 
     ##############################################
@@ -439,6 +373,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.command(name="np", description="▶️ | 查看現在在播放什麼!")
     async def nowplaying(self, interaction: discord.Interaction):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         await self.ui.PlayerControl.NowPlaying(interaction)
 
     ##############################################
@@ -446,6 +381,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.command(name="stop", description="⏹️ | 停止音樂並清除待播清單")
     async def stop(self, interaction: discord.Interaction):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         try:
             await self._stop(interaction.guild)
             await self.ui.PlayerControl.StopSucceed(interaction)
@@ -636,7 +572,7 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
 
-    async def _suggest_processing(self, result: list, track, data: dict, final: bool, set_completed):
+    async def _suggest_processing(self, result: list, track, data: dict, final: bool, set_completed: Callable[[], None]):
         if self._cache.get(track.identifier) is not None:
             expired = (
                 int(time.time())
@@ -697,7 +633,11 @@ class MusicCog(Player, commands.Cog):
             for i in range(len(tracks)):
                 if i == 16:
                     break
-
+                
+                # WTF IS THIS, THIS IS WAY FASTER?
+                # EDIT: This is faster than past versions
+                # BUT it isn't because of the usage of asyncio
+                # It's because the shit coding (put asyncio.sleep inside for loop)
                 self.bot.loop.create_task(self._suggest_processing(result, tracks[i], data, (i == len(tracks) - 1) or (i == 15), set_completed))
 
             while not is_completed[0]:
@@ -715,6 +655,7 @@ class MusicCog(Player, commands.Cog):
     @discord.app_commands.autocomplete(search=get_search_suggest)
     async def _i_play(self, interaction: discord.Interaction, search: str):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         if validators.url(search):
             if (
                 "list" in search
