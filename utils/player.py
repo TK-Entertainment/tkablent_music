@@ -573,47 +573,49 @@ class MusicCog(Player, commands.Cog):
             await tmpmsg.delete()
 
     async def _suggest_processing(self, result: list, track, data: dict, final: bool, set_completed: Callable[[], None]):
-        if self._cache.get(track.identifier) is not None:
-            expired = (
-                int(time.time())
-                - self._cache.get(track.identifier)["timestamp"]
-            ) >= 2592000
+        try:
+            if self._cache.get(track.identifier) is not None:
+                expired = (
+                    int(time.time())
+                    - self._cache.get(track.identifier)["timestamp"]
+                ) >= 2592000
 
-            if not expired:
-                result.append(
-                    app_commands.Choice(
-                        name=f"{self._cache[track.identifier]['title']} | {self._cache[track.identifier]['length']}",
-                        value=f"https://www.youtube.com/watch?v={track.identifier}",
+                if not expired:
+                    result.append(
+                        app_commands.Choice(
+                            name=f"{self._cache[track.identifier]['title']} | {self._cache[track.identifier]['length']}",
+                            value=f"https://www.youtube.com/watch?v={track.identifier}",
+                        )
                     )
-                )
+                    return
+
+            if isinstance(track, str):
                 return
 
-        if isinstance(track, str):
-            return
-
-        length = self._sec_to_hms(
-            seconds=(track.length) / 1000, format="symbol"
-        )
-
-        left_name_length = 70 - len(f" | {length}")
-
-        if len(track.title) >= left_name_length + len(" ..."):
-            track.title = track.title[:left_name_length] + " ..."
-
-        result.append(
-            app_commands.Choice(
-                name=f"{track.title} | {length}",
-                value=f"https://www.youtube.com/watch?v={track.identifier}",
+            length = self._sec_to_hms(
+                seconds=(track.length) / 1000, format="symbol"
             )
-        )
 
-        timestamp = int(time.time())
-        data[track.identifier] = dict(
-            title=track.title, length=length, timestamp=timestamp
-        )
+            left_name_length = 70 - len(f" | {length}")
 
-        if final: set_completed()
-        return
+            if len(track.title) >= left_name_length + len(" ..."):
+                track.title = track.title[:left_name_length] + " ..."
+
+            result.append(
+                app_commands.Choice(
+                    name=f"{track.title} | {length}",
+                    value=f"https://www.youtube.com/watch?v={track.identifier}",
+                )
+            )
+
+            timestamp = int(time.time())
+            data[track.identifier] = dict(
+                title=track.title, length=length, timestamp=timestamp
+            )
+
+            if final: set_completed()
+        finally:
+            return
 
     async def get_search_suggest(
         self, interaction: discord.Interaction, current: str
