@@ -52,7 +52,6 @@ def _sec_to_hms(seconds, format) -> str:
 
 from .player import MusicCog
 
-
 class GuildUIInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
@@ -159,60 +158,60 @@ class UI:
         ########
         # Info #
         ########
-        from .func.info import InfoGenerator
+        from .ui_comp.info import InfoGenerator
 
         self._InfoGenerator = InfoGenerator()
 
         ############################
         # General Warning Messages #
         ############################
-        from .func.exception_handler import ExceptionHandler
+        from .ui_comp.exception_handler import ExceptionHandler
 
         self.ExceptionHandler = ExceptionHandler(self._InfoGenerator)
 
         ########
         # Help #
         ########
-        from .func.help import Help
+        from .ui_comp.help import Help
 
         self.Help = Help()
 
         ########
         # Join #
         ########
-        from .func.join import Join
+        from .ui_comp.join import Join
 
         self.Join = Join(self.ExceptionHandler)
 
         #########
         # Stage #
         #########
-        from .func.stage import Stage
+        from .ui_comp.stage import Stage
 
         self.Stage = Stage()
 
         #########
         # Leave #
         #########
-        from .func.leave import Leave
+        from .ui_comp.leave import Leave
 
         self.Leave = Leave(self.ExceptionHandler, self._InfoGenerator)
 
         ##########
         # Search #
         ##########
-        from .func.search import Search
+        from .ui_comp.search import Search
 
         self.Search = Search(self.ExceptionHandler)
 
         #########
         # Queue #
         #########
-        from .func.queue import Queue
+        from .ui_comp.queue import Queue
 
         self.Queue = Queue(self._InfoGenerator)
 
-        from .func.queue_control import QueueControl
+        from .ui_comp.queue_control import QueueControl
 
         self.QueueControl = QueueControl(self.ExceptionHandler, self._InfoGenerator)
 
@@ -240,7 +239,7 @@ class UI:
         ########
         # Loop #
         ########
-        from .func.player_control import PlayerControl
+        from .ui_comp.player_control import PlayerControl
 
         self.PlayerControl = PlayerControl(
             self.ExceptionHandler,
@@ -251,7 +250,7 @@ class UI:
         )
 
         # Survey Section
-        from .func.survey import Survey
+        from .ui_comp.survey import Survey
 
         self.Survey = Survey()
 

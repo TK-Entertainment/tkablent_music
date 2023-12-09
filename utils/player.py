@@ -2,8 +2,7 @@ from typing import *
 import asyncio, json, os, time
 import dotenv
 import validators
-import random
-import shutil
+from .cache import CacheWorker
 
 import discord
 from discord.ext import commands
@@ -84,81 +83,25 @@ class GuildInfo:
         with open(rf"{os.getcwd()}/utils/data.json", "w") as f:
             json.dump(data, f)
 
-
 class Player:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
         self._spotify: spotify.SpotifyClient = None
-        self._cache: dict = None
-
-        self._cache_path = rf"{os.getcwd()}/utils/search_cache.json"
-        self._bak_cache_path = rf"{os.getcwd()}/utils/search_cache.json.bak"
-
-    def fetch_cache(self) -> None:
-        """fetch from database"""
-        try:
-            with open(self._cache_path, "r") as f:
-                self._cache = json.load(f)
-
-            shutil.copyfile(self._cache_path, self._bak_cache_path)
-        except json.decoder.JSONDecodeError:
-            with open(self._bak_cache_path, "r") as bak_f:
-                self._cache = json.load(bak_f)
-
-            shutil.copyfile(self._bak_cache_path, self._cache_path)
-
-    async def update_cache(self, new_data: dict) -> None:
-        """update database"""
-        try:
-            with open(self._cache_path, "r") as f:
-                data: dict = json.load(f)
-
-            shutil.copyfile(self._cache_path, self._bak_cache_path)
-        except json.decoder.JSONDecodeError:
-            with open(self._bak_cache_path, "r") as bak_f:
-                data = json.load(bak_f)
-
-            shutil.copyfile(self._bak_cache_path, self._cache_path)
-
-        for identifier in new_data.keys():
-            if data.get(identifier) is not None:
-                data[identifier]["title"] = new_data[identifier]["title"]
-                data[identifier]["length"] = new_data[identifier]["length"]
-                data[identifier]["timestamp"] = new_data[identifier]["timestamp"]
-            else:
-                data[identifier] = dict(
-                    title=new_data[identifier]["title"],
-                    length=new_data[identifier]["length"],
-                    timestamp=new_data[identifier]["timestamp"],
-                )
-
-            # Pause here to prevent asyncio thread lockdown
-            await asyncio.sleep(0.1)
-
-        with open(self._cache_path, "w") as f:
-            json.dump(data, f)
-
-        # self test json file
-        try:
-            with open(self._cache_path, "r") as f:
-                json.load(f)
-
-            # if json is okay, then update in memory cache
-            self._cache = data
-
-        except json.decoder.JSONDecodeError:  # revert if file fucked up
-            shutil.copyfile(self._bak_cache_path, self._cache_path)
+        self._cacheworker: CacheWorker = CacheWorker()
+        self._cache: dict = self._cacheworker._cache
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id]
 
+    ############
+    # Daemon setup (Wavelink, cache and etc.)
+    ############
     async def _create_daemon(self):
-        self.fetch_cache()
-
+        # Env value setup
         TW_HOST = os.getenv("WAVELINK_TW_HOST")
         LOCAL_SEARCH_HOST_1 = os.getenv("WAVELINK_SEARCH_HOST_1")
         LOCAL_SEARCH_HOST_2 = os.getenv("WAVELINK_SEARCH_HOST_2")
@@ -174,7 +117,10 @@ class Player:
         DEDEUSERID = os.getenv("DEDEUSERID")
         AC_TIME_VALUE = os.getenv("AC_TIME_VALUE")
 
+        # Spotify init
         self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
+
+        # Define Wavelink Host
         mainplayhost = wavelink.Node(
             id="TW_PlayBackNode",
             uri=f"http://{TW_HOST}:{PORT}",
@@ -194,6 +140,7 @@ class Player:
             password=PASSWORD,
         )
 
+        # Bilibili API init
         self._bilibilic = bilibili.Credential(
             sessdata=SESSDATA,
             bili_jct=BILI_JCT,
@@ -202,20 +149,25 @@ class Player:
             ac_time_value=AC_TIME_VALUE,
         )
 
+        # Check whether Bilibili cookie is valid
         valid = await self._bilibilic.check_valid()
-
         print(f"[BiliBili API] Cookie valid: {valid}")
 
+        # Declare Spotify API client
         self._spotify = spotify.SpotifyClient(
             client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET
         )
 
+        # Wavelink connection establishing
         await wavelink.NodePool.connect(
             client=self.bot,
             nodes=[mainplayhost, searchhost_1, searchhost_2],
             spotify=self._spotify,
         )
 
+    ############
+    # sessdata refresh (currently not working)
+    ############
     async def _refresh_sessdata(self):
         while True:
             need_refresh = await self._bilibilic.chcek_refresh()
@@ -235,6 +187,9 @@ class Player:
                 )
             await asyncio.sleep(120)
 
+    ############
+    # Join Core
+    ############
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
@@ -681,9 +636,57 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
 
+    async def _suggest_processing(self, result: list, track, data: dict, final: bool, set_completed):
+        if self._cache.get(track.identifier) is not None:
+            expired = (
+                int(time.time())
+                - self._cache.get(track.identifier)["timestamp"]
+            ) >= 2592000
+
+            if not expired:
+                result.append(
+                    app_commands.Choice(
+                        name=f"{self._cache[track.identifier]['title']} | {self._cache[track.identifier]['length']}",
+                        value=f"https://www.youtube.com/watch?v={track.identifier}",
+                    )
+                )
+                return
+
+        if isinstance(track, str):
+            return
+
+        length = self._sec_to_hms(
+            seconds=(track.length) / 1000, format="symbol"
+        )
+
+        left_name_length = 70 - len(f" | {length}")
+
+        if len(track.title) >= left_name_length + len(" ..."):
+            track.title = track.title[:left_name_length] + " ..."
+
+        result.append(
+            app_commands.Choice(
+                name=f"{track.title} | {length}",
+                value=f"https://www.youtube.com/watch?v={track.identifier}",
+            )
+        )
+
+        timestamp = int(time.time())
+        data[track.identifier] = dict(
+            title=track.title, length=length, timestamp=timestamp
+        )
+
+        if final: set_completed()
+        return
+
     async def get_search_suggest(
         self, interaction: discord.Interaction, current: str
     ) -> List[app_commands.Choice[str]]:
+        is_completed = [False]
+
+        def set_completed():
+            is_completed[0] = True
+
         if validators.url(current) or current == "":
             return []
         else:
@@ -695,50 +698,12 @@ class MusicCog(Player, commands.Cog):
                 if i == 16:
                     break
 
-                if self._cache.get(tracks[i].identifier) is not None:
-                    expired = (
-                        int(time.time())
-                        - self._cache.get(tracks[i].identifier)["timestamp"]
-                    ) >= 2592000
+                self.bot.loop.create_task(self._suggest_processing(result, tracks[i], data, (i == len(tracks) - 1) or (i == 15), set_completed))
 
-                    if not expired:
-                        result.append(
-                            app_commands.Choice(
-                                name=f"{self._cache[tracks[i].identifier]['title']} | {self._cache[tracks[i].identifier]['length']}",
-                                value=f"https://www.youtube.com/watch?v={tracks[i].identifier}",
-                            )
-                        )
-                        continue
+            while not is_completed[0]:
+                await asyncio.sleep(0.0001)
 
-                if isinstance(tracks[i], str):
-                    tracks.pop(i)
-                    continue
-
-                length = self._sec_to_hms(
-                    seconds=(tracks[i].length) / 1000, format="symbol"
-                )
-
-                left_name_length = 70 - len(f" | {length}")
-
-                if len(tracks[i].title) >= left_name_length + len(" ..."):
-                    tracks[i].title = tracks[i].title[:left_name_length] + " ..."
-
-                result.append(
-                    app_commands.Choice(
-                        name=f"{tracks[i].title} | {length}",
-                        value=f"https://www.youtube.com/watch?v={tracks[i].identifier}",
-                    )
-                )
-
-                timestamp = int(time.time())
-                data[tracks[i].identifier] = dict(
-                    title=tracks[i].title, length=length, timestamp=timestamp
-                )
-
-                # Pause for a while to prevent asyncio thread lockdown
-                await asyncio.sleep(0.1)
-
-            self.bot.loop.create_task(self.update_cache(data))
+            self.bot.loop.create_task(self._cacheworker.update_cache(data))
 
             return result
 
