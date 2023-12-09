@@ -886,8 +886,14 @@ class MusicCog(Player, commands.Cog):
             await self._leave(member.guild)
         self._cleanup(guild)
 
+    async def _get_current_stats(self):
+        active_player = len(self.bot.voice_clients)
+
+        print(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
+
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
+        await self._get_current_stats()
         guild = payload.player.guild
         try:
             if self[guild.id]._timer is not None:
@@ -902,6 +908,7 @@ class MusicCog(Player, commands.Cog):
 
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
+        await self._get_current_stats()
         guild = payload.player.guild
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.2)
