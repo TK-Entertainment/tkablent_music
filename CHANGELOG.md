@@ -3,7 +3,7 @@
 > 此處為純文字更新日誌，若要查看完成含圖片的分版日誌  
 > 可到 [Releases](https://github.com/TK-Entertainment/tkablent_music/releases) 查看
 
-目前總共發布 46 個版本  
+目前總共發布 51 個版本  
 穩定版 (Stable, s) 共 13 版 | *正在提供更新，更新周期較慢*  
 *目前更新到 m.20230716.6-s*  
 
