@@ -24,7 +24,7 @@
 [![](https://dcbadge.vercel.app/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
 ## 開發狀態
 源碼 (Source Code):   
-*8b4e159 (20231209)*
+*6ff709f (20231210)*
 
 穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
 *目前更新到 m.20230716.7-s*  
@@ -63,7 +63,7 @@ Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
 Shared under MIT License
 =========================================
-# Version m.20230716.7-s
+# Version m.20230716.7-s (6ff709f)
 !【重要】此為維護性更新
 => 此更新項目暫時不同步更新至測試版，僅在正式版提供
 => 此更新所提供之修復會在新測試項目第一次推送時一同合併更新至測試版
