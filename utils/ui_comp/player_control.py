@@ -57,13 +57,15 @@ class PlayerControl:
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
 
-        self.guild_info(interaction.guild.id).playinfo_view.clear_items()
-        await self.guild_info(interaction.guild.id).playinfo.edit(
-            view=self.guild_info(interaction.guild.id).playinfo_view
-        )
-        self.guild_info(interaction.guild.id).playinfo_view.stop()
-        self.guild_info(interaction.guild.id).playinfo = None
-        await self.PlayingMsg(interaction.channel)
+        try:
+            self.guild_info(interaction.guild.id).playinfo_view.clear_items()
+            await self.guild_info(interaction.guild.id).playinfo.edit(
+                view=self.guild_info(interaction.guild.id).playinfo_view
+            )
+            self.guild_info(interaction.guild.id).playinfo_view.stop()
+        finally:
+            self.guild_info(interaction.guild.id).playinfo = None
+            await self.PlayingMsg(interaction.channel)
 
     ############################################################
     # Play #####################################################
@@ -475,7 +477,11 @@ class PlayerControl:
                     self.skip.disabled = False
                     self.skip.style = discord.ButtonStyle.blurple
                 if self.guild_info(channel.guild.id).playinfo is not None:
-                    await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                    try:
+                        await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                    except:
+                        self.guild_info(channel.guild.id).playinfo = None
+                        self.guild_info(channel.guild.id).playinfo_view = None
 
                 self.skip_task = None
 
@@ -485,7 +491,11 @@ class PlayerControl:
                 self.shuffle.disabled = False
                 self.shuffle.style = discord.ButtonStyle.blurple
                 if self.guild_info(channel.guild.id).playinfo is not None:
-                    await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                    try:
+                        await self.guild_info(channel.guild.id).playinfo.edit(view=view)
+                    except:
+                        self.guild_info(channel.guild.id).playinfo = None
+                        self.guild_info(channel.guild.id).playinfo_view = None
 
                 self.shuffle_task = None
 
@@ -851,8 +861,19 @@ class PlayerControl:
                 embed=embed, view=view
             )
         else:
-            await self.guild_info(channel.guild.id).playinfo.edit(embed=embed)
+            try:
+                await self.guild_info(channel.guild.id).playinfo.edit(embed=embed)
+            except:
+                view = PlaybackControl()
 
+                view.skip.emoji = loading_emoji
+                view.skip.disabled = True
+                view.skip.style = discord.ButtonStyle.gray
+                self.bot.loop.create_task(view.restore_skip())
+
+                self.guild_info(channel.guild.id).playinfo_view = view
+                self.guild_info(channel.guild.id).playinfo = await channel.send(
+                    embed=embed, view=view)
         try:
             await self.stage._UpdateStageTopic(channel.guild.id)
         except:

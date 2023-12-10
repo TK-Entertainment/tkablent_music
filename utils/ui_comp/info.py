@@ -351,9 +351,13 @@ class InfoGenerator:
 
     async def _UpdateSongInfo(self, guild_id: int):
         if len(self.musicbot._playlist[guild_id].order) == 0:
-            await self.guild_info(guild_id).playinfo.edit(
-                embed=self._SongInfo(guild_id), view=None
-            )
+            try:
+                await self.guild_info(guild_id).playinfo.edit(
+                    embed=self._SongInfo(guild_id), view=None
+                )
+            except:
+                self.guild_info(channel.guild.id).playinfo = None
+                self.guild_info(channel.guild.id).playinfo_view = None
         else:
             self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
             if len(self.musicbot._playlist[guild_id].order) == 1:
@@ -398,7 +402,11 @@ class InfoGenerator:
                         guild_id
                     ).playinfo_view.suggest.style = discord.ButtonStyle.danger
 
-            await self.guild_info(guild_id).playinfo.edit(
-                embed=self._SongInfo(guild_id),
-                view=self.guild_info(guild_id).playinfo_view,
-            )
+            try:
+                await self.guild_info(guild_id).playinfo.edit(
+                    embed=self._SongInfo(guild_id),
+                    view=self.guild_info(guild_id).playinfo_view,
+                )
+            except:
+                self.guild_info(channel.guild.id).playinfo = None
+                self.guild_info(channel.guild.id).playinfo_view = None
