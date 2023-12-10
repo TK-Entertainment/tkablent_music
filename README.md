@@ -27,7 +27,7 @@
 *8b4e159 (20231209)*
 
 穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.6-s*  
+*目前更新到 m.20230716.7-s*  
 
 開發版 (Cutting Edge, ce) | *仍舊提供更新，供嘗鮮用戶使用*  
 *目前測試項目: 搜尋系統及使用者介面優化 (linkandui)*  
@@ -55,7 +55,7 @@
 
 ## 最新更新日誌 
 如需觀看更詳細的 Github commits 日誌，請點下方連結  
-[m.20230611.1-s...m.20230922.linkandui-ce](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230922.linkandui-ce)
+[m.20230611.1-s...m.20230716.7-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230611.1-s...m.20230716.7-s)
 
 ```diff
 =========================================
@@ -63,6 +63,19 @@ Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
 Shared under MIT License
 =========================================
+# Version m.20230716.7-s
+!【重要】此為維護性更新
+=> 此更新項目暫時不同步更新至測試版，僅在正式版提供
+=> 此更新所提供之修復會在新測試項目第一次推送時一同合併更新至測試版
+
+!【優化】推薦歌曲功能啟動的體驗 (詳情可參圖)
+=> 修改了一下推薦歌曲按鈕的工作方式
+=> 過去的版本會等待歌曲處理完成後才會更改狀態，但這很容易使 Discord 逾時而出現假性無回應狀態
+=> 此次更新優化了體驗，機器人會先更改狀態，並在之後才更新處理完成的歌曲
+
+!【修正】修復部分按鈕邏輯問題
+=> 此版本修復了有時按鈕已被停用，但是按鈕顏色仍然保持未停用時的狀態的問題
+
 # Version m.20230716.6-s
 ## From Cutting Edge | m.20231209.linkandui-ce
 !【重要】此為 linkandui 測試項目的最終版本
