@@ -514,9 +514,6 @@ class PlayerControl:
                     button.style = discord.ButtonStyle.success
                     print(f"[Suggestion] {channel.guild.id} enabled auto suggestion")
                     self.guild_info(channel.guild.id).music_suggestion = True
-                    await self.musicbot._playlist.process_suggestion(
-                        channel.guild, self.guild_info(channel.guild.id)
-                    )
                     if (
                         len(self.musicbot._playlist[channel.guild.id].order) == 2
                         and self.musicbot._playlist[channel.guild.id].order[1].suggested
@@ -530,9 +527,19 @@ class PlayerControl:
                         self.guild_info(
                             channel.guild.id
                         ).playinfo_view.skip.disabled = False
+                    else:
+                        self.guild_info(channel.guild.id).suggestion_processing = True
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
                 await self.toggle(interaction, button, "done")
+                if self.guild_info(channel.guild.id).music_suggestion:
+                    await asyncio.wait_for(
+                        self.musicbot._playlist.process_suggestion(
+                            channel.guild, self.guild_info(channel.guild.id)
+                        ),
+                        None
+                    )
+                    await self.info_generator._UpdateSongInfo(interaction.guild.id)
 
             @discord.ui.button(
                 emoji=pause_emoji if not voice_client.is_paused() else play_emoji,
@@ -732,6 +739,7 @@ class PlayerControl:
                             channel.guild.id
                         )
                     ):
+                        self.suggest.style = discord.ButtonStyle.gray
                         self.suggest.disabled = True
 
                     if (
@@ -740,6 +748,7 @@ class PlayerControl:
                         == 1
                         and self.skip_task is None
                     ):
+                        self.skip.style = discord.ButtonStyle.gray
                         self.skip.disabled = True
 
                     if (
@@ -747,6 +756,7 @@ class PlayerControl:
                         and len(self.musicbot._playlist[channel.guild.id].order) < 3
                         and self.shuffle_task is None
                     ):
+                        self.shuffle.style = discord.ButtonStyle.gray
                         self.shuffle.disabled = True
 
                     msg: discord.InteractionMessage = interaction.message

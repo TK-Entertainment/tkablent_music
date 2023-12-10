@@ -325,6 +325,7 @@ class Playlist:
 
         return suggestion
 
+    # This part maintain if suggestion is not vaild(e.g: has already played before)
     async def _process_resuggestion(
         self, guild, suggestion, ui_guild_info: GuildUIInfo
     ) -> None:
@@ -373,6 +374,7 @@ class Playlist:
                         suggestion = await self._get_suggest_list(guild, playlist_index)
                         playlist_index += 1
 
+    # This part maintain suggestion fetching
     async def _search_for_suggestion(
         self, guild, suggestion, ui_guild_info: GuildUIInfo
     ):
@@ -394,25 +396,28 @@ class Playlist:
                         suggestion = await self._get_suggest_list(guild, playlist_index)
                         playlist_index += 1
 
+    # Main core of suggestion processing system
+    # Which decides whether enable suggestion or not in different cases
     async def process_suggestion(
         self, guild: discord.Guild, ui_guild_info: GuildUIInfo
     ):
+        # Check whether current song is supported in suggestion system or not
         if (
             (ui_guild_info.music_suggestion)
-            and isinstance(
-                self[guild.id].current(),
-                Union[wavelink.YouTubeTrack, wavelink.YouTubeMusicTrack],
-            )
+            and self.check_current_suggest_support(guild.id)
             and len(self[guild.id].order) <= 2
         ):
+            # If next song is user specific, then don't suggest anything
             if (
                 len(self[guild.id].order) == 2
                 and not self[guild.id].order[-1].suggested
             ):
                 return
 
-            # If bot
             if self[guild.id].loop_state != LoopState.NOTHING:
+                # If loop state is singleloop, then don't add suggested song into cache
+                # Since it even hasn't been played yet
+                # Also won't return any suggestion
                 if self[guild.id].loop_state != LoopState.PLAYLIST:
                     if len(self[guild.id].order) == 2 and (
                         self[guild.id].order[-1].suggested
@@ -422,13 +427,18 @@ class Playlist:
                         )
                         self.pop(guild.id, -1)
                     return
+                # Case of playlist loop
                 else:
                     if self[guild.id].current().suggested:
+                        # Suggestion system here will ignore playlist loop
+                        # Acting like loop not enabled 
+                        # if current song is a song suggested
                         if len(self[guild.id].order) == 2 and (
                             self[guild.id].order[-1].suggested
                         ):
                             return
                     else:
+                        # Same thing like single loop
                         if len(self[guild.id].order) == 2 and (
                             self[guild.id].order[-1].suggested
                         ):
@@ -438,8 +448,12 @@ class Playlist:
                             self.pop(guild.id, -1)
                             return
 
+            # Flag suggestion is in progress
+            ui_guild_info.suggestion_processing = True
+
             suggested_track = None
 
+            # Prevent resuggest same song
             if self[guild.id].current().title not in ui_guild_info.previous_titles:
                 ui_guild_info.previous_titles.append(self[guild.id].current().title)
 
@@ -487,7 +501,8 @@ class Playlist:
                 f"[Suggestion] Suggested {ui_guild_info.suggestions[0].title} for {guild.id} in next song, added to history storage"
             )
             await self.add_songs(guild.id, ui_guild_info.suggestions.pop(0), "自動推薦歌曲")
-
+            ui_guild_info.suggestion_processing = False
+        
     def get_music_info(self, guild_id, index):
         return self[guild_id].order[index]
 

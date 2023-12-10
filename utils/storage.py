@@ -87,19 +87,36 @@ class GuildInfo:
 class GuildUIInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
+
+        # Booleans
+        # Determine whether auto stage modification available in this server
+        # Currently deprecated 
         self.auto_stage_available: bool = True
+        # Stage topic existance
+        # Bot won't start another stage instance if this is True
         self.stage_topic_exist: bool = False
+        # Stage topic checking
+        # True if bot already checked the topic
         self.stage_topic_checked: bool = False
+        # Indicate the bot has skip the song
+        # Will be reseted to False after next song played
         self.skip: bool = False
+        # Indicate the last song is skipped or not
         self.lastskip: bool = False
         self.search: bool = False
-        self.lasterrorinfo: dict = {}
         self.leaveoperation: bool = False
+        self.music_suggestion: bool = False
+        # Indicate that the suggestion is under processing
+        # Will be reseted to False after process is done
+        self.suggestion_processing: bool = False
+
+        self.lasterrorinfo: dict = {}
+
         self.playinfo: Coroutine[Any, Any, discord.Message] = None
         self.playinfo_view: discord.ui.View = None
         self.processing_msg: discord.Message = None
-        self.music_suggestion: bool = False
-        self.suggestions_source = None
         self.searchmsg: Coroutine[Any, Any, discord.Message] = None
+
+        self.suggestions_source = None
         self.previous_titles: list[str] = []
         self.suggestions: list = []

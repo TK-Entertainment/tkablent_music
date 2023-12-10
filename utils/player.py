@@ -638,8 +638,8 @@ class MusicCog(Player, commands.Cog):
                 
                 # WTF IS THIS, THIS IS WAY FASTER?
                 # EDIT: This is faster than past versions
-                # BUT it isn't because of the usage of asyncio
-                # It's because the shit coding (put asyncio.sleep inside for loop)
+                # EDIT: BUT it isn't because of the usage of asyncio
+                # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
                 self.bot.loop.create_task(self._suggest_processing(result, tracks[i], data, (i == len(tracks) - 1) or (i == 15), set_completed))
 
             while not is_completed[0]:
