@@ -63,9 +63,11 @@ class PlayerControl:
                 view=self.guild_info(interaction.guild.id).playinfo_view
             )
             self.guild_info(interaction.guild.id).playinfo_view.stop()
-        finally:
+        except:
             self.guild_info(interaction.guild.id).playinfo = None
-            await self.PlayingMsg(interaction.channel)
+            self.guild_info(interaction.guild.id).playinfo_view = None
+        
+        await self.PlayingMsg(interaction.channel)
 
     ############################################################
     # Play #####################################################
