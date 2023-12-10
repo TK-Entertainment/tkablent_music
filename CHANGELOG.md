@@ -3,19 +3,19 @@
 > 此處為純文字更新日誌，若要查看完成含圖片的分版日誌  
 > 可到 [Releases](https://github.com/TK-Entertainment/tkablent_music/releases) 查看
 
-目前總共發布 46 個版本  
-穩定版 (Stable, s) 共 11 版 | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.4-s*  
+目前總共發布 51 個版本  
+穩定版 (Stable, s) 共 13 版 | *正在提供更新，更新周期較慢*  
+*目前更新到 m.20230716.6-s*  
 
-開發版 (Cutting Edge, ce) 共 21 版 | *仍舊提供更新，供嘗鮮用戶使用*  
-*目前更新到 m.20230922.linkandui-ce*  
+開發版 (Cutting Edge, ce) 共 23 版 | *仍舊提供更新，供嘗鮮用戶使用*  
+*目前更新到 m.20231209.linkandui-ce*  
 
 前期開發版 (Alpha) 共 7 版 | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
 
 內部開發版 (Confidential) 共 8 版 | *已於 20220410 停止更新，由 Alpha 代替*  
 *最後更新到 # Build 20220410-2*
-# September 2023
+# December 2023
 ```
 =========================================
 Codename TKablent | Version Stable
@@ -23,6 +23,37 @@ Copyright 2022-present @ TK Entertainment
 Shared under MIT license
 =========================================
 ```
+## Version m.20230716.6-s
+#### From Cutting Edge | m.20231209.linkandui-ce
+```diff
+!【重要】此為 linkandui 測試項目的最終版本
+=> 此版本為 linkandui 測試項目的最終版本，將在下一次更新 ce 版時轉移至下一個測試項目 wavelink30-depend 開始全新核心的測試
+=> 因測試版機器人目前使用人數較少，故此次將不進行退群動作
+=> 因配合新核心測試工作，穩定版將暫緩更新。請稍待新測試項目穩定後即會恢復
+
+!【優化】大幅加速搜尋提示字及本地緩存儲存處理速度
+=> 優化終於來啦，這次是個大的
+=> 經過內部測試，在相同環境、相同候選字、皆無快取的情況下
+=> 搜尋速度加快超過 5 倍速度，本地緩存儲存速度則加快約 1.4 倍
+=> 詳情可至 https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231209.linkandui-ce 查看
+
++【新增】新增各伺服器的更新資訊推送
+=> 考慮到並非所有使用者都有加入本群組，機器人自本版本起會在該伺服器更新後第一次傳送要求時傳送更新資訊，讓所有使用者知道我們準備了什麼好料的 (owob)
+```
+
+## Version m.20230716.5-s
+#### From Cutting Edge | m.20231205.linkandui-ce
+```diff
+!【優化】增加機器人穩定度及修正部分問題
+=> 重新編寫機器人對於搜尋結果本地快取的儲存方法，以防止機器人因進行快取儲存時導致的無回應狀態
+=> 詳情可至 https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231205.linkandui-ce 查看
+
++【新增】新增播放伺服器服務提供商的資訊
+=> 特別感謝 404 Network Information Co. 對本專案的支援
+=> 可到 https://hello.simple.taipei/ 了解他們！
+```
+
+# September 2023
 ## Version m.20230716.4-s (PR [#20](https://github.com/TK-Entertainment/tkablent_music/pull/20))
 #### From Cutting Edge | m.20230922.linkandui-ce
 ```diff

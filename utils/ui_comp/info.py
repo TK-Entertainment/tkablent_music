@@ -237,17 +237,17 @@ class InfoGenerator:
             # Upcoming song (via Suggestion)
             if (
                 self.guild_info(guild_id).music_suggestion
-                and len(playlist.order) == 2
-                and playlist[1].suggested
+                and not ((len(playlist.order) >= 2 and not playlist[-1].suggested))
+                and ((len(playlist.order) == 2 and playlist[-1].suggested) or self.guild_info(guild_id).suggestion_processing)
                 and color_code != "red"
             ):
-                if self.guild_info(guild_id).skip:
+                if self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing:
                     queuelist += f"**推薦歌曲載入中**"
                 else:
                     queuelist += f"**:bulb:** {playlist[1].title}"
                 embed.add_field(
                     name="{}即將播放".format(
-                        f":hourglass: | " if self.guild_info(guild_id).skip else ""
+                        f":hourglass: | " if self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing else ""
                     ),
                     value=queuelist,
                     inline=False,
