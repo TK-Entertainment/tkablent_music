@@ -3,9 +3,9 @@
 > 此處為純文字更新日誌，若要查看完成含圖片的分版日誌  
 > 可到 [Releases](https://github.com/TK-Entertainment/tkablent_music/releases) 查看
 
-目前總共發布 52 個版本  
-穩定版 (Stable, s) 共 14 版 | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.7-s*  
+目前總共發布 53 個版本  
+穩定版 (Stable, s) 共 15 版 | *正在提供更新，更新周期較慢*  
+*目前更新到 m.20230716.7.e1-s*  
 
 開發版 (Cutting Edge, ce) 共 23 版 | *仍舊提供更新，供嘗鮮用戶使用*  
 *目前更新到 m.20231209.linkandui-ce*  
@@ -23,6 +23,12 @@ Copyright 2022-present @ TK Entertainment
 Shared under MIT license
 =========================================
 ```
+## Version m.20230716.7.e1-s (緊急修復更新, [Issue #23](https://github.com/TK-Entertainment/tkablent_music/issues/23) / [b8dea4d](https://github.com/TK-Entertainment/tkablent_music/commit/b8dea4d934a83cfaaa53a7d13cd1d38a119f27bf) / [ded775c](https://github.com/TK-Entertainment/tkablent_music/commit/ded775c445e786eed47171179e353fcd2a525b39))
+```diff
+!【緊急修復】修復了播放資訊訊息在被意外刪除後，可能會導致機器人往後不在該伺服器傳送播放訊息的問題 (ErrorFeedback-2023121001)
+=> 在此版本已經修復此問題
+```
+
 ## Version m.20230716.7-s ([6ff709f](https://github.com/TK-Entertainment/tkablent_music/commit/6ff709fe7f974539deb1196f584d3a95b2d59929))
 ```diff
 !【重要】此為維護性更新
