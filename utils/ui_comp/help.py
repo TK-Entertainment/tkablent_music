@@ -76,7 +76,7 @@ class Help:
                 inline=False,
             )
             embed.add_field(
-                name="/restart",
+                name="/replay",
                 value="重新播放目前歌曲\n**【！】若遇到錯誤 REPLAYFAIL**\n*可能因目前沒在播放歌曲導致*",
                 inline=False,
             )

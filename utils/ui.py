@@ -96,7 +96,7 @@ rescue_emoji = discord.PartialEmoji.from_str("🛟")
 
 
 @staticmethod
-def guild_info(guild_id) -> GuildUIInfo:
+def guild_info(guild_id: int) -> GuildUIInfo:
     if _guild_ui_info.get(guild_id) is None:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
     return _guild_ui_info[guild_id]

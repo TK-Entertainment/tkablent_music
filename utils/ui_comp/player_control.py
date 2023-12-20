@@ -3,7 +3,6 @@ from typing import *
 import discord
 import wavelink
 import asyncio
-from wavelink import YouTubeTrack, SoundCloudTrack
 
 from ..playlist import LoopState
 from .info import InfoGenerator
@@ -75,13 +74,13 @@ class PlayerControl:
     async def SearchResultSelection(
         self,
         interaction: discord.Interaction,
-        result: list[Union[YouTubeTrack, SoundCloudTrack]],
+        result: list[wavelink.Playable],
     ) -> None:
         class SelectUI(discord.ui.Select):
             musicbot = self.musicbot
 
             def __init__(
-                self, result: list[Union[YouTubeTrack, SoundCloudTrack]], page: int = 1
+                self, result: list[wavelink.Playable], page: int = 1
             ):
                 super().__init__(placeholder="請選擇一個或多個結果...", min_values=1, row=0)
                 self.interaction = None
@@ -135,7 +134,7 @@ class PlayerControl:
         class SelectView(discord.ui.View):
             guild_info = self.guild_info
 
-            def __init__(self, result: list[Union[YouTubeTrack, SoundCloudTrack]]):
+            def __init__(self, result: list[wavelink.Playable]):
                 super().__init__(timeout=180)
                 self.select_ui = SelectUI(result)
                 self.page = 1

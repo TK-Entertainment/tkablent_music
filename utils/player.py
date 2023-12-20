@@ -9,9 +9,8 @@ from discord import app_commands
 
 import bilibili_api as bilibili
 import wavelink
-from wavelink.ext import spotify
-from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
-from .storage import GuildInfo
+from .playlist import Playlist, LoopState, SearchType
+from .storage import GuildInfo, GuildUIInfo
 from .cache import CacheWorker
 
 INF = int(1e18)
@@ -21,7 +20,6 @@ class Player:
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
-        self._spotify: spotify.SpotifyClient = None
         self._cacheworker: CacheWorker = CacheWorker()
         self._cache: dict = self._cacheworker._cache
 
@@ -35,6 +33,7 @@ class Player:
     ############
     async def _create_daemon(self):
         # Env value setup
+        # Wavelink needed value
         TW_HOST = os.getenv("WAVELINK_TW_HOST")
         LOCAL_SEARCH_HOST_1 = os.getenv("WAVELINK_SEARCH_HOST_1")
         LOCAL_SEARCH_HOST_2 = os.getenv("WAVELINK_SEARCH_HOST_2")
@@ -42,8 +41,12 @@ class Player:
         SEARCH_PORT_1 = os.getenv("WAVELINK_SEARCH_PORT_1")
         SEARCH_PORT_2 = os.getenv("WAVELINK_SEARCH_PORT_2")
         PASSWORD = os.getenv("WAVELINK_PWD")
+
+        # Spotify needed value
         SPOTIFY_ID = os.getenv("SPOTIFY_ID")
         SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET")
+
+        # bilibili needed value
         SESSDATA = os.getenv("SESSDATA")
         BILI_JCT = os.getenv("BILI_JCT")
         BUVID3 = os.getenv("BUVID3")
@@ -55,21 +58,18 @@ class Player:
 
         # Define Wavelink Host
         mainplayhost = wavelink.Node(
-            id="TW_PlayBackNode",
+            identifier="TW_PlayBackNode",
             uri=f"http://{TW_HOST}:{PORT}",
-            use_http=True,
             password=PASSWORD,
         )
         searchhost_1 = wavelink.Node(
-            id="SearchNode_1",
+            identifier="SearchNode_1",
             uri=f"http://{LOCAL_SEARCH_HOST_1}:{SEARCH_PORT_1}",
-            use_http=True,
             password=PASSWORD,
         )
         searchhost_2 = wavelink.Node(
-            id="SearchNode_2",
+            identifier="SearchNode_2",
             uri=f"http://{LOCAL_SEARCH_HOST_2}:{SEARCH_PORT_2}",
-            use_http=True,
             password=PASSWORD,
         )
 
@@ -86,16 +86,11 @@ class Player:
         valid = await self._bilibilic.check_valid()
         print(f"[BiliBili API] Cookie valid: {valid}")
 
-        # Declare Spotify API client
-        self._spotify = spotify.SpotifyClient(
-            client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET
-        )
-
         # Wavelink connection establishing
-        await wavelink.NodePool.connect(
-            client=self.bot,
+        await wavelink.Pool.connect(
             nodes=[mainplayhost, searchhost_1, searchhost_2],
-            spotify=self._spotify,
+            cache_capacity=100,
+            client=self.bot,
         )
 
     ############
@@ -120,58 +115,79 @@ class Player:
                 )
             await asyncio.sleep(120)
 
-    ############
-    # Join Core
-    ############
+    #############
+    # Join Core #
+    #############
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
         if voice_client is None:
             await channel.connect(cls=wavelink.Player(nodes=[mainplayhost]))
 
+    ##############
+    # Leave Core #
+    ##############
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
         if voice_client is not None:
             await self._stop(guild)
             await voice_client.disconnect()
 
+    ###############
+    # Search Core #
+    ###############
     async def _search(self, guild: discord.Guild, trackinfo, requester: discord.Member):
         await self._playlist.add_songs(guild.id, trackinfo, requester)
 
+    ##############
+    # Pause Core #
+    ##############
     async def _pause(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
-        if not voice_client.is_paused() and voice_client.is_playing():
-            await voice_client.pause()
+        if not voice_client.paused and voice_client.playing:
+            await voice_client.pause(True)
             self._start_timer(guild)
 
+    ###############
+    # Resume Core #
+    ###############
     async def _resume(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
-        if voice_client.is_paused():
-            if self[guild.id]._timer is not None:
-                self[guild.id]._timer.cancel()
-                self[guild.id]._timer = None
-            await voice_client.resume()
+        if voice_client.paused:
+            self._stop_timer(guild)
+            await voice_client.pause(False)
 
+    #############
+    # Skip Core #
+    #############
     async def _skip(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
-        if voice_client.is_playing() or voice_client.is_paused():
-            if voice_client.is_paused():
-                await voice_client.resume()
-            await voice_client.stop()
+        if voice_client.playing or voice_client.paused:
+            await voice_client.skip()
             self._playlist[guild.id].times = 0
             if self._playlist[guild.id].loop_state == LoopState.SINGLEINF:
                 self._playlist[guild.id].loop_state = LoopState.NOTHING
 
+    #############
+    # Stop Core #
+    #############
     async def _stop(self, guild: discord.Guild):
         self._playlist[guild.id].clear()
+        self._cleanup(guild)
         await self._skip(guild)
 
+    #############
+    # Seek Core #
+    #############
     async def _seek(self, guild: discord.Guild, timestamp: float):
         voice_client: wavelink.Player = guild.voice_client
         if timestamp >= (self._playlist[guild.id].current().length) / 1000:
-            await voice_client.stop()
+            await voice_client.skip()
         await voice_client.seek(timestamp * 1000)
 
+    ###############
+    # Volume Core # (Currently not working)
+    ###############
     async def _volume(self, guild: discord.Guild, volume: float):
         voice_client: wavelink.Player = guild.voice_client
         if voice_client is not None:
@@ -185,22 +201,29 @@ class Player:
                 guild.id, voice_client.channel.id, self_mute=mute
             )
 
+    #############
+    # Play Core #
+    #############
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
-        vc: wavelink.Player = guild.voice_client
+        voice_client: wavelink.Player = guild.voice_client
+        self._start_timer(guild)
+
+        if not voice_client.playing and len(self._playlist[guild.id].order) > 0:
+            await voice_client.play(self._playlist[guild.id].current())
+
+    ########
+    # Misc #
+    ########
+    def _start_timer(self, guild: discord.Guild):
+        self._stop_timer(guild)
+        coro = self._timer(guild)
+        self[guild.id]._timer = self.bot.loop.create_task(coro)
+
+    def _stop_timer(self, guild: discord.Guild):
         if self[guild.id]._timer is not None:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
-        self._start_timer(guild)
-
-        if not vc.is_playing() and len(self._playlist[guild.id].order) > 0:
-            await vc.play(self._playlist[guild.id].current())
-
-    def _start_timer(self, guild: discord.Guild):
-        if self[guild.id]._timer is not None:
-            self[guild.id]._timer.cancel()
-        coro = self._timer(guild)
-        self[guild.id]._timer = self.bot.loop.create_task(coro)
 
     async def _timer(self, guild: discord.Guild):
         await asyncio.sleep(600.0)
@@ -215,13 +238,14 @@ class Player:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
 
+# ========================================================================================================
 
 class MusicCog(Player, commands.Cog):
     def __init__(self, bot: commands.Bot, bot_version):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
-        self.bot_version = bot_version
+        self.bot_version: str = bot_version
 
     async def resolve_ui(self):
         from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
@@ -268,30 +292,38 @@ class MusicCog(Player, commands.Cog):
             except:
                 auto_stage_vaildation = False
 
+    ##############################################
+
     async def rejoin(self, interaction: discord.Interaction):
         voice_client: wavelink.Player = interaction.guild.voice_client
         # Get the bot former playing state
         former: discord.VoiceChannel = voice_client.channel
-        former_state: bool = voice_client.is_paused()
+        former_paused: bool = voice_client.paused
+
         # To determine is the music paused before rejoining or not
-        if not former_state:
+        if not former_paused:
             await self._pause(interaction.guild)
+
         # Moving itself to author's channel
         await voice_client.move_to(interaction.user.voice.channel)
         if isinstance(interaction.user.voice.channel, discord.StageChannel):
             await self.ensure_stage_status(interaction)
 
-        # If paused before rejoining, resume the music
-        if not former_state:
+        # If not paused before rejoining, resume the music
+        if not former_paused:
             await self._resume(interaction.guild)
+
         # Send a rejoin message
         await self.ui.Join.RejoinNormal(interaction)
+
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and isinstance(
             former.instance, discord.StageInstance
         ):
             await self.ui.Stage.EndStage(interaction.guild.id)
+
+    ##############################################
 
     async def join(self, interaction: discord.Interaction):
         voice_client: wavelink.Player = interaction.guild.voice_client
@@ -314,7 +346,7 @@ class MusicCog(Player, commands.Cog):
             await self.ui.Join.JoinFailed(interaction, e)
 
     @app_commands.command(name="join", description="📥 | 將我加入目前您所在的頻道")
-    async def _join_s(self, interaction: discord.Interaction):
+    async def _join(self, interaction: discord.Interaction):
         await self.join(interaction)
 
     ##############################################
@@ -410,8 +442,8 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    @app_commands.command(name="restart", description="🔁 | 重頭開始播放目前的歌曲")
-    async def restart(self, interaction: discord.Interaction):
+    @app_commands.command(name="replay", description="🔁 | 重頭開始播放目前的歌曲")
+    async def replay(self, interaction: discord.Interaction):
         try:
             await self._seek(interaction.guild, 0)
             await self.ui.PlayerControl.ReplaySucceed(interaction)
@@ -520,17 +552,12 @@ class MusicCog(Player, commands.Cog):
     async def process(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[
-            wavelink.YouTubeTrack,
-            wavelink.YouTubeMusicTrack,
-            wavelink.SoundCloudTrack,
-            wavelink.YouTubePlaylist,
-        ],
+        trackinfo: wavelink.Playable,
     ):
         # Call search function
         try:
             is_search = isinstance(trackinfo, list) and (
-                not isinstance(trackinfo, wavelink.YouTubePlaylist)
+                not isinstance(trackinfo, wavelink.Playlist)
             )
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
@@ -545,10 +572,7 @@ class MusicCog(Player, commands.Cog):
     async def play(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[
-            wavelink.GenericTrack,
-            wavelink.SoundCloudTrack,
-        ],
+        trackinfo: wavelink.Playable,
     ):
         # Try to make bot join author's channel
         voice_client: wavelink.Player = interaction.guild.voice_client
@@ -572,7 +596,7 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
 
-    async def _suggest_processing(self, result: list, track, data: dict, final: bool, set_completed: Callable[[], None]):
+    async def _suggest_processing(self, result: list, track, data: dict):
         try:
             if self._cache.get(track.identifier) is not None:
                 expired = (
@@ -612,19 +636,12 @@ class MusicCog(Player, commands.Cog):
             data[track.identifier] = dict(
                 title=track.title, length=length, timestamp=timestamp
             )
-
-            if final: set_completed()
         finally:
             return
 
     async def get_search_suggest(
         self, interaction: discord.Interaction, current: str
     ) -> List[app_commands.Choice[str]]:
-        is_completed = [False]
-
-        def set_completed():
-            is_completed[0] = True
-
         if validators.url(current) or current == "":
             return []
         else:
@@ -632,18 +649,16 @@ class MusicCog(Player, commands.Cog):
             result = []
             data = {}
 
-            for i in range(len(tracks)):
-                if i == 16:
-                    break
-                
-                # WTF IS THIS, THIS IS WAY FASTER?
-                # EDIT: This is faster than past versions
-                # EDIT: BUT it isn't because of the usage of asyncio
-                # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
-                self.bot.loop.create_task(self._suggest_processing(result, tracks[i], data, (i == len(tracks) - 1) or (i == 15), set_completed))
-
-            while not is_completed[0]:
-                await asyncio.sleep(0.0001)
+            async with asyncio.TaskGroup() as taskgroup:
+                for i in range(len(tracks)):
+                    if i == 16:
+                        break
+                    
+                    # WTF IS THIS, THIS IS WAY FASTER?
+                    # EDIT: This is faster than past versions
+                    # EDIT: BUT it isn't because of the usage of asyncio
+                    # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
+                    taskgroup.create_task(self._suggest_processing(result, tracks[i], data))
 
             self.bot.loop.create_task(self._cacheworker.update_cache(data))
 
@@ -680,8 +695,7 @@ class MusicCog(Player, commands.Cog):
             tracks = await self._get_track(interaction, search)
             await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
-    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str):
-        searchnode = await self._playlist.get_best_searchnode()
+    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str) -> Union[wavelink.Playable, Exception]:
         if "BV" in search and "https://www.bilibili.com/" not in search:
             vid = search
         else:
@@ -708,9 +722,7 @@ class MusicCog(Player, commands.Cog):
             if isinstance(t, bilibili.video.AudioStreamDownloadURL):
                 raw_url = t.url.replace("&", "%26")
                 try:
-                    trackinfo = await searchnode.get_tracks(
-                        wavelink.GenericTrack, raw_url
-                    )
+                    trackinfo = await wavelink.Playable.search(query=raw_url)
                 except Exception as e:
                     raw_url = None
                     continue
@@ -722,7 +734,7 @@ class MusicCog(Player, commands.Cog):
             return None
 
         try:
-            trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
+            trackinfo = await wavelink.Playable.search(raw_url)
         except Exception as e:
             return e
 
@@ -736,131 +748,79 @@ class MusicCog(Player, commands.Cog):
 
         return track
 
+    def _parse_url(self, raw_url: str, choice: Literal["videoonly", "playlist"]) -> str:
+        if "https://www.youtube.com/" in raw_url or "https://youtu.be/" in raw_url:
+            if "list" in raw_url:
+                extract = raw_url.split("&")
+                if choice == "videoonly":
+                    url = extract[0]
+                elif choice == "playlist":
+                    url = f"https://www.youtube.com/playlist?{extract[1]}"
+                else:
+                    url = raw_url
+            else:
+                url = raw_url
+        else:
+            url = raw_url
+
+        return url
+
     async def _get_track(
         self,
         interaction: discord.Interaction,
         search: str,
         choice="videoonly",
         quick_search=False,
-    ):
-        searchnode = await self._playlist.get_best_searchnode()
+    ) -> list[Union[wavelink.Playable, wavelink.Playlist, None]]:
         if not quick_search:
             await interaction.response.defer(ephemeral=True, thinking=True)
+
+        tracks = []
+
         if ("bilibili" in search or "b23.tv" in search) and validators.url(search):
-            trackinfo = await self._get_bilibili_track(interaction, search)
-            if isinstance(trackinfo, Exception):
-                return trackinfo
-        elif "spotify" in search and validators.url(search):
-            if "track" in search:
-                searchtype = spotify.SpotifySearchType.track
-            elif "album" in search:
-                searchtype = spotify.SpotifySearchType.album
+            track = await self._get_bilibili_track(interaction, search)
+            if isinstance(track, Exception):
+                return track
             else:
-                searchtype = spotify.SpotifySearchType.playlist
+                tracks.extend(track)
 
-            if "album" in search or "artist" in search or "playlist" in search:
-                self.ui_guild_info(
-                    interaction.guild.id
-                ).processing_msg = await self.ui.Search.SearchInProgress(interaction)
+        elif validators.url(search):
+            url = self._parse_url(search, choice)
+            callback = await wavelink.Playable.search(url)
+            if isinstance(callback, list):
+                tracks.extend(callback)
+            elif isinstance(callback, wavelink.Playlist):
+                tracks.append(callback)
 
-            try:
-                tracks = await spotify.SpotifyTrack.search(search, node=searchnode)
-            except:
-                tracks = None
-
-            if tracks is None:
-                trackinfo = None
-            else:
-                if searchtype == spotify.SpotifySearchType.track:
-                    tracks = tracks[0]
-                trackinfo = self._playlist.spotify_info_process(
-                    search, tracks, searchtype
-                )
         else:
-            if "https://www.youtube.com/" in search or "https://youtu.be/" in search:
-                youtube_url = True
-                if "list" in search:
-                    extract = search.split("&")
-                    if choice == "videoonly":
-                        url = extract[0]
-                    elif choice == "playlist":
-                        url = f"https://www.youtube.com/playlist?{extract[1]}"
-                    else:
-                        url = search
-                else:
-                    url = search
-            else:
-                youtube_url = False
-                url = search
-
-            trackinfo = []
-
             if quick_search:
-                method = [wavelink.YouTubeTrack]
+                sources = [
+                    wavelink.TrackSource.YouTube,
+                ]
             else:
-                method = [
-                    wavelink.YouTubeTrack,
-                    wavelink.YouTubeMusicTrack,
-                    wavelink.SoundCloudTrack,
+                sources = [
+                    wavelink.TrackSource.YouTubeMusic, 
+                    wavelink.TrackSource.YouTube,
+                    SearchType.Spotify(),
+                    wavelink.TrackSource.SoundCloud,
                 ]
 
-            if choice == "playlist" or "list" in url:
-                data = await wavelink.YouTubePlaylist.search(url, node=searchnode)
-                if data is not None:
-                    trackinfo = data
-            else:
-                for trackmethod in method:
-                    try:
-                        # SearchableTrack.search(query, node)
-                        data = await trackmethod.search(url, node=searchnode)
-                        if data is not None:
-                            trackinfo.extend(data)
-                            if youtube_url:
-                                break
-                    except Exception:
-                        # When there is no result for provided method
-                        # Then change to next method to search
-                        pass
+            for source in sources:
+                try:
+                    data = await wavelink.Playable.search(search, source=source)
+                    if data is not None:
+                        tracks.extend(data)
+                except Exception:
+                    # When there is no result for provided method
+                    # Then change to next method to search
+                    continue
 
-        if trackinfo is None:
-            await self.ui.Search.SearchFailed(interaction, search)
-            return None
-        elif not isinstance(
-            trackinfo,
-            Union[
-                spotify.SpotifyTrack,
-                SpotifyAlbum,
-                SpotifyPlaylist,
-                wavelink.YouTubePlaylist,
-                wavelink.GenericTrack,
-            ],
-        ):
-            if len(trackinfo) == 0:
+        if len(tracks) == 0:
+            if not quick_search:
                 await self.ui.Search.SearchFailed(interaction, search)
-                return None
-
-        if not isinstance(
-            trackinfo, Union[wavelink.GenericTrack, spotify.SpotifyTrack]
-        ):
-            tracklist = trackinfo
-
-        if isinstance(trackinfo, wavelink.GenericTrack):
-            trackinfo.suggested = False
-            tracklist = trackinfo
-        elif isinstance(trackinfo, spotify.SpotifyTrack):
-            trackinfo.suggested = False
-            trackinfo.is_stream = False
-            tracklist = trackinfo
-        elif isinstance(
-            tracklist, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]
-        ):
-            for track in tracklist.tracks:
-                track.suggested = False
-        else:
-            for track in tracklist:
-                track.suggested = False
-
-        return tracklist
+            return [None]
+        
+        return tracks
 
     ##############################
 
@@ -894,7 +854,7 @@ class MusicCog(Player, commands.Cog):
         print(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         await self._get_current_stats()
         guild = payload.player.guild
         try:
@@ -909,7 +869,7 @@ class MusicCog(Player, commands.Cog):
             pass
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         await self._get_current_stats()
         guild = payload.player.guild
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)

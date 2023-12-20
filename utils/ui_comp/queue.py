@@ -32,7 +32,7 @@ class Queue:
     async def Embed_AddedToQueue(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist],
+        trackinfo: Union[wavelink.Playable, wavelink.Playlist],
         requester: Optional[discord.User],
         is_search,
     ) -> None:
@@ -44,7 +44,7 @@ class Queue:
         if (len(playlist.order) > 1 and is_search) or (
             isinstance(
                 trackinfo,
-                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist],
+                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.Playlist],
             )
         ):
             if is_search:
@@ -54,7 +54,7 @@ class Queue:
             """
             else:
                 if isinstance(
-                    trackinfo, Union[SpotifyPlaylist, wavelink.YouTubePlaylist]
+                    trackinfo, Union[SpotifyPlaylist, wavelink.Playlist]
                 ):
                     type_string = "播放清單"
                 elif isinstance(trackinfo, SpotifyAlbum):

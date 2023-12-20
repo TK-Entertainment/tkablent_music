@@ -19,8 +19,9 @@ branch = "master"
 
 if production:
     status = discord.Status.online
-    production_status = "s"  # ce for cutting edge, s for stable
-    bot_version = f"m.20230716.7.e1-{production_status}"
+    production_status = "dev"  # ce for cutting edge, s for stable
+    test_subject = "wl3.0-depend"
+    bot_version = "m.LOCALDEBUG{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
@@ -41,7 +42,7 @@ precenses = [
     discord.Game(f"來點音樂? | {bot.command_prefix}play"),
     discord.Game("迷因、幹話、美好的事物"),
     discord.Game("為平淡的生活增添更多色彩"),
-    discord.Game(f"TKablent | {bot_version}"),
+    discord.Game(f"{bot_version}"),
 ]
 
 
@@ -95,12 +96,12 @@ async def on_ready():
 
 
 @bot.event
-async def on_wavelink_node_ready(node: wavelink.Node):
+async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
     print(
         f"""
         Wavelink 音樂處理伺服器已準備完畢
 
-        伺服器名稱: {node.id}
+        伺服器名稱: {payload.node.identifier}
     """
     )
 

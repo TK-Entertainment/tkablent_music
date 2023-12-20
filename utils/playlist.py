@@ -52,6 +52,17 @@ class SpotifyPlaylist:
         self.thumbnail: str = ""
         self.tracks: list = []
 
+class SpotifySearchType(Enum):
+    TRACK = auto()
+    ALBUM = auto()
+    PLAYLIST = auto()
+
+class SearchType(Enum):
+    SPOTIFY = "spsearch"
+
+    @classmethod
+    def Spotify(cls) -> str:
+        return cls.SPOTIFY.value
 
 class LoopState(Enum):
     NOTHING = auto()
@@ -64,9 +75,7 @@ class PlaylistBase:
     """maintain some info in a playlist for single guild"""
 
     def __init__(self):
-        self.order: list[
-            wavelink.GenericTrack
-        ] = []  # maintain the song order in a playlist
+        self.order: list[wavelink.Playable] = []  # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0  # use to indicate the times left to play current song
         self.text_channel: discord.TextChannel = (
@@ -87,7 +96,7 @@ class PlaylistBase:
         self.loop_state = LoopState.NOTHING
         self.times = 0
 
-    def current(self) -> Optional[wavelink.GenericTrack]:
+    def current(self) -> Optional[wavelink.Playable]:
         return self[0]
 
     def swap(self, idx1: int, idx2: int):
@@ -163,41 +172,39 @@ class Playlist:
             )
         )
 
-    async def get_best_searchnode(self) -> wavelink.Node:
-        searchnode_1 = wavelink.NodePool.get_node(id="SearchNode_1")
-        searchnode_2 = wavelink.NodePool.get_node(id="SearchNode_2")
+    # async def get_best_searchnode(self) -> wavelink.Node:
+    #     searchnode_1 = wavelink.NodePool.get_node(id="SearchNode_1")
+    #     searchnode_2 = wavelink.NodePool.get_node(id="SearchNode_2")
 
-        # decide from the cpu usage
-        node_1_stats = await searchnode_1._send(method="GET", path="stats")
-        node_2_stats = await searchnode_2._send(method="GET", path="stats")
+    #     # decide from the cpu usage
+    #     node_1_stats = await searchnode_1._send(method="GET", path="stats")
+    #     node_2_stats = await searchnode_2._send(method="GET", path="stats")
 
-        node_1_avgload = (
-            node_1_stats["cpu"]["systemLoad"] + node_1_stats["cpu"]["lavalinkLoad"]
-        ) / 2
-        node_2_avgload = (
-            node_2_stats["cpu"]["systemLoad"] + node_2_stats["cpu"]["lavalinkLoad"]
-        ) / 2
+    #     node_1_avgload = (
+    #         node_1_stats["cpu"]["systemLoad"] + node_1_stats["cpu"]["lavalinkLoad"]
+    #     ) / 2
+    #     node_2_avgload = (
+    #         node_2_stats["cpu"]["systemLoad"] + node_2_stats["cpu"]["lavalinkLoad"]
+    #     ) / 2
 
-        if node_1_avgload > node_2_avgload:
-            return searchnode_2
-        elif node_1_avgload < node_2_avgload:
-            return searchnode_1
-        else:
-            return random.choice([searchnode_1, searchnode_2])
+    #     if node_1_avgload > node_2_avgload:
+    #         return searchnode_2
+    #     elif node_1_avgload < node_2_avgload:
+    #         return searchnode_1
+    #     else:
+    #         return random.choice([searchnode_1, searchnode_2])
 
     def check_current_suggest_support(self, guild_id) -> bool:
         current = self[guild_id].current()
 
         return not (
-            isinstance(current, Union[wavelink.GenericTrack, wavelink.SoundCloudTrack])
+            current.source == "soundcloud"
         )
 
     async def add_songs(
         self,
         guild_id,
-        trackinfo: Union[
-            wavelink.YouTubeTrack, wavelink.SoundCloudTrack, wavelink.YouTubePlaylist
-        ],
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist]],
         requester,
     ):
         if len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
@@ -208,11 +215,11 @@ class Playlist:
 
         if isinstance(
             trackinfo,
-            Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist, list],
+            Union[SpotifyAlbum, SpotifyPlaylist, wavelink.Playable, list],
         ):
             if isinstance(
                 trackinfo,
-                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist],
+                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.Playable],
             ):
                 for track in trackinfo.tracks:
                     track.requester = requester
@@ -227,62 +234,64 @@ class Playlist:
             trackinfo.requester = requester
             self[guild_id].order.append(trackinfo)
 
-    def spotify_info_process(self, search, trackinfo, type: spotify.SpotifySearchType):
-        if type == spotify.SpotifySearchType.track:
-            # backup
-            trackinfo.yt_title = trackinfo.title
-            trackinfo.yt_url = trackinfo.uri
-            # replace with spotify data
-            spotify_data = self.spotify.track(search)
-            trackinfo.title = spotify_data["name"]
-            trackinfo.uri = search
-            trackinfo.author = spotify_data["artists"][0]["name"]
-            trackinfo.cover = spotify_data["album"]["images"][0]["url"]
-            return trackinfo
-        else:
-            if type == spotify.SpotifySearchType.album:
-                spotify_data = self.spotify.album(search)
-                tracks = SpotifyAlbum()
-            elif type == spotify.SpotifySearchType.playlist:
-                spotify_data = self.spotify.playlist(search)
-                tracks = SpotifyPlaylist()
+    # To be deprecated
+    # def spotify_info_process(self, search, tracks: list[wavelink.Playable], type: SpotifySearchType):
+    #     if type == SpotifySearchType.TRACK:
+    #         track = tracks[0]
+    #         # backup
+    #         track.yt_title = track.title
+    #         track.yt_url = track.uri
+    #         # replace with spotify data
+    #         spotify_data = self.spotify.track(search)
+    #         track.title = spotify_data["name"]
+    #         track.uri = search
+    #         track.author = spotify_data["artists"][0]["name"]
+    #         track.cover = spotify_data["album"]["images"][0]["url"]
+    #         return tracks
+    #     else:
+    #         if type == SpotifySearchType.ALBUM:
+    #             spotify_data = self.spotify.album(search)
+    #             tracks = SpotifyAlbum()
+    #         elif type == SpotifySearchType.PLAYLIST:
+    #             spotify_data = self.spotify.playlist(search)
+    #             tracks = SpotifyPlaylist()
 
-            count = 0
+    #         count = 0
 
-            for track in trackinfo:
-                track.yt_title = track.title
-                track.yt_url = track.uri
+    #         for track in tracks:
+    #             track.yt_title = track.title
+    #             track.yt_url = track.uri
 
-                if type == spotify.SpotifySearchType.album:
-                    track.title = spotify_data["tracks"]["items"][count]["name"]
-                    track.uri = spotify_data["tracks"]["items"][count]["external_urls"][
-                        "spotify"
-                    ]
-                    track.author = spotify_data["tracks"]["items"][count]["artists"][0][
-                        "name"
-                    ]
-                    track.cover = spotify_data["images"][0]["url"]
-                else:
-                    track.title = spotify_data["tracks"]["items"][count]["track"][
-                        "name"
-                    ]
-                    track.uri = spotify_data["tracks"]["items"][count]["track"][
-                        "external_urls"
-                    ]["spotify"]
-                    track.author = spotify_data["tracks"]["items"][count]["track"][
-                        "artists"
-                    ][0]["name"]
-                    track.cover = spotify_data["tracks"]["items"][count]["track"][
-                        "album"
-                    ]["images"][0]["url"]
-                track.suggested = False
-                count += 1
+    #             if type == SpotifySearchType.ALBUM:
+    #                 track.title = spotify_data["tracks"]["items"][count]["name"]
+    #                 track.uri = spotify_data["tracks"]["items"][count]["external_urls"][
+    #                     "spotify"
+    #                 ]
+    #                 track.author = spotify_data["tracks"]["items"][count]["artists"][0][
+    #                     "name"
+    #                 ]
+    #                 track.cover = spotify_data["images"][0]["url"]
+    #             else:
+    #                 track.title = spotify_data["tracks"]["items"][count]["track"][
+    #                     "name"
+    #                 ]
+    #                 track.uri = spotify_data["tracks"]["items"][count]["track"][
+    #                     "external_urls"
+    #                 ]["spotify"]
+    #                 track.author = spotify_data["tracks"]["items"][count]["track"][
+    #                     "artists"
+    #                 ][0]["name"]
+    #                 track.cover = spotify_data["tracks"]["items"][count]["track"][
+    #                     "album"
+    #                 ]["images"][0]["url"]
+    #             track.suggested = False
+    #             count += 1
 
-            tracks.name = spotify_data["name"]
-            tracks.uri = search
-            tracks.thumbnail = spotify_data["images"][0]["url"]
-            tracks.tracks.extend(trackinfo)
-            return tracks
+    #         tracks.name = spotify_data["name"]
+    #         tracks.uri = search
+    #         tracks.thumbnail = spotify_data["images"][0]["url"]
+    #         tracks.tracks.extend(tracks)
+    #         return tracks
 
     async def _get_suggest_track(
         self,
@@ -290,27 +299,23 @@ class Playlist:
         index: int,
         ui_guild_info: GuildUIInfo,
         pre_process: bool,
-    ) -> Optional[Union[wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]]:
-        searchnode = await self.get_best_searchnode()
+    ) -> Optional[wavelink.Playable]:
         suggested_track = None
 
-        for trackmethod in [wavelink.YouTubeMusicTrack, wavelink.YouTubeTrack]:
-            try:
-                suggested_track = await trackmethod.search(
-                    suggestion["tracks"][index]["videoId"], node=searchnode
-                )
-                suggested_track = suggested_track[0]
-            except:
-                suggested_track = None
-                pass
-            if suggested_track is not None:
-                suggested_track.suggested = True
-                ui_guild_info.suggestions.append(suggested_track)
+        try:
+            suggested_track = await wavelink.Playable.search(
+                "https://www.youtube.com/watch?v={}".format(suggestion["tracks"][index]["videoId"])
+            )
+            suggested_track = suggested_track[0]
+        except:
+            suggested_track = None
+            pass
+        if suggested_track is not None:
+            suggested_track.suggested = True
+            ui_guild_info.suggestions.append(suggested_track)
 
-                if pre_process:
-                    suggestion["index"] += 1
-
-                break
+            if pre_process:
+                suggestion["index"] += 1
 
         return suggested_track
 
@@ -500,7 +505,7 @@ class Playlist:
             print(
                 f"[Suggestion] Suggested {ui_guild_info.suggestions[0].title} for {guild.id} in next song, added to history storage"
             )
-            await self.add_songs(guild.id, ui_guild_info.suggestions.pop(0), "自動推薦歌曲")
+            await self.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "自動推薦歌曲")
             ui_guild_info.suggestion_processing = False
         
     def get_music_info(self, guild_id, index):

@@ -21,7 +21,7 @@ class CacheWorker:
             shutil.copyfile(self._cache_path, self._bak_cache_path)
         except DecodeError:
             with open(self._bak_cache_path, "rb") as bak_f:
-                self._cache: dict = json_decode(bak_f.read(), type)
+                self._cache: dict = json_decode(bak_f.read())
 
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 

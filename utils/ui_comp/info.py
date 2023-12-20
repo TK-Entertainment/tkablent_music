@@ -101,7 +101,7 @@ class InfoGenerator:
             if color_code == "red":
                 song = removed
             else:
-                song: wavelink.GenericTrack = playlist[index]
+                song: wavelink.Playable = playlist[index]
 
             if holiday == "xmas" or holiday == "xmaseve":
                 xmascolors = [
@@ -286,7 +286,7 @@ class InfoGenerator:
 
             # will be deleted after testing
             if (
-                isinstance(song, wavelink.GenericTrack)
+                isinstance(song, wavelink.Playable)
                 and "ce" in self.musicbot.bot_version
             ):
                 embed_opt["footer"]["text"] = (
@@ -302,14 +302,14 @@ class InfoGenerator:
 
     def _PlaylistInfo(
         self,
-        playlist: Union[SpotifyAlbum, wavelink.YouTubePlaylist],
+        playlist: Union[SpotifyAlbum, wavelink.Playlist],
         requester: discord.User,
     ):
         # Generate Embed Body
         if isinstance(playlist, list):
             title = f"{search_emoji} | 選取的搜尋歌曲"
             url = None
-        elif isinstance(playlist, wavelink.YouTubePlaylist):
+        elif isinstance(playlist, wavelink.Playlist):
             title = f":newspaper: | 音樂播放清單"
             url = None
         else:
