@@ -356,8 +356,8 @@ class InfoGenerator:
                     embed=self._SongInfo(guild_id), view=None
                 )
             except:
-                self.guild_info(channel.guild.id).playinfo = None
-                self.guild_info(channel.guild.id).playinfo_view = None
+                self.guild_info(guild_id).playinfo = None
+                self.guild_info(guild_id).playinfo_view = None
         else:
             self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
             if len(self.musicbot._playlist[guild_id].order) == 1:
@@ -408,5 +408,5 @@ class InfoGenerator:
                     view=self.guild_info(guild_id).playinfo_view,
                 )
             except:
-                self.guild_info(channel.guild.id).playinfo = None
-                self.guild_info(channel.guild.id).playinfo_view = None
+                self.guild_info(guild_id).playinfo = None
+                self.guild_info(guild_id).playinfo_view = None
