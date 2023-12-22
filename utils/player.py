@@ -120,7 +120,7 @@ class Player:
     #############
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
-        mainplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
+        mainplayhost = wavelink.Pool.get_node("TW_PlayBackNode")
         if voice_client is None:
             await channel.connect(cls=wavelink.Player(nodes=[mainplayhost]))
 
@@ -346,7 +346,7 @@ class MusicCog(Player, commands.Cog):
             await self.ui.Join.JoinFailed(interaction, e)
 
     @app_commands.command(name="join", description="📥 | 將我加入目前您所在的頻道")
-    async def _join(self, interaction: discord.Interaction):
+    async def _join_s(self, interaction: discord.Interaction):
         await self.join(interaction)
 
     ##############################################
@@ -392,6 +392,7 @@ class MusicCog(Player, commands.Cog):
     async def skip(self, interaction: discord.Interaction):
         try:
             await self._skip(interaction.guild)
+            await self._post_track_playing(interaction.guild, interaction.guild.voice_client)
             self.ui.PlayerControl.SkipProceed(interaction.guild.id)
             if not interaction.response.is_done():
                 await interaction.response.send_message("⠀")
@@ -416,6 +417,7 @@ class MusicCog(Player, commands.Cog):
         await self.ui.Changelogs.SendChangelogs(interaction)
         try:
             await self._stop(interaction.guild)
+            await self._post_track_playing(interaction.guild, interaction.guild.voice_client)
             await self.ui.PlayerControl.StopSucceed(interaction)
         except Exception as e:
             await self.ui.PlayerControl.StopFailed(interaction, e)
@@ -552,12 +554,12 @@ class MusicCog(Player, commands.Cog):
     async def process(
         self,
         interaction: discord.Interaction,
-        trackinfo: wavelink.Playable,
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
     ):
         # Call search function
         try:
             is_search = isinstance(trackinfo, list) and (
-                not isinstance(trackinfo, wavelink.Playlist)
+                not isinstance(trackinfo[0], wavelink.Playlist)
             )
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
@@ -572,7 +574,7 @@ class MusicCog(Player, commands.Cog):
     async def play(
         self,
         interaction: discord.Interaction,
-        trackinfo: wavelink.Playable,
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
     ):
         # Try to make bot join author's channel
         voice_client: wavelink.Player = interaction.guild.voice_client
@@ -595,6 +597,9 @@ class MusicCog(Player, commands.Cog):
             await interaction.response.send_message("⠀")
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
+        
+        if self.ui_guild_info(interaction.guild.id).playinfo is None:
+            await self.ui.PlayerControl.PlayingMsg(interaction)
 
     async def _suggest_processing(self, result: list, track, data: dict):
         try:
@@ -856,8 +861,8 @@ class MusicCog(Player, commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         await self._get_current_stats()
-        guild = payload.player.guild
         try:
+            guild = payload.track.requested_guild
             if self[guild.id]._timer is not None:
                 self[guild.id]._timer.cancel()
                 self[guild.id]._timer = None
@@ -868,10 +873,7 @@ class MusicCog(Player, commands.Cog):
         except:
             pass
 
-    @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
-        await self._get_current_stats()
-        guild = payload.player.guild
+    async def _post_track_playing(self, guild: discord.Guild, player: wavelink.Player):
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.2)
         if self[guild.id]._refresh_msg_task is not None:
@@ -887,7 +889,7 @@ class MusicCog(Player, commands.Cog):
             ):
                 self.ui_guild_info(guild.id).leaveoperation = False
                 await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
-            self._start_timer(payload.player.guild)
+            self._start_timer(guild)
             return
         else:
             self._playlist[guild.id]._refresh_msg_task = self[
@@ -906,11 +908,21 @@ class MusicCog(Player, commands.Cog):
 
             song = self._playlist[guild.id].current()
             try:
-                await payload.player.play(song)
+                await player.play(song)
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
                 pass
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        await self._get_current_stats()
+        try:
+            guild = payload.player.guild
+            await self._post_track_playing(guild, payload.player)
+        except:
+            pass
+
 
     # Error handler
     @commands.Cog.listener()
@@ -968,11 +980,11 @@ class MusicCog(Player, commands.Cog):
                 await self.ui_guild_info(member.guild.id).playinfo.edit(
                     view=self.ui_guild_info(member.guild.id).playinfo_view
                 )
-                if not voice_client.is_paused():
+                if not voice_client.paused:
                     await self._pause(member.guild)
             elif (
                 len(voice_client.channel.members) > 1
-                and voice_client.is_paused()
+                and voice_client.paused
                 and member != self.bot.user
                 and self.ui_guild_info(
                     member.guild.id

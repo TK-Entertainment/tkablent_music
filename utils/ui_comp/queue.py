@@ -2,8 +2,7 @@ from typing import *
 import discord
 import copy
 
-from ..player import SpotifyAlbum
-from ..playlist import PlaylistBase, SpotifyPlaylist
+from ..playlist import PlaylistBase
 from .info import InfoGenerator
 from ..ui import (
     firstpage_emoji,
@@ -32,7 +31,7 @@ class Queue:
     async def Embed_AddedToQueue(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[wavelink.Playable, wavelink.Playlist],
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
         requester: Optional[discord.User],
         is_search,
     ) -> None:
@@ -44,7 +43,7 @@ class Queue:
         if (len(playlist.order) > 1 and is_search) or (
             isinstance(
                 trackinfo,
-                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.Playlist],
+                Union[list[wavelink.Playable], list[wavelink.Playlist]],
             )
         ):
             if is_search:
@@ -53,12 +52,16 @@ class Queue:
             以下歌曲已加入待播清單中
             """
             else:
-                if isinstance(
-                    trackinfo, Union[SpotifyPlaylist, wavelink.Playlist]
-                ):
+                if isinstance(trackinfo[0], wavelink.Playlist):
+                    if "spotify" in trackinfo[0].uri:
+                        if trackinfo[0].type == "album":
+                            type_string = "Spotify 專輯"
+                        else:
+                            type_string = "Spotify 播放清單"
+                    else:
+                        type_string = "播放清單"
+                elif isinstance(trackinfo, list):
                     type_string = "播放清單"
-                elif isinstance(trackinfo, SpotifyAlbum):
-                    type_string = "Spotify 專輯"
 
                 msg = f"""
             **:white_check_mark: | 成功加入待播清單**
@@ -107,16 +110,7 @@ class Queue:
                     msg, embed=embed, ephemeral=True
                 )
             else:
-                if (
-                    isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])
-                    and self.guild_info(interaction.guild.id).processing_msg is not None
-                ):
-                    processing_msg = self.guild_info(
-                        interaction.guild.id
-                    ).processing_msg
-                    await interaction.edit_original_response(content=msg, embed=embed)
-                else:
-                    await interaction.channel.send(msg, embed=embed)
+                await interaction.channel.send(msg, embed=embed)
         try:
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:

@@ -553,22 +553,22 @@ class PlayerControl:
                     await self.info_generator._UpdateSongInfo(interaction.guild.id)
 
             @discord.ui.button(
-                emoji=pause_emoji if not voice_client.is_paused() else play_emoji,
+                emoji=pause_emoji if not voice_client.paused else play_emoji,
                 style=discord.ButtonStyle.blurple,
             )
             async def playorpause(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
                 await self.toggle(interaction, button, "toggle")
-                if self.voice_client.is_paused():
+                if self.voice_client.paused:
                     if self.musicbot[interaction.guild.id]._timer is not None:
                         self.musicbot[interaction.guild.id]._timer.cancel()
                         self.musicbot[interaction.guild.id]._timer = None
-                    await self.voice_client.resume()
+                    await self.voice_client.pause(False)
                     button.emoji = pause_emoji
                 else:
                     self.musicbot._start_timer(interaction.guild)
-                    await self.voice_client.pause()
+                    await self.voice_client.pause(True)
                     button.emoji = play_emoji
 
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
@@ -581,6 +581,7 @@ class PlayerControl:
             ):
                 await self.toggle(interaction, button, "toggle")
                 await self.musicbot._stop(channel.guild)
+                await self.musicbot._post_track_playing(interaction.guild, interaction.guild.voice_client)
                 self.guild_info(channel.guild.id).music_suggestion = False
                 self.guild_info(interaction.guild.id).leaveoperation = True
 
@@ -609,6 +610,7 @@ class PlayerControl:
             ):
                 await self.toggle(interaction, button, "toggle")
                 self.guild_info(channel.guild.id).skip = True
+                await self.musicbot._post_track_playing(interaction.guild, interaction.guild.voice_client)
                 await self.musicbot._skip(channel.guild)
 
                 if not self.musicbot._playlist.check_current_suggest_support(
@@ -858,9 +860,14 @@ class PlayerControl:
             self.bot.loop.create_task(view.restore_skip())
 
             self.guild_info(channel.guild.id).playinfo_view = view
-            self.guild_info(channel.guild.id).playinfo = await channel.send(
-                embed=embed, view=view
-            )
+            if isinstance(channel, discord.Interaction):
+                self.guild_info(channel.guild.id).playinfo = await channel.channel.send(
+                    embed=embed, view=view
+                )
+            else:
+                self.guild_info(channel.guild.id).playinfo = await channel.send(
+                    embed=embed, view=view
+                )
         else:
             try:
                 await self.guild_info(channel.guild.id).playinfo.edit(embed=embed)

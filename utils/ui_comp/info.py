@@ -65,6 +65,7 @@ class InfoGenerator:
 
         playlist = self.musicbot._playlist[guild_id]
 
+        # This part for non-playing state
         if len(playlist.order) == 0:
             if isinstance(operation, LeaveType):
                 match operation:
@@ -97,12 +98,15 @@ class InfoGenerator:
                 embed.set_author(name=txt, icon_url="https://i.imgur.com/c3X2KBD.png")
             else:
                 embed.set_author(name=txt, icon_url="https://i.imgur.com/p4vHa3y.png")
+        
+        # This part for playing state
         else:
             if color_code == "red":
                 song = removed
             else:
                 song: wavelink.Playable = playlist[index]
 
+            # Embed side color decision
             if holiday == "xmas" or holiday == "xmaseve":
                 xmascolors = [
                     discord.Colour.from_rgb(187, 37, 40),
@@ -148,7 +152,7 @@ class InfoGenerator:
                 elif self.guild_info(guild_id).skip:
                     playing_state = "⏩ | 已跳過上個歌曲\n"
                 else:
-                    if voice_client.is_paused():
+                    if voice_client.paused:
                         playing_state = "⏸️ | 暫停播放\n"
                     else:
                         playing_state = "▶️ | 播放中\n"
@@ -161,7 +165,7 @@ class InfoGenerator:
                 playing_state = ""
                 notice = ""
 
-            if not isinstance(song, spotify.SpotifyTrack) and song.is_stream:
+            if not song.source == "spotify" and song.is_stream:
                 embed = discord.Embed(
                     title=f"{song.title}",
                     description=f"**{song.author}**\n*🔴 直播*{notice}",
@@ -174,7 +178,11 @@ class InfoGenerator:
                     description=f"**{song.author}**\n*{time_string}*{notice}",
                     colour=color,
                 )
+
+            # Generate Embed Author (indicates song requester)
+            # song.suggested: bool (self defined)
             if song.suggested:
+                # If song is suggested by bot, then indicates it as suggested song
                 if holiday == "xmas" or holiday == "xmaseve":
                     embed.set_author(
                         name=f"{playing_state}這首歌為 自動推薦歌曲",
@@ -186,6 +194,8 @@ class InfoGenerator:
                         icon_url="https://i.imgur.com/p4vHa3y.png",
                     )
             else:
+                # Otherwise, show the requester of the song
+                # song.requester: discord.User (self defined)
                 if song.requester.discriminator == "0":
                     embed.set_author(
                         name=f"{playing_state}這首歌由 {song.requester.name} 點播",
@@ -196,8 +206,9 @@ class InfoGenerator:
                         name=f"{playing_state}這首歌由 {song.requester.name}#{song.requester.discriminator} 點播",
                         icon_url=song.requester.display_avatar,
                     )
-
-            if not isinstance(song, spotify.SpotifyTrack) and song.is_stream:
+            
+            # Generate stream notice
+            if not song.source == "spotify" and song.is_stream:
                 if color_code == None:
                     embed.add_field(
                         name="結束播放",
@@ -227,14 +238,14 @@ class InfoGenerator:
 
             queuelist: str = ""
 
-            if self.guild_info(
-                guild_id
-            ).skip:  # If song is skipped, update songinfo for next song state
+            if self.guild_info(guild_id).skip:
+            # If song is skipped, update songinfo for next song state
                 offset = 1
             else:
                 offset = 0
 
             # Upcoming song (via Suggestion)
+            # playlist[].suggested: bool (self defined)
             if (
                 self.guild_info(guild_id).music_suggestion
                 and not ((len(playlist.order) >= 2 and not playlist[-1].suggested))
@@ -269,8 +280,8 @@ class InfoGenerator:
                     inline=False,
                 )
 
-            if "spotify" in song.uri and (color != "green" or color != "red"):
-                embed.set_thumbnail(url=song.cover)
+            if song.source == "spotify" and (color != "green" or color != "red"):
+                embed.set_thumbnail(url=song.artwork)
 
             if (
                 not self.musicbot._playlist.check_current_suggest_support(guild_id)
@@ -286,7 +297,7 @@ class InfoGenerator:
 
             # will be deleted after testing
             if (
-                isinstance(song, wavelink.Playable)
+                "bilibili" in song.uri
                 and "ce" in self.musicbot.bot_version
             ):
                 embed_opt["footer"]["text"] = (
@@ -302,20 +313,21 @@ class InfoGenerator:
 
     def _PlaylistInfo(
         self,
-        playlist: Union[SpotifyAlbum, wavelink.Playlist],
+        playlist: Union[list[wavelink.Playable], list[wavelink.Playlist]],
         requester: discord.User,
     ):
         # Generate Embed Body
-        if isinstance(playlist, list):
+        if isinstance(playlist, list) and not isinstance(playlist[0], wavelink.Playlist):
             title = f"{search_emoji} | 選取的搜尋歌曲"
             url = None
-        elif isinstance(playlist, wavelink.Playlist):
-            title = f":newspaper: | 音樂播放清單"
-            url = None
-        else:
-            title = f"{spotify_emoji} | {playlist.name}"
-            url = playlist.uri
-
+        elif isinstance(playlist[0], wavelink.Playlist):
+            if "spotify" in playlist[0].uri:
+                title = f"{spotify_emoji} | {playlist[0].name}"
+                url = playlist[0].uri
+            else:
+                title = f":newspaper: | 音樂播放清單"
+                url = None
+            
         color = discord.Colour.from_rgb(97, 219, 83)
         embed = discord.Embed(title=title, url=url, colour=color)
         if requester.discriminator == "0":
@@ -329,22 +341,24 @@ class InfoGenerator:
             )
 
         pllist: str = ""
-        if isinstance(playlist, list):
+        if isinstance(playlist, list) and not isinstance(playlist[0], wavelink.Playlist):
             tracklist = playlist
         else:
-            tracklist = playlist.tracks
+            tracklist = playlist[0].tracks
+
         for i, track in enumerate(tracklist):
             pllist += f"{i+1}. {track.title}\n"
             if i == 1:
                 break
+
         if len(tracklist) > 2:
             pllist += f"...還有 {len(tracklist)-2} 首歌"
 
         embed.add_field(
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
-        if isinstance(playlist, Union[SpotifyPlaylist, SpotifyAlbum]):
-            embed.set_thumbnail(url=playlist.thumbnail)
+        if "spotify" in playlist.uri:
+            embed.set_thumbnail(url=playlist.artwork)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 
         return embed
@@ -372,12 +386,14 @@ class InfoGenerator:
                 self.guild_info(guild_id).playinfo_view.skip.disabled = False
 
             if self.musicbot._playlist[guild_id].loop_state == LoopState.SINGLE:
+                # Modify loop button label to current loop times
                 self.guild_info(
                     guild_id
                 ).playinfo_view.loop_control.label = (
                     f"ₛ {self.musicbot._playlist[guild_id].times} 次"
                 )
             elif self.musicbot._playlist[guild_id].loop_state == LoopState.NOTHING:
+                # Modify loop button to non-loop state
                 self.guild_info(
                     guild_id
                 ).playinfo_view.loop_control.emoji = repeat_emoji

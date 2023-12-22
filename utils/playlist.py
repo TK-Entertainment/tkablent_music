@@ -6,7 +6,6 @@ from enum import Enum, auto
 import asyncio
 
 import discord
-from discord import FFmpegPCMAudio, PCMVolumeTransformer, TextChannel, VoiceClient
 import wavelink
 import spotipy
 from spotipy import SpotifyClientCredentials
@@ -26,9 +25,22 @@ class OutOfBound(Exception):
 
 class GuildUIInfo:
     def __init__(self):
-        self.processing_msg: discord.Message
+        self.guild_id: int
+        self.auto_stage_available: bool
+        self.stage_topic_exist: bool
+        self.stage_topic_checked: bool
+        self.skip: bool
+        self.lastskip: bool
+        self.search: bool
+        self.leaveoperation: bool
         self.music_suggestion: bool
-        self.suggestions_source: dict
+        self.suggestion_processing: bool
+        self.lasterrorinfo: dict
+        self.playinfo: Coroutine[Any, Any, discord.Message]
+        self.playinfo_view: discord.ui.View
+        self.processing_msg: discord.Message
+        self.searchmsg: Coroutine[Any, Any, discord.Message]
+        self.suggestions_source 
         self.previous_titles: list[str]
         self.suggestions: list
 
@@ -86,7 +98,7 @@ class PlaylistBase:
         self._refresh_msg_task: asyncio.Task = None
         # self._playlisttask: dict[str, asyncio.Task] = {}
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> Optional[wavelink.Playable]:
         if len(self.order) == 0:
             return None
         return self.order[idx]
@@ -197,8 +209,8 @@ class Playlist:
     def check_current_suggest_support(self, guild_id) -> bool:
         current = self[guild_id].current()
 
-        return not (
-            current.source == "soundcloud"
+        return (
+            current.source == "youtube" or current.source == "spotify"
         )
 
     async def add_songs(
@@ -213,26 +225,26 @@ class Playlist:
             elif not trackinfo.suggested:
                 self[guild_id].order.pop(1)
 
-        if isinstance(
-            trackinfo,
-            Union[SpotifyAlbum, SpotifyPlaylist, wavelink.Playable, list],
-        ):
-            if isinstance(
-                trackinfo,
-                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.Playable],
-            ):
-                for track in trackinfo.tracks:
-                    track.requester = requester
+        if isinstance(trackinfo[0], wavelink.Playlist):
+            for track in trackinfo[0].tracks:
+                track.requester = requester
+                track.requested_guild = guild_id
+                try:
+                    if isinstance(track.suggested, None):
+                        track.suggested = False
+                except:
                     track.suggested = False
-                self[guild_id].order.extend(trackinfo.tracks)
-            else:
-                for track in trackinfo:
-                    track.requester = requester
-                self[guild_id].order.extend(trackinfo)
-
+            self[guild_id].order.extend(trackinfo[0].tracks)
         else:
-            trackinfo.requester = requester
-            self[guild_id].order.append(trackinfo)
+            for track in trackinfo:
+                track.requester = requester
+                track.requested_guild = guild_id
+                try:
+                    if track.suggested != True or track.suggested is None:
+                        track.suggested = False
+                except:
+                    track.suggested = False
+            self[guild_id].order.extend(trackinfo)
 
     # To be deprecated
     # def spotify_info_process(self, search, tracks: list[wavelink.Playable], type: SpotifySearchType):
@@ -310,8 +322,10 @@ class Playlist:
         except:
             suggested_track = None
             pass
+
         if suggested_track is not None:
             suggested_track.suggested = True
+            suggested_track.requested_guild = ui_guild_info.guild_id
             ui_guild_info.suggestions.append(suggested_track)
 
             if pre_process:
