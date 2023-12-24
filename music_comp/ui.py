@@ -3,7 +3,7 @@ import discord
 from discord.ext import commands
 import datetime
 from enum import Enum, auto
-from .storage import GuildUIInfo
+from .utils.storage import GuildUIInfo
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()

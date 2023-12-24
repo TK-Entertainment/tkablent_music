@@ -27,7 +27,7 @@ class QueueControl:
             ),
         )
         if len(self.musicbot._playlist[interaction.guild.id].order) == 1:
-            await self.musicbot._playlist.process_suggestion(
+            await self.musicbot.track_helper.process_suggestion(
                 interaction.guild, self.musicbot.ui_guild_info(interaction.guild.id)
             )
         try:

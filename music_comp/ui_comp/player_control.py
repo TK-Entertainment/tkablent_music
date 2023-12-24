@@ -333,7 +333,7 @@ class PlayerControl:
 
         class MultiType(discord.ui.View):
             bot = self.bot
-            get_track = self.musicbot._get_track
+            get_track = self.musicbot.track_helper.get_track
             guild_info = self.guild_info
             musicbot = self.musicbot
 
@@ -545,7 +545,7 @@ class PlayerControl:
                 await self.toggle(interaction, button, "done")
                 if self.guild_info(channel.guild.id).music_suggestion:
                     await asyncio.wait_for(
-                        self.musicbot._playlist.process_suggestion(
+                        self.musicbot.track_helper.process_suggestion(
                             channel.guild, self.guild_info(channel.guild.id)
                         ),
                         None
@@ -723,7 +723,7 @@ class PlayerControl:
                     button.label = ""
                     button.style = discord.ButtonStyle.danger
 
-                await self.musicbot._playlist.process_suggestion(
+                await self.musicbot.track_helper.process_suggestion(
                     channel.guild, self.guild_info(channel.guild.id)
                 )
 

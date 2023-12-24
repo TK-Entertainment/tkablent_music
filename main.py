@@ -71,7 +71,7 @@ async def on_ready():
     await bot.tree.sync()
 
     cog: MusicCog = bot.cogs["MusicCog"]
-    await cog.resolve_ui()
+    await cog.post_boot()
     await cog._create_daemon()
 
     print(

@@ -10,8 +10,7 @@ from discord import app_commands
 import bilibili_api as bilibili
 import wavelink
 from .playlist import Playlist, LoopState, SearchType
-from .storage import GuildInfo, GuildUIInfo
-from .cache import CacheWorker
+from .utils.storage import GuildInfo, GuildUIInfo
 
 INF = int(1e18)
 
@@ -20,8 +19,6 @@ class Player:
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
-        self._cacheworker: CacheWorker = CacheWorker()
-        self._cache: dict = self._cacheworker._cache
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
@@ -247,15 +244,17 @@ class MusicCog(Player, commands.Cog):
         self.bot: commands.Bot = bot
         self.bot_version: str = bot_version
 
-    async def resolve_ui(self):
+    async def post_boot(self):
         from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
+        from .utils.track_helper import TrackHelper
 
         self.ui = UI(self, self.bot_version)
         self.auto_stage_available = auto_stage_available
         self.ui_guild_info = guild_info
         self._sec_to_hms = _sec_to_hms
-        from .ui import groupbutton
+        self.track_helper = TrackHelper(self.ui, self._playlist)
 
+        from .ui import groupbutton
         self.groupbutton = groupbutton
 
     @app_commands.command(name="help", description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
@@ -601,73 +600,8 @@ class MusicCog(Player, commands.Cog):
         if self.ui_guild_info(interaction.guild.id).playinfo is None:
             await self.ui.PlayerControl.PlayingMsg(interaction)
 
-    async def _suggest_processing(self, result: list, track, data: dict):
-        try:
-            if self._cache.get(track.identifier) is not None:
-                expired = (
-                    int(time.time())
-                    - self._cache.get(track.identifier)["timestamp"]
-                ) >= 2592000
-
-                if not expired:
-                    result.append(
-                        app_commands.Choice(
-                            name=f"{self._cache[track.identifier]['title']} | {self._cache[track.identifier]['length']}",
-                            value=f"https://www.youtube.com/watch?v={track.identifier}",
-                        )
-                    )
-                    return
-
-            if isinstance(track, str):
-                return
-
-            length = self._sec_to_hms(
-                seconds=(track.length) / 1000, format="symbol"
-            )
-
-            left_name_length = 70 - len(f" | {length}")
-
-            if len(track.title) >= left_name_length + len(" ..."):
-                track.title = track.title[:left_name_length] + " ..."
-
-            result.append(
-                app_commands.Choice(
-                    name=f"{track.title} | {length}",
-                    value=f"https://www.youtube.com/watch?v={track.identifier}",
-                )
-            )
-
-            timestamp = int(time.time())
-            data[track.identifier] = dict(
-                title=track.title, length=length, timestamp=timestamp
-            )
-        finally:
-            return
-
-    async def get_search_suggest(
-        self, interaction: discord.Interaction, current: str
-    ) -> List[app_commands.Choice[str]]:
-        if validators.url(current) or current == "":
-            return []
-        else:
-            tracks = await self._get_track(interaction, current, quick_search=True)
-            result = []
-            data = {}
-
-            async with asyncio.TaskGroup() as taskgroup:
-                for i in range(len(tracks)):
-                    if i == 16:
-                        break
-                    
-                    # WTF IS THIS, THIS IS WAY FASTER?
-                    # EDIT: This is faster than past versions
-                    # EDIT: BUT it isn't because of the usage of asyncio
-                    # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
-                    taskgroup.create_task(self._suggest_processing(result, tracks[i], data))
-
-            self.bot.loop.create_task(self._cacheworker.update_cache(data))
-
-            return result
+    async def get_search_suggest(self, interaction: discord.Interaction, current: str):
+        return self.track_helper.get_search_suggest(interaction, current)
 
     @app_commands.command(name="play", description="🎶 | 想聽音樂？來這邊點歌吧~")
     @app_commands.describe(
@@ -685,19 +619,19 @@ class MusicCog(Player, commands.Cog):
                 and ("youtube" in search or "youtu.be" in search)
             ):
                 if self[interaction.guild.id].multitype_remembered:
-                    tracks = await self._get_track(
+                    tracks = await self.track_helper.get_track(
                         interaction, search, self[interaction.guild.id].multitype_choice
                     )
                 else:
                     await self.ui.PlayerControl.MultiTypeNotify(interaction, search)
                     return
             else:
-                tracks = await self._get_track(interaction, search)
+                tracks = await self.track_helper.get_track(interaction, search)
                 if isinstance(tracks, Exception) or tracks is None:
                     await self.ui.Search.SearchFailed(interaction, search)
             await self.play(interaction, tracks)
         else:
-            tracks = await self._get_track(interaction, search)
+            tracks = await self.track_helper.get_track(interaction, search)
             await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
     ##############################
@@ -770,7 +704,7 @@ class MusicCog(Player, commands.Cog):
             ]._refresh_msg_task
 
             await asyncio.wait_for(
-                self._playlist.process_suggestion(guild, self.ui_guild_info(guild.id)),
+                self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
                 None,
             )
 
@@ -831,66 +765,42 @@ class MusicCog(Player, commands.Cog):
             voice_client: wavelink.Player = member.guild.voice_client
             if len(voice_client.channel.members) == 1 and member != self.bot.user:
                 await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str("▶️")
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.disabled = True
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str("▶️")
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                
                 self.ui_guild_info(member.guild.id).playinfo_view.skip.disabled = True
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.skip.style = discord.ButtonStyle.gray
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.suggest.disabled = True
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.suggest.style = discord.ButtonStyle.gray
-                await self.ui_guild_info(member.guild.id).playinfo.edit(
-                    view=self.ui_guild_info(member.guild.id).playinfo_view
-                )
+                self.ui_guild_info(member.guild.id).playinfo_view.skip.style = discord.ButtonStyle.gray
+                
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.gray
+                
+                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
+                
                 if not voice_client.paused:
                     await self._pause(member.guild)
             elif (
                 len(voice_client.channel.members) > 1
                 and voice_client.paused
                 and member != self.bot.user
-                and self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.disabled
+                and self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled
             ):
                 await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.disabled = False
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                
                 if not len(self._playlist[member.guild.id].order) == 1:
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.skip.disabled = False
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.skip.style = discord.ButtonStyle.blurple
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.suggest.disabled = False
+                    self.ui_guild_info(member.guild.id).playinfo_view.skip.disabled = False
+                    self.ui_guild_info(member.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+                
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.disabled = False
+                
                 if self.ui_guild_info(member.guild.id).music_suggestion:
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.suggest.style = discord.ButtonStyle.green
+                    self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.green
                 else:
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.suggest.style = discord.ButtonStyle.danger
+                    self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.danger
 
-                await self.ui_guild_info(member.guild.id).playinfo.edit(
-                    view=self.ui_guild_info(member.guild.id).playinfo_view
-                )
+                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
         except:
             pass
