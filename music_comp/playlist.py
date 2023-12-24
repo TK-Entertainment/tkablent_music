@@ -64,18 +64,6 @@ class SpotifyPlaylist:
         self.thumbnail: str = ""
         self.tracks: list = []
 
-class SpotifySearchType(Enum):
-    TRACK = auto()
-    ALBUM = auto()
-    PLAYLIST = auto()
-
-class SearchType(Enum):
-    SPOTIFY = "spsearch"
-
-    @classmethod
-    def Spotify(cls) -> str:
-        return cls.SPOTIFY.value
-
 class LoopState(Enum):
     NOTHING = auto()
     SINGLE = auto()

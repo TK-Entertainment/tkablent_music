@@ -199,6 +199,8 @@ tkablent-3.9/Scripts/pip3.exe
 tkablent-3.9/Scripts/python.exe
 tkablent-3.9/Scripts/pythonw.exe
 TKablent_Codespaces.code-workspace
-utils/search_cache.json.bak
+music_comp/data.json
+music_comp/search_cache.json
+music_comp/search_cache.json.bak
 plugins/lavasearch-plugin-1.0.0.jar
 plugins/lavasrc-plugin-4.0.0.jar

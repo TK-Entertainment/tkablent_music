@@ -35,7 +35,7 @@ bot = commands.AutoShardedBot(
     command_prefix=prefix, intents=intents, help_command=None, status=status
 )
 
-from utils import *
+from music_comp import *
 
 precenses = [
     discord.Game(f"需要幫助? | {bot.command_prefix}help"),
