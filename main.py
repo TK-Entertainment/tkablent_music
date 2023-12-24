@@ -19,8 +19,8 @@ branch = "master"
 
 if production:
     status = discord.Status.online
-    production_status = "dev"  # ce for cutting edge, s for stable
-    test_subject = "wl3.0-depend"
+    production_status = "ce"  # ce for cutting edge, s for stable
+    test_subject = "wl3.0_test"
     bot_version = "m.LOCALDEBUG{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd

@@ -32,22 +32,25 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = "https://i.imgur.com/JoUL5CF.gif"
+        self.picture = ""
         self.emergency_build = True
 
-        self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20230716.7-s"
+        self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231224.wl30_test-ce"
 
         # Index 0 means changelog state (# for inherit version separator, + for new stuff, ! for changed stuff, - for removed stuff, (!) for emergency log)
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["(!)", "【緊急修復】修復了播放資訊訊息在被意外刪除後，可能會導致機器人往後不在該伺服器傳送播放訊息的問題", "=> 此版本已修復此問題"],
-            ["#", "以下為 m.20230716.7-s 更新內容", "============="],
-            ["!", "【優化】推薦歌曲功能啟動的體驗 (詳情可參圖)", "=> 修改了一下推薦歌曲按鈕的工作方式\n=> 過去的版本會等待歌曲處理完成後才會更改狀態，但這很容易使 Discord 逾時而出現假性無回應狀態\n=> 此次更新優化了體驗，機器人會先更改狀態，並在之後才更新處理完成的歌曲"],
-            ["!", "【修正】修復部分按鈕邏輯問題", "=> 此版本修復了有時按鈕已被停用，但是按鈕顏色仍然保持未停用時的狀態的問題"],
-            ["#", "以下為 m.20230716.6-s 更新內容", "============="],
-            ["!", "【優化】大幅加速搜尋提示字及本地緩存儲存處理速度", "=> 優化終於來啦，這次是個大的\n=> 經過內部測試，在相同環境、相同候選字、皆無快取的情況下\n=> 搜尋速度加快超過 **5** 倍速度，本地緩存儲存速度則加快約 **1.4** 倍\n=> 詳情可至 [Github Release | m.20231209.linkandui-ce](https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231209.linkandui-ce) 查看"],
-            ["+", "【新增】新增各伺服器的更新資訊推送", "=> 考慮到並非所有使用者都有加入本群組，機器人自本版本起會在該伺服器更新後第一次傳送要求時傳送更新資訊，讓所有使用者知道我們準備了什麼好料的 (owob)"]
+            ["+", "【新增】機器人播放 Spotify 歌曲時會顯示相關警告", "=> 以前就已經確認 Spotify 音源準確性的問題\n=> 從此版本開始會顯示警告"],
+            ["!", "【更新】機器人播放組件 API 更新到 Wavelink 3.0", "=> 這是一個很大的 API 更新，很多語法都改變了\n=> 還需要細項調整，此版本可能存在許多潛在問題"],
+            ["!", "【優化】棄用許多外置 API 套件", "=> 因 Lavalink 4.0 帶來了新的插件功能，故此版本開始棄用了許多的外置 API\n=> 可能可以為機器人帶來部分效能提升"],
+            ["!", "【優化】點播 Spotify 歌曲時，機器人將不再顯示等待畫面", "=> 拜 Lavalink 4.0 所賜，現在機器人可以很有效率的抓到歌曲\n=> 將不再需要等待"],
+            ["!", "【改變】/restart 指令改變為 /replay", "=> 從此版本開始，/restart 指令將重新命名為 /replay"],
+            ["!", "【改變】節慶提示字將自行成行", "============="],
+            ["#", "⚠️ 已知問題", "============="],
+            ["(!)", "【Bug】Spotify 的推薦歌曲功能將暫時無法使用", "=> 目前因 API 架構改變，尚未找到方法實作 Spotify 的推薦\n=> 故 Spotify 之歌曲將暫時無法使用機器人的推薦功能"],
+            ["(!)", "【Bug】Bilibili 歌曲播放功能尚未確定可以使用", "=> 目前此版本尚未測試是否可以播放 BiliBili 的歌曲\n=> 故可能暫時無法使用"],
+            ["(!)", "【Bug】其他因大架構更新而出現的問題", "=> 如上所述，此版本是更新架構後第一個釋出版本，可能存在諸多問題\n=> 還請各位測試人員協助回報問題，這樣我們才能更快的讓所有人用到這個版本！\n=> 非常感謝！"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
