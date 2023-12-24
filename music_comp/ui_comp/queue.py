@@ -41,10 +41,7 @@ class Queue:
         if len(playlist.order) == 1:
             return
         if (len(playlist.order) > 1 and is_search) or (
-            isinstance(
-                trackinfo,
-                Union[list[wavelink.Playable], list[wavelink.Playlist]],
-            )
+            isinstance(trackinfo, list) and (len(trackinfo) > 1)
         ):
             if is_search:
                 msg = f"""
@@ -81,7 +78,8 @@ class Queue:
                 color_code="green", index=index, guild_id=interaction.guild.id
             )
 
-        if self.guild_info(interaction.guild.id).playinfo is not None:
+        if (self.guild_info(interaction.guild.id).playinfo is not None) and (
+            self.guild_info(interaction.guild.id).playinfo_view is not None):
             self.guild_info(
                 interaction.guild.id
             ).playinfo_view.skip.emoji = lastpage_emoji
@@ -110,7 +108,10 @@ class Queue:
                     msg, embed=embed, ephemeral=True
                 )
             else:
-                await interaction.channel.send(msg, embed=embed)
+                try:
+                    await interaction.followup.edit_message(msg, embed=embed)
+                except:
+                    await interaction.channel.send(msg, embed=embed)
         try:
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:

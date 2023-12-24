@@ -544,13 +544,7 @@ class PlayerControl:
                 await interaction.response.edit_message(view=view)
                 await self.toggle(interaction, button, "done")
                 if self.guild_info(channel.guild.id).music_suggestion:
-                    await asyncio.wait_for(
-                        self.musicbot.track_helper.process_suggestion(
-                            channel.guild, self.guild_info(channel.guild.id)
-                        ),
-                        None
-                    )
-                    await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                    await self.musicbot.track_helper.process_suggestion(channel.guild, self.guild_info(channel.guild.id))
 
             @discord.ui.button(
                 emoji=pause_emoji if not voice_client.paused else play_emoji,
@@ -581,7 +575,6 @@ class PlayerControl:
             ):
                 await self.toggle(interaction, button, "toggle")
                 await self.musicbot._stop(channel.guild)
-                await self.musicbot._post_track_playing(interaction.guild, interaction.guild.voice_client)
                 self.guild_info(channel.guild.id).music_suggestion = False
                 self.guild_info(interaction.guild.id).leaveoperation = True
 
@@ -610,10 +603,9 @@ class PlayerControl:
             ):
                 await self.toggle(interaction, button, "toggle")
                 self.guild_info(channel.guild.id).skip = True
-                await self.musicbot._post_track_playing(interaction.guild, interaction.guild.voice_client)
                 await self.musicbot._skip(channel.guild)
 
-                if not self.musicbot._playlist.check_current_suggest_support(
+                if not self.musicbot.track_helper.check_current_suggest_support(
                     interaction.guild.id
                 ):
                     self.guild_info(
@@ -748,7 +740,7 @@ class PlayerControl:
 
                     if (
                         not self.suggest.disabled
-                        and not self.musicbot._playlist.check_current_suggest_support(
+                        and not self.musicbot.track_helper.check_current_suggest_support(
                             channel.guild.id
                         )
                     ):
@@ -779,15 +771,14 @@ class PlayerControl:
                 label="⬜ 推薦音樂"
                 if not self.guild_info(channel.guild.id).music_suggestion
                 else "✅ 推薦音樂",
-                style=discord.ButtonStyle.danger
-                if not self.guild_info(channel.guild.id).music_suggestion
-                else discord.ButtonStyle.gray
-                if not self.musicbot._playlist.check_current_suggest_support(
+                style=discord.ButtonStyle.gray
+                if not self.musicbot.track_helper.check_current_suggest_support(
                     channel.guild.id
-                )
+                ) else discord.ButtonStyle.danger
+                if not self.guild_info(channel.guild.id).music_suggestion
                 else discord.ButtonStyle.success,
                 emoji=bulb_emoji,
-                disabled=not self.musicbot._playlist.check_current_suggest_support(
+                disabled=not self.musicbot.track_helper.check_current_suggest_support(
                     channel.guild.id
                 ),
             )

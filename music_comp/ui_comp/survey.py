@@ -15,7 +15,7 @@ class Survey:
 
         self.survey_name = "202308_usual"
 
-        self.file_name = rf"{os.getcwd()}/utils/surveys/{self.survey_name}_survey.json"
+        self.file_name = rf"{os.getcwd()}/music_comp/surveys/{self.survey_name}_survey.json"
         self.survey_thread = 1137651881292865596
 
         self.bot: commands.Bot = musicbot.bot

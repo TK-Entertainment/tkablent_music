@@ -7,7 +7,7 @@ import copy
 
 import wavelink
 from wavelink.ext import spotify
-from ..playlist import LoopState, SpotifyAlbum, SpotifyPlaylist
+from ..playlist import LoopState
 from ..ui import LeaveType, StopType
 from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
 
@@ -217,19 +217,19 @@ class InfoGenerator:
                     )
 
             if holiday == "xmaseve":
-                embed._author["name"] += " | 🎄 今日聖誕夜"
+                embed._author["name"] += "\n🎄 今日聖誕夜"
             elif holiday == "xmas":
-                embed._author["name"] += " | 🎄 聖誕節快樂！"
+                embed._author["name"] += "\n🎄 聖誕節快樂！"
             elif holiday == "newyeareve":
-                embed._author["name"] += " | 🎊 明天就是{}了！".format(
+                embed._author["name"] += "\n🎊 明天就是{}了！".format(
                     datetime.datetime.now().year + 1
                 )
             elif holiday == "newyear":
-                embed._author["name"] += " | 🎊 {}新年快樂！".format(
+                embed._author["name"] += "\n🎊 {}新年快樂！".format(
                     datetime.datetime.now().year
                 )
             elif holiday == "cnewyear":
-                embed._author["name"] += " | 🧧 過年啦！你是發紅包還是收紅包呢？"
+                embed._author["name"] += "\n🧧 過年啦！你是發紅包還是收紅包呢？"
 
             if stateicon != "":
                 embed_opt["footer"]["text"] = (
@@ -284,25 +284,25 @@ class InfoGenerator:
                 embed.set_thumbnail(url=song.artwork)
 
             if (
-                not self.musicbot._playlist.check_current_suggest_support(guild_id)
+                not self.musicbot.track_helper.check_current_suggest_support(guild_id)
             ) and (
                 color_code != "red" or color_code != "green"
             ):  # color code refer to behaviour
                 # red stands for delete information, green stands for add to queue notice
                 embed.add_field(
                     name=f"{caution_emoji} | 自動歌曲推薦已暫時停用",
-                    value=f"此歌曲暫時不支援自動歌曲推薦功能，請選取其他歌曲來使用此功能",
+                    value=f"此歌曲暫時不支援自動歌曲推薦功能\n請播放其他歌曲來使用此功能",
                     inline=False,
                 )
 
-            # will be deleted after testing
-            if (
-                "bilibili" in song.uri
-                and "ce" in self.musicbot.bot_version
-            ):
+            if ("bilibili" in song.uri):
                 embed_opt["footer"]["text"] = (
-                    "bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
-                )
+                    "【!】bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
+            )
+            if ("spotify" in song.uri):
+                embed_opt["footer"]["text"] = (
+                    "【!】目前播放 Spotify 歌曲，結果可能不準確\n" + embed_opt["footer"]["text"]
+            )
 
         embed_opt["footer"]["text"] = (
             embed_opt["footer"]["text"] + "\n播放伺服器由 404 Network Information Co. 提供支援"
@@ -402,7 +402,7 @@ class InfoGenerator:
                     guild_id
                 ).playinfo_view.loop_control.style = discord.ButtonStyle.danger
 
-            if not self.musicbot._playlist.check_current_suggest_support(guild_id):
+            if not self.musicbot.track_helper.check_current_suggest_support(guild_id):
                 self.guild_info(
                     guild_id
                 ).playinfo_view.suggest.style = discord.ButtonStyle.gray

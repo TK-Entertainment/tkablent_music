@@ -7,7 +7,6 @@ import asyncio
 
 import discord
 import wavelink
-from ytmusicapi import YTMusic
 
 INF = int(1e18)
 
@@ -60,7 +59,6 @@ class PlaylistBase:
         )
         self._resuggest_task: asyncio.Task = None
         self._suggest_search_task: asyncio.Task = None
-        self._refresh_msg_task: asyncio.Task = None
         # self._playlisttask: dict[str, asyncio.Task] = {}
 
     def __getitem__(self, idx) -> Optional[wavelink.Playable]:
@@ -130,12 +128,16 @@ class Playlist:
     def __init__(self):
         self._guilds_info: Dict[int, PlaylistBase] = dict()
         self.spotify = None
-        self.ytapi: YTMusic = YTMusic(requests_session=False)
 
     def __delitem__(self, guild_id: int):
         if self._guilds_info.get(guild_id) is None:
             return
         del self._guilds_info[guild_id]
+
+    def __getitem__(self, guild_id: int) -> PlaylistBase:
+        if self._guilds_info.get(guild_id) is None:
+            self._guilds_info[guild_id] = PlaylistBase()
+        return self._guilds_info[guild_id]
 
     async def add_songs(
         self,
@@ -151,6 +153,7 @@ class Playlist:
 
         if isinstance(trackinfo[0], wavelink.Playlist):
             for track in trackinfo[0].tracks:
+                track.extras = {"requested_guild": guild_id}
                 track.requester = requester
                 track.requested_guild = guild_id
                 try:
@@ -162,7 +165,7 @@ class Playlist:
         else:
             for track in trackinfo:
                 track.requester = requester
-                track.requested_guild = guild_id
+                track.extras = {"requested_guild": guild_id}
                 try:
                     if track.suggested != True or track.suggested is None:
                         track.suggested = False

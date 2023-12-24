@@ -10,8 +10,8 @@ debug = False
 
 class CacheWorker:
     def __init__(self):
-        self._cache_path = rf"{os.getcwd()}/utils/search_cache.json"
-        self._bak_cache_path = rf"{os.getcwd()}/utils/search_cache.json.bak"
+        self._cache_path = rf"{os.getcwd()}/music_comp/search_cache.json"
+        self._bak_cache_path = rf"{os.getcwd()}/music_comp/search_cache.json.bak"
 
         """fetch from database"""
         try:

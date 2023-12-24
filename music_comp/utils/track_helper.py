@@ -1,15 +1,17 @@
 from typing import *
 
 import bilibili_api as bilibili
+from ytmusicapi import YTMusic
 import wavelink
 import discord
 from discord import app_commands
 import validators
 import asyncio
 import time
+import os
 from enum import Enum, auto
 
-from music_comp.ui import UI
+from music_comp.ui import UI, _sec_to_hms
 from music_comp.playlist import LoopState, Playlist, PlaylistBase
 from .storage import GuildUIInfo
 from .cache import CacheWorker
@@ -28,10 +30,27 @@ class SearchType(Enum):
 
 class TrackHelper():
     def __init__(self, ui_comp: UI, playlist: Playlist):
+        # bilibili needed value
+        SESSDATA = os.getenv("SESSDATA")
+        BILI_JCT = os.getenv("BILI_JCT")
+        BUVID3 = os.getenv("BUVID3")
+        DEDEUSERID = os.getenv("DEDEUSERID")
+        AC_TIME_VALUE = os.getenv("AC_TIME_VALUE")
+
         self.ui = ui_comp
         self._cacheworker: CacheWorker = CacheWorker()
         self._cache: dict = self._cacheworker._cache
         self._playlist = playlist
+        self.ytapi: YTMusic = YTMusic(requests_session=False)
+
+        # Bilibili API init
+        self._bilibilic = bilibili.Credential(
+            sessdata=SESSDATA,
+            bili_jct=BILI_JCT,
+            buvid3=BUVID3,
+            dedeuserid=DEDEUSERID,
+            ac_time_value=AC_TIME_VALUE,
+        )
 
     def __getitem__(self, guild_id: int) -> PlaylistBase:
         return self._playlist[guild_id]
@@ -40,7 +59,7 @@ class TrackHelper():
         current = self[guild_id].current()
 
         return (
-            current.source == "youtube" or current.source == "spotify"
+            current.source == "youtube"
         )
 # ================================================================================================= #
 #   Search Suggestion Process (Quick Search)
@@ -66,7 +85,7 @@ class TrackHelper():
             if isinstance(track, str):
                 return
 
-            length = self._sec_to_hms(
+            length = _sec_to_hms(
                 seconds=(track.length) / 1000, format="symbol"
             )
 
@@ -146,7 +165,7 @@ class TrackHelper():
             if isinstance(t, bilibili.video.AudioStreamDownloadURL):
                 raw_url = t.url.replace("&", "%26")
                 try:
-                    trackinfo = await wavelink.Playable.search(query=raw_url)
+                    trackinfo = await wavelink.Pool.fetch_tracks(raw_url)
                 except Exception as e:
                     raw_url = None
                     continue
@@ -158,7 +177,7 @@ class TrackHelper():
             return None
 
         try:
-            trackinfo = await wavelink.Playable.search(raw_url)
+            trackinfo = await wavelink.Pool.fetch_tracks(raw_url)
         except Exception as e:
             return e
 
@@ -207,6 +226,8 @@ class TrackHelper():
             track = await self._get_bilibili_track(interaction, search)
             if isinstance(track, Exception):
                 return track
+            elif track is None:
+                return [None]
             else:
                 tracks.extend(track)
 
@@ -436,12 +457,7 @@ class TrackHelper():
                         suggestion, index, ui_guild_info, pre_process=False
                     )
 
-                    if suggested_track is not None:
-                        if self[guild.id]._refresh_msg_task is not None:
-                            self[guild.id]._refresh_msg_task.cancel()
-                            self[guild.id]._refresh_msg_task = None
-                        break
-                    else:
+                    if suggested_track is None:
                         index += 1
 
             if self[guild.id]._resuggest_task is not None:
@@ -465,5 +481,8 @@ class TrackHelper():
             print(
                 f"[Suggestion] Suggested {ui_guild_info.suggestions[0].title} for {guild.id} in next song, added to history storage"
             )
-            await self.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "自動推薦歌曲")
+            await self._playlist.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "自動推薦歌曲")
             ui_guild_info.suggestion_processing = False
+            if ui_guild_info.skip:
+                ui_guild_info.skip = False
+            await self.ui._InfoGenerator._UpdateSongInfo(guild.id)

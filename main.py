@@ -1,4 +1,4 @@
-from typing import *
+
 import os, dotenv, sys, asyncio
 
 import discord

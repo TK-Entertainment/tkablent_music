@@ -1,9 +1,15 @@
-from typing import *
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import datetime
 from enum import Enum, auto
 from .utils.storage import GuildUIInfo
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
+    from .player import MusicCog
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -49,9 +55,6 @@ def _sec_to_hms(seconds, format) -> str:
             return f"{min} 分 {sec} 秒"
         elif sec != 0:
             return f"{sec} 秒"
-
-
-from .player import MusicCog
 
 class LeaveType(Enum):
     ByCommand = auto()
@@ -119,7 +122,7 @@ class GroupButton(discord.ui.View):
 
 
 class UI:
-    def __init__(self, music_bot, botversion):
+    def __init__(self, music_bot: MusicCog, botversion: str):
         global bot_version, musicbot, bot, embed_opt, groupbutton
         bot_version = botversion
 

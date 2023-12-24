@@ -9,8 +9,9 @@ from discord import app_commands
 
 import bilibili_api as bilibili
 import wavelink
-from .playlist import Playlist, LoopState, SearchType
-from .utils.storage import GuildInfo, GuildUIInfo
+from .playlist import Playlist, LoopState
+from .utils.track_helper import SearchType
+from .utils.storage import GuildInfo
 
 INF = int(1e18)
 
@@ -39,20 +40,6 @@ class Player:
         SEARCH_PORT_2 = os.getenv("WAVELINK_SEARCH_PORT_2")
         PASSWORD = os.getenv("WAVELINK_PWD")
 
-        # Spotify needed value
-        SPOTIFY_ID = os.getenv("SPOTIFY_ID")
-        SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET")
-
-        # bilibili needed value
-        SESSDATA = os.getenv("SESSDATA")
-        BILI_JCT = os.getenv("BILI_JCT")
-        BUVID3 = os.getenv("BUVID3")
-        DEDEUSERID = os.getenv("DEDEUSERID")
-        AC_TIME_VALUE = os.getenv("AC_TIME_VALUE")
-
-        # Spotify init
-        self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
-
         # Define Wavelink Host
         mainplayhost = wavelink.Node(
             identifier="TW_PlayBackNode",
@@ -69,19 +56,6 @@ class Player:
             uri=f"http://{LOCAL_SEARCH_HOST_2}:{SEARCH_PORT_2}",
             password=PASSWORD,
         )
-
-        # Bilibili API init
-        self._bilibilic = bilibili.Credential(
-            sessdata=SESSDATA,
-            bili_jct=BILI_JCT,
-            buvid3=BUVID3,
-            dedeuserid=DEDEUSERID,
-            ac_time_value=AC_TIME_VALUE,
-        )
-
-        # Check whether Bilibili cookie is valid
-        valid = await self._bilibilic.check_valid()
-        print(f"[BiliBili API] Cookie valid: {valid}")
 
         # Wavelink connection establishing
         await wavelink.Pool.connect(
@@ -180,6 +154,7 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
         if timestamp >= (self._playlist[guild.id].current().length) / 1000:
             await voice_client.skip()
+            return
         await voice_client.seek(timestamp * 1000)
 
     ###############
@@ -391,7 +366,6 @@ class MusicCog(Player, commands.Cog):
     async def skip(self, interaction: discord.Interaction):
         try:
             await self._skip(interaction.guild)
-            await self._post_track_playing(interaction.guild, interaction.guild.voice_client)
             self.ui.PlayerControl.SkipProceed(interaction.guild.id)
             if not interaction.response.is_done():
                 await interaction.response.send_message("⠀")
@@ -416,7 +390,6 @@ class MusicCog(Player, commands.Cog):
         await self.ui.Changelogs.SendChangelogs(interaction)
         try:
             await self._stop(interaction.guild)
-            await self._post_track_playing(interaction.guild, interaction.guild.voice_client)
             await self.ui.PlayerControl.StopSucceed(interaction)
         except Exception as e:
             await self.ui.PlayerControl.StopFailed(interaction, e)
@@ -558,7 +531,8 @@ class MusicCog(Player, commands.Cog):
         # Call search function
         try:
             is_search = isinstance(trackinfo, list) and (
-                not isinstance(trackinfo[0], wavelink.Playlist)
+                not isinstance(trackinfo[0], wavelink.Playlist) and (
+                len(trackinfo) > 1)
             )
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
@@ -596,12 +570,9 @@ class MusicCog(Player, commands.Cog):
             await interaction.response.send_message("⠀")
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
-        
-        if self.ui_guild_info(interaction.guild.id).playinfo is None:
-            await self.ui.PlayerControl.PlayingMsg(interaction)
 
     async def get_search_suggest(self, interaction: discord.Interaction, current: str):
-        return self.track_helper.get_search_suggest(interaction, current)
+        return await self.track_helper.get_search_suggest(interaction, current)
 
     @app_commands.command(name="play", description="🎶 | 想聽音樂？來這邊點歌吧~")
     @app_commands.describe(
@@ -636,10 +607,6 @@ class MusicCog(Player, commands.Cog):
 
     ##############################
 
-    async def _refresh_msg(self, guild):
-        await asyncio.sleep(3)
-        await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-
     @commands.Cog.listener(name="on_voice_state_update")
     async def end_session(
         self,
@@ -669,25 +636,20 @@ class MusicCog(Player, commands.Cog):
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         await self._get_current_stats()
         try:
-            guild = payload.track.requested_guild
+            guild = discord.Object(payload.track.extras.requested_guild)
             if self[guild.id]._timer is not None:
                 self[guild.id]._timer.cancel()
                 self[guild.id]._timer = None
             await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-            self[guild.id]._refresh_msg_task = self._playlist[
-                guild.id
-            ]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
         except:
             pass
 
-    async def _post_track_playing(self, guild: discord.Guild, player: wavelink.Player):
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        await self._get_current_stats()
+        guild = discord.Object(payload.track.extras.requested_guild)
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.2)
-        if self[guild.id]._refresh_msg_task is not None:
-            self[guild.id]._refresh_msg_task.cancel()
-            self[guild.id]._refresh_msg_task = self._playlist[
-                guild.id
-            ]._refresh_msg_task = None
 
         if len(self._playlist[guild.id].order) == 0:
             if not (
@@ -699,19 +661,7 @@ class MusicCog(Player, commands.Cog):
             self._start_timer(guild)
             return
         else:
-            self._playlist[guild.id]._refresh_msg_task = self[
-                guild.id
-            ]._refresh_msg_task
-
-            await asyncio.wait_for(
-                self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
-                None,
-            )
-
-            # Sync the task status with playlist
-            self[guild.id]._refresh_msg_task = self._playlist[
-                guild.id
-            ]._refresh_msg_task
+            await self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
 
             song = self._playlist[guild.id].current()
             try:
@@ -720,15 +670,6 @@ class MusicCog(Player, commands.Cog):
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
                 pass
-
-    @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
-        await self._get_current_stats()
-        try:
-            guild = payload.player.guild
-            await self._post_track_playing(guild, payload.player)
-        except:
-            pass
 
 
     # Error handler
