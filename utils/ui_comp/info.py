@@ -42,9 +42,7 @@ class InfoGenerator:
             holiday = "newyeareve"
         elif month == 1 and day == 1:
             holiday = "newyear"
-        elif (month >= 1 and month <= 2 and day >= 21) or (
-            month >= 2 and month <= 3 and day <= 20
-        ):
+        elif (month == 1 and day >= 21 and day <= 30):
             holiday = "cnewyear"
         else:
             holiday = ""
@@ -219,6 +217,8 @@ class InfoGenerator:
                 )
             elif holiday == "cnewyear":
                 embed._author["name"] += " | 🧧 過年啦！你是發紅包還是收紅包呢？"
+            else:
+                pass
 
             if stateicon != "":
                 embed_opt["footer"]["text"] = (
