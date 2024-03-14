@@ -1,5 +1,5 @@
 from typing import *
-import asyncio, json, os, time
+import asyncio, os
 import dotenv
 import validators
 
@@ -7,10 +7,8 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-import bilibili_api as bilibili
 import wavelink
 from .playlist import Playlist, LoopState
-from .utils.track_helper import SearchType
 from .utils.storage import GuildInfo
 
 INF = int(1e18)
@@ -647,7 +645,7 @@ class MusicCog(Player, commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         await self._get_current_stats()
-        guild = discord.Object(payload.track.extras.requested_guild)
+        guild = discord.Guild(payload.track.extras.requested_guild)
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.2)
 

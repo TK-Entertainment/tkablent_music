@@ -1,12 +1,10 @@
 from typing import *
 import discord
-import requests
 import random
 import datetime
 import copy
 
 import wavelink
-from wavelink.ext import spotify
 from ..playlist import LoopState
 from ..ui import LeaveType, StopType
 from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
@@ -42,9 +40,7 @@ class InfoGenerator:
             holiday = "newyeareve"
         elif month == 1 and day == 1:
             holiday = "newyear"
-        elif (month >= 1 and month <= 2 and day >= 21) or (
-            month >= 2 and month <= 3 and day <= 20
-        ):
+        elif (month == 1 and day >= 21 and day <= 30):
             holiday = "cnewyear"
         else:
             holiday = ""
@@ -67,6 +63,7 @@ class InfoGenerator:
 
         # This part for non-playing state
         if len(playlist.order) == 0:
+            # String that shows when bot leaving
             if isinstance(operation, LeaveType):
                 match operation:
                     case LeaveType.ByCommand:
@@ -78,6 +75,7 @@ class InfoGenerator:
                             txt = f"📤 | 由 {operator.name}#{operator.discriminator} 要求退出語音/舞台頻道"
                     case LeaveType.ByTimeout:
                         txt = f"📤/🕗 | 因機器人已閒置 10 分鐘，已自動退出"
+            # String that shows when bot stopping
             elif isinstance(operation, StopType):
                 match operation:
                     case StopType.ByCommand:
@@ -215,21 +213,22 @@ class InfoGenerator:
                         value=f"點擊 ⏩ **跳過** / ⏹️ **停止播放**\n來結束播放此直播",
                         inline=True,
                     )
-
-            if holiday == "xmaseve":
-                embed._author["name"] += "\n🎄 今日聖誕夜"
-            elif holiday == "xmas":
-                embed._author["name"] += "\n🎄 聖誕節快樂！"
-            elif holiday == "newyeareve":
-                embed._author["name"] += "\n🎊 明天就是{}了！".format(
-                    datetime.datetime.now().year + 1
-                )
-            elif holiday == "newyear":
-                embed._author["name"] += "\n🎊 {}新年快樂！".format(
-                    datetime.datetime.now().year
-                )
-            elif holiday == "cnewyear":
-                embed._author["name"] += "\n🧧 過年啦！你是發紅包還是收紅包呢？"
+            
+            if holiday != "":
+                if holiday == "xmaseve":
+                    embed._author["name"] += "\n🎄 今日聖誕夜"
+                elif holiday == "xmas":
+                    embed._author["name"] += "\n🎄 聖誕節快樂！"
+                elif holiday == "newyeareve":
+                    embed._author["name"] += "\n🎊 明天就是{}了！".format(
+                        datetime.datetime.now().year + 1
+                    )
+                elif holiday == "newyear":
+                    embed._author["name"] += "\n🎊 {}新年快樂！".format(
+                        datetime.datetime.now().year
+                    )
+                elif holiday == "cnewyear":
+                    embed._author["name"] += "\n🧧 過年啦！你是發紅包還是收紅包呢？"
 
             if stateicon != "":
                 embed_opt["footer"]["text"] = (
