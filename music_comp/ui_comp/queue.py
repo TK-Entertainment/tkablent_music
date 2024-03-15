@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING, Union, Optional
+if TYPE_CHECKING:
+    from typing import *
 import discord
 import copy
 
@@ -346,32 +348,32 @@ class Queue:
                     await msg.delete()
 
         view = QueueListing()
-        if len(playlist.order) < 2:
+        # if len(playlist.order) < 2:
+        #     view.clear_page_control()
+        #     if op == "button":
+        #         view.remove_item(view.done)
+        #         txt = "\n            *請點按「刪除這些訊息」來關閉此訊息*"
+        #     else:
+        #         txt = ""
+        #     await interaction.response.send_message(
+        #         f"""
+        #     **:information_source: | 待播歌曲**
+        #     目前沒有任何歌曲待播中
+        #     *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*{txt}
+        #     """,
+        #         ephemeral=(op == "button"),
+        #         view=view,
+        #     )
+        #     msg = await interaction.original_response()
+        #     return
+        # else:
+        embed = self._QueueEmbed(playlist, 0, op)
+        if (len(playlist.order)) <= 4:
             view.clear_page_control()
-            if op == "button":
-                view.remove_item(view.done)
-                txt = "\n            *請點按「刪除這些訊息」來關閉此訊息*"
-            else:
-                txt = ""
-            await interaction.response.send_message(
-                f"""
-            **:information_source: | 待播歌曲**
-            目前沒有任何歌曲待播中
-            *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*{txt}
-            """,
-                ephemeral=(op == "button"),
-                view=view,
-            )
-            msg = await interaction.original_response()
-            return
-        else:
-            embed = self._QueueEmbed(playlist, 0, op)
-            if (len(playlist.order)) <= 4:
-                view.clear_page_control()
-            if op == "button":
-                view.remove_item(view.done)
+        if op == "button":
+            view.remove_item(view.done)
 
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=(op == "button")
-            )
-            msg = await interaction.original_response()
+        await interaction.response.send_message(
+            embed=embed, view=view, ephemeral=(op == "button")
+        )
+        msg = await interaction.original_response()

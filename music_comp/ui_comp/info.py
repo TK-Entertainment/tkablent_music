@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING, Union
+if TYPE_CHECKING:
+    from typing import *
 import discord
 import random
 import datetime
@@ -383,6 +385,13 @@ class InfoGenerator:
                     guild_id
                 ).playinfo_view.skip.style = discord.ButtonStyle.blurple
                 self.guild_info(guild_id).playinfo_view.skip.disabled = False
+
+            if self.musicbot._playlist.is_noqueue(guild_id):
+                self.guild_info(guild_id).playinfo_view.listqueue.disabled = True
+                self.guild_info(guild_id).playinfo_view.listqueue.label = "暫無待播歌曲"
+            else:
+                self.guild_info(guild_id).playinfo_view.listqueue.disabled = False
+                self.guild_info(guild_id).playinfo_view.listqueue.label = "待播清單"
 
             if self.musicbot._playlist[guild_id].loop_state == LoopState.SINGLE:
                 # Modify loop button label to current loop times

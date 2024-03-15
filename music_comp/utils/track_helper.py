@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING, Optional, Union, Dict, List, Literal
+if TYPE_CHECKING:
+    from typing import *
 
 import bilibili_api as bilibili
 from ytmusicapi import YTMusic
@@ -77,7 +79,7 @@ class TrackHelper():
                     result.append(
                         app_commands.Choice(
                             name=f"{self._cache[track.identifier]['title']} | {self._cache[track.identifier]['length']}",
-                            value=f"https://www.youtube.com/watch?v={track.identifier}",
+                            value=f"sid=>{track.identifier}",
                         )
                     )
                     return
@@ -97,7 +99,7 @@ class TrackHelper():
             result.append(
                 app_commands.Choice(
                     name=f"{track.title} | {length}",
-                    value=f"https://www.youtube.com/watch?v={track.identifier}",
+                    value=f"sid=>{track.identifier}",
                 )
             )
 
@@ -204,6 +206,9 @@ class TrackHelper():
                     url = raw_url
             else:
                 url = raw_url
+        elif "sid=>" in raw_url:
+            vid = raw_url.split("=>")[1]
+            url = f"https://www.youtube.com/watch?v={vid}"
         else:
             url = raw_url
 
@@ -231,7 +236,7 @@ class TrackHelper():
             else:
                 tracks.extend(track)
 
-        elif validators.url(search):
+        elif (validators.url(search)) or ("sid=>" in search):
             url = self._parse_url(search, choice)
             callback = await wavelink.Playable.search(url)
             if isinstance(callback, list):

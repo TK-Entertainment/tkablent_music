@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING, Union
+if TYPE_CHECKING:
+    from typing import *
 import asyncio, os
 import dotenv
 import validators
@@ -179,7 +181,7 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
         self._start_timer(guild)
 
-        if not voice_client.playing and len(self._playlist[guild.id].order) > 0:
+        if not voice_client.paused and len(self._playlist[guild.id].order) == 1:
             await voice_client.play(self._playlist[guild.id].current())
 
     ########
@@ -298,7 +300,7 @@ class MusicCog(Player, commands.Cog):
     ##############################################
 
     async def join(self, interaction: discord.Interaction):
-        voice_client: wavelink.Player = interaction.guild.voice_client
+        voice_client = interaction.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
             if voice_client.channel != interaction.user.voice.channel:
                 await self.rejoin(interaction)
@@ -581,7 +583,10 @@ class MusicCog(Player, commands.Cog):
     async def _i_play(self, interaction: discord.Interaction, search: str):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
         await self.ui.Changelogs.SendChangelogs(interaction)
-        if validators.url(search):
+        if "sid=>" in search:
+            tracks = await self.track_helper.get_track(interaction, search)
+            await self.play(interaction, tracks)
+        elif validators.url(search):
             if (
                 "list" in search
                 and "watch" in search
@@ -645,7 +650,7 @@ class MusicCog(Player, commands.Cog):
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         await self._get_current_stats()
-        guild = discord.Guild(payload.track.extras.requested_guild)
+        guild: discord.Guild = self.bot.get_guild(payload.track.extras.requested_guild)
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.2)
 
@@ -660,6 +665,8 @@ class MusicCog(Player, commands.Cog):
             return
         else:
             await self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
+
+            player: wavelink.Player = guild.voice_client
 
             song = self._playlist[guild.id].current()
             try:

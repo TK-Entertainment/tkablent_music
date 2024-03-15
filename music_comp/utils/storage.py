@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
 
 import discord
 import asyncio
@@ -62,7 +64,7 @@ class GuildInfo:
         self._changelogs_latestversion = value
         self.update("changelogs_latestversion", value)
 
-    def fetch(self, key: str) -> not None:
+    def fetch(self, key: str) -> None:
         """fetch from database"""
         with open(self._database, "r") as f:
             data: dict = json.load(f)

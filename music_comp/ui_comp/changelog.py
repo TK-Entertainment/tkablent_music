@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
 import discord
 from discord.ext import commands
 import json, os

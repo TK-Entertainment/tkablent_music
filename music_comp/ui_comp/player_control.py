@@ -1,5 +1,7 @@
 import random
-from typing import *
+from typing import TYPE_CHECKING, Union
+if TYPE_CHECKING:
+    from typing import *
 import discord
 import wavelink
 import asyncio
@@ -642,6 +644,14 @@ class PlayerControl:
                     self.skip_task = self.bot.loop.create_task(
                         self.guild_info(channel.guild.id).playinfo_view.restore_skip()
                     )
+
+                    if self.musicbot._playlist.is_noqueue(channel.guild.id):
+                        self.guild_info(channel.guild.id).playinfo_view.listqueue.disabled = True
+                        self.guild_info(channel.guild.id).playinfo_view.listqueue.label = "暫無待播歌曲"
+                    else:
+                        self.guild_info(channel.guild.id).playinfo_view.listqueue.disabled = False
+                        self.guild_info(channel.guild.id).playinfo_view.listqueue.label = "待播清單"
+                    
                     view = self.guild_info(channel.guild.id).playinfo_view
                 else:
                     embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
@@ -789,7 +799,7 @@ class PlayerControl:
                 await self.suggestion_control(interaction, button)
 
             @discord.ui.button(
-                label="搜尋/新增歌曲", emoji=search_emoji, style=discord.ButtonStyle.green
+                label="新增歌曲", emoji=search_emoji, style=discord.ButtonStyle.green
             )
             async def new_song(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -799,7 +809,10 @@ class PlayerControl:
                 )
 
             @discord.ui.button(
-                label="列出候播清單", emoji=queue_emoji, style=discord.ButtonStyle.gray, row=2
+                label="暫無待播歌曲" if musicbot._playlist.is_noqueue(channel.guild.id) else "待播清單",
+                emoji=queue_emoji, 
+                disabled=musicbot._playlist.is_noqueue(channel.guild.id),
+                style=discord.ButtonStyle.gray, row=2
             )
             async def listqueue(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -807,9 +820,7 @@ class PlayerControl:
                 await self.queue.ShowQueue(interaction, "button")
 
             @discord.ui.button(
-                label="離開語音頻道"
-                if isinstance(channel.guild.voice_client.channel, discord.VoiceChannel)
-                else "離開舞台頻道",
+                label="結束播放",
                 emoji=leave_emoji,
                 style=discord.ButtonStyle.gray,
                 row=2,
@@ -864,13 +875,11 @@ class PlayerControl:
                 await self.guild_info(channel.guild.id).playinfo.edit(embed=embed)
             except:
                 view = PlaybackControl()
-
                 view.skip.emoji = loading_emoji
                 view.skip.disabled = True
                 view.skip.style = discord.ButtonStyle.gray
                 self.bot.loop.create_task(view.restore_skip())
 
-                self.guild_info(channel.guild.id).playinfo_view = view
                 self.guild_info(channel.guild.id).playinfo = await channel.send(
                     embed=embed, view=view)
         try:
