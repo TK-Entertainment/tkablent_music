@@ -1,4 +1,3 @@
-from typing import *
 import os, dotenv, sys, asyncio
 
 import discord
@@ -6,7 +5,7 @@ from discord.ext import commands
 import wavelink
 
 print(
-    f"""
+f""" 
 Current Version
 {sys.version}
 """
@@ -19,8 +18,9 @@ branch = "master"
 
 if production:
     status = discord.Status.online
-    production_status = "s"  # ce for cutting edge, s for stable
-    bot_version = f"m.20230716.7.e2-{production_status}"
+    production_status = "ce"  # ce for cutting edge, s for stable
+    test_subject = "wl3.0_test"
+    bot_version = "m.LOCALDEBUG{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
@@ -34,14 +34,14 @@ bot = commands.AutoShardedBot(
     command_prefix=prefix, intents=intents, help_command=None, status=status
 )
 
-from utils import *
+from music_comp import *
 
 precenses = [
     discord.Game(f"需要幫助? | {bot.command_prefix}help"),
     discord.Game(f"來點音樂? | {bot.command_prefix}play"),
     discord.Game("迷因、幹話、美好的事物"),
     discord.Game("為平淡的生活增添更多色彩"),
-    discord.Game(f"TKablent | {bot_version}"),
+    discord.Game(f"{bot_version}"),
 ]
 
 
@@ -70,7 +70,7 @@ async def on_ready():
     await bot.tree.sync()
 
     cog: MusicCog = bot.cogs["MusicCog"]
-    await cog.resolve_ui()
+    await cog.post_boot()
     await cog._create_daemon()
 
     print(
@@ -95,12 +95,12 @@ async def on_ready():
 
 
 @bot.event
-async def on_wavelink_node_ready(node: wavelink.Node):
+async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
     print(
         f"""
         Wavelink 音樂處理伺服器已準備完畢
 
-        伺服器名稱: {node.id}
+        伺服器名稱: {payload.node.identifier}
     """
     )
 

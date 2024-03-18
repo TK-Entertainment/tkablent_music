@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
 
 import discord
 import asyncio
@@ -9,8 +11,8 @@ class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
         self.text_channel: discord.TextChannel = None
+        self._database: str = rf"{os.getcwd()}/music_comp/data.json"
         self._task: asyncio.Task = None
-        self._refresh_msg_task: asyncio.Task = None
         self._timer: asyncio.Task = None
         self._dsa: bool = None
         self._multitype_remembered: bool = None
@@ -62,9 +64,9 @@ class GuildInfo:
         self._changelogs_latestversion = value
         self.update("changelogs_latestversion", value)
 
-    def fetch(self, key: str) -> not None:
+    def fetch(self, key: str) -> None:
         """fetch from database"""
-        with open(rf"{os.getcwd()}/utils/data.json", "r") as f:
+        with open(self._database, "r") as f:
             data: dict = json.load(f)
         if (
             data.get(str(self.guild_id)) is None
@@ -76,12 +78,12 @@ class GuildInfo:
     def update(self, key: str, value: str) -> None:
         """update database"""
 
-        with open(rf"{os.getcwd()}/utils/data.json", "r") as f:
+        with open(self._database, "r") as f:
             data: dict = json.load(f)
         if data.get(str(self.guild_id)) is None:
             data[str(self.guild_id)] = dict()
         data[str(self.guild_id)][key] = value
-        with open(rf"{os.getcwd()}/utils/data.json", "w") as f:
+        with open(self._database, "w") as f:
             json.dump(data, f)
 
 class GuildUIInfo:

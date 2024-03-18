@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING, Union
+if TYPE_CHECKING:
+    from typing import *
 import discord
 import datetime
 

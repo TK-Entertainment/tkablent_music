@@ -1,9 +1,15 @@
-from typing import *
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import datetime
 from enum import Enum, auto
-from .storage import GuildUIInfo
+from .utils.storage import GuildUIInfo
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
+    from .player import MusicCog
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -50,9 +56,6 @@ def _sec_to_hms(seconds, format) -> str:
         elif sec != 0:
             return f"{sec} 秒"
 
-
-from .player import MusicCog
-
 class LeaveType(Enum):
     ByCommand = auto()
     ByButton = auto()
@@ -96,7 +99,7 @@ rescue_emoji = discord.PartialEmoji.from_str("🛟")
 
 
 @staticmethod
-def guild_info(guild_id) -> GuildUIInfo:
+def guild_info(guild_id: int) -> GuildUIInfo:
     if _guild_ui_info.get(guild_id) is None:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
     return _guild_ui_info[guild_id]
@@ -119,7 +122,7 @@ class GroupButton(discord.ui.View):
 
 
 class UI:
-    def __init__(self, music_bot, botversion):
+    def __init__(self, music_bot: MusicCog, botversion: str):
         global bot_version, musicbot, bot, embed_opt, groupbutton
         bot_version = botversion
 
