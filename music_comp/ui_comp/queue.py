@@ -111,7 +111,7 @@ class Queue:
                 )
             else:
                 try:
-                    await interaction.followup.edit_message(msg, embed=embed)
+                    await interaction.followup.send(msg, embed=embed)
                 except:
                     await interaction.channel.send(msg, embed=embed)
         try:

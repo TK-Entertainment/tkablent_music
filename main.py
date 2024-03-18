@@ -1,4 +1,3 @@
-
 import os, dotenv, sys, asyncio
 
 import discord
@@ -6,7 +5,7 @@ from discord.ext import commands
 import wavelink
 
 print(
-    f"""
+f""" 
 Current Version
 {sys.version}
 """

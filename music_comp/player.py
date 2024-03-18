@@ -643,7 +643,13 @@ class MusicCog(Player, commands.Cog):
             if self[guild.id]._timer is not None:
                 self[guild.id]._timer.cancel()
                 self[guild.id]._timer = None
-            await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+            if self.ui_guild_info(guild.id).playinfo is None:
+                await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+            else:
+                await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+
+            if self.guild_info(guild.id).lastskip:
+                self.guild_info(guild.id).lastskip = False
         except:
             pass
 

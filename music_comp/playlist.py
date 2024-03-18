@@ -181,10 +181,7 @@ class Playlist:
         return self[guild_id].current()
 
     def is_noqueue(self, guild_id: int) -> bool:
-        return (
-            (self[guild_id].loop_state == LoopState.NOTHING and len(self[guild_id].order) <= 1) \
-            or (self[guild_id].loop_state != LoopState.NOTHING and len(self[guild_id].order) < 3)
-        )
+        return len(self[guild_id].order) < 2
 
     def swap(self, guild_id: int, idx1: int, idx2: int):
         self[guild_id].swap(idx1, idx2)
