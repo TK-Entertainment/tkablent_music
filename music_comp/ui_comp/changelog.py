@@ -3,10 +3,7 @@ if TYPE_CHECKING:
     from typing import *
 import discord
 from discord.ext import commands
-import json, os
 from ..ui import rescue_emoji, end_emoji
-from datetime import datetime
-import time
 import copy
 
 
@@ -35,9 +32,9 @@ class Changelogs:
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
         self.picture = ""
-        self.emergency_build = True
+        self.emergency_build = False
 
-        self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231224.wl30_test-ce"
+        self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
 
         # Index 0 means changelog state (# for inherit version separator, + for new stuff, ! for changed stuff, - for removed stuff, (!) for emergency log)
         # Index 1 means changelog summary
@@ -47,12 +44,15 @@ class Changelogs:
             ["!", "【更新】機器人播放組件 API 更新到 Wavelink 3.0", "=> 這是一個很大的 API 更新，很多語法都改變了\n=> 還需要細項調整，此版本可能存在許多潛在問題"],
             ["!", "【優化】棄用許多外置 API 套件", "=> 因 Lavalink 4.0 帶來了新的插件功能，故此版本開始棄用了許多的外置 API\n=> 可能可以為機器人帶來部分效能提升"],
             ["!", "【優化】點播 Spotify 歌曲時，機器人將不再顯示等待畫面", "=> 拜 Lavalink 4.0 所賜，現在機器人可以很有效率的抓到歌曲\n=> 將不再需要等待"],
+            ["!", "【優化】播放介面簡化，減少字數", "=> 為保持介面整潔，此版本簡化了播放介面的按鈕部分，減少了字數"],
             ["!", "【改變】/restart 指令改變為 /replay", "=> 從此版本開始，/restart 指令將重新命名為 /replay"],
+            ["!", "【修復】直接使用連結點歌會另外跳出訊息的問題", "=> 此版本修復了這個問題"],
+            ["!", "【修復】其他沒有特別寫出來的修正內容", "=> 修了蠻多有的沒的，已經忘記有哪些了 (*°∀°)"],
             ["!", "【改變】節慶提示字將自行成行", "============="],
             ["#", "⚠️ 已知問題", "============="],
             ["(!)", "【Bug】Spotify 的推薦歌曲功能將暫時無法使用", "=> 目前因 API 架構改變，尚未找到方法實作 Spotify 的推薦\n=> 故 Spotify 之歌曲將暫時無法使用機器人的推薦功能"],
             ["(!)", "【Bug】Bilibili 歌曲播放功能尚未確定可以使用", "=> 目前此版本尚未測試是否可以播放 BiliBili 的歌曲\n=> 故可能暫時無法使用"],
-            ["(!)", "【Bug】其他因大架構更新而出現的問題", "=> 如上所述，此版本是更新架構後第一個釋出版本，可能存在諸多問題\n=> 還請各位測試人員協助回報問題，這樣我們才能更快的讓所有人用到這個版本！\n=> 非常感謝！"],
+            ["(!)", "【Bug】其他因大架構更新而出現的問題", "=> 如上所述，此版本是更新架構後第一個釋出版本，可能存在諸多問題\n=> 還請各位使用者協助回報問題，這樣我們才能更快讓機器人變得更好！"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
