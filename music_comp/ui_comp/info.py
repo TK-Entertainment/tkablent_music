@@ -322,9 +322,9 @@ class InfoGenerator:
             title = f"{search_emoji} | 選取的搜尋歌曲"
             url = None
         elif isinstance(playlist[0], wavelink.Playlist):
-            if "spotify" in playlist[0].uri:
+            if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
                 title = f"{spotify_emoji} | {playlist[0].name}"
-                url = playlist[0].uri
+                url = playlist[0].url
             else:
                 title = f":newspaper: | 音樂播放清單"
                 url = None
@@ -358,7 +358,7 @@ class InfoGenerator:
         embed.add_field(
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
-        if "spotify" in playlist.uri:
+        if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
             embed.set_thumbnail(url=playlist.artwork)
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 

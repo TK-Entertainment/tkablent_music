@@ -40,7 +40,7 @@ class Join:
             try:
                 await interaction.response.send_message(msg)
             except discord.InteractionResponded:
-                await interaction.followup.send(content=msg)
+                await interaction.followup.send(content=msg, ephemeral=True)
 
     async def JoinStage(self, interaction: discord.Interaction, guild_id: int) -> None:
         channel = interaction.channel

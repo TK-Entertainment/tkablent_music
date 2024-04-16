@@ -181,7 +181,7 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
         self._start_timer(guild)
 
-        if not voice_client.paused and len(self._playlist[guild.id].order) == 1:
+        if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
             await voice_client.play(self._playlist[guild.id].current())
 
     ########

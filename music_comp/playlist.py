@@ -158,7 +158,7 @@ class Playlist:
                 track.requester = requester
                 track.requested_guild = guild_id
                 try:
-                    if isinstance(track.suggested, None):
+                    if track.suggested is None:
                         track.suggested = False
                 except:
                     track.suggested = False

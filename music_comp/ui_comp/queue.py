@@ -43,7 +43,7 @@ class Queue:
         if len(playlist.order) == 1:
             return
         if (len(playlist.order) > 1 and is_search) or (
-            isinstance(trackinfo, list) and (len(trackinfo) > 1)
+            isinstance(trackinfo, list) or isinstance(trackinfo[0], wavelink.Playlist) and (len(trackinfo) > 1)
         ):
             if is_search:
                 msg = f"""
@@ -52,7 +52,7 @@ class Queue:
             """
             else:
                 if isinstance(trackinfo[0], wavelink.Playlist):
-                    if "spotify" in trackinfo[0].uri:
+                    if (trackinfo[0].url is not None) and ("spotify" in trackinfo[0].url):
                         if trackinfo[0].type == "album":
                             type_string = "Spotify 專輯"
                         else:
@@ -111,7 +111,7 @@ class Queue:
                 )
             else:
                 try:
-                    await interaction.followup.send(msg, embed=embed)
+                    await interaction.followup.send(msg, embed=embed, ephemeral=True)
                 except:
                     await interaction.channel.send(msg, embed=embed)
         try:
