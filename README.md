@@ -1,3 +1,12 @@
+> [!IMPORTANT]
+> 本分支負責之項目: **Wavelink Migration to 3.0 (wavelink-3.0-depend)** **目前已完成開發且併入**  
+> 未來更新及維護將直接併入主線 (Release)
+>   
+> **【相關 Pull Request】**  
+> [Pull Request #32](https://github.com/TK-Entertainment/tkablent_music/pull/32)
+>   
+> 查看最新版本請至 [Release 分支](https://github.com/TK-Entertainment/tkablent_music/)
+
 <img src="https://i.imgur.com/wApgX8J.png" height=64 width=64></img>
 ### A Project of TK Entertainment
 # TKablent
