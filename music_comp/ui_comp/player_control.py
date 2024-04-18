@@ -234,7 +234,9 @@ class PlayerControl:
         await interaction.edit_original_response(content=content, view=view)
         self.guild_info(
             interaction.guild.id
-        ).searchmsg = msg = await interaction.original_response()
+        ).searchmsg = await interaction.original_response()
+        msg = self.guild_info(interaction.guild.id).searchmsg
+        pass
 
     async def MultiTypeSetup(self, interaction: discord.Interaction):
         content = f"""

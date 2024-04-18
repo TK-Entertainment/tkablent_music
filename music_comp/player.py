@@ -523,7 +523,7 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    async def process(
+    async def   process(
         self,
         interaction: discord.Interaction,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],

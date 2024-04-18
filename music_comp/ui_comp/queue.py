@@ -99,21 +99,15 @@ class Queue:
                 view=self.guild_info(interaction.guild.id).playinfo_view
             )
 
-        if is_search:
-            await self.guild_info(interaction.guild.id).searchmsg.edit(
-                content=msg, embed=embed
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                msg, embed=embed, ephemeral=True
             )
-            self.guild_info(interaction.guild.id).searchmsg = None
         else:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    msg, embed=embed, ephemeral=True
-                )
-            else:
-                try:
-                    await interaction.followup.send(msg, embed=embed, ephemeral=True)
-                except:
-                    await interaction.channel.send(msg, embed=embed)
+            try:
+                await interaction.followup.send(msg, embed=embed, ephemeral=True)
+            except:
+                await interaction.channel.send(msg, embed=embed)
         try:
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:

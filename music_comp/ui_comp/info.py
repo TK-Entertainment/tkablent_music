@@ -328,6 +328,9 @@ class InfoGenerator:
             else:
                 title = f":newspaper: | 音樂播放清單"
                 url = None
+
+            if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
+                embed.set_thumbnail(url=playlist.artwork)
             
         color = discord.Colour.from_rgb(97, 219, 83)
         embed = discord.Embed(title=title, url=url, colour=color)
@@ -358,8 +361,7 @@ class InfoGenerator:
         embed.add_field(
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
-        if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
-            embed.set_thumbnail(url=playlist.artwork)
+        
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 
         return embed
