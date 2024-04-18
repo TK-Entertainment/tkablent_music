@@ -24,7 +24,7 @@
 [![](https://dcbadge.vercel.app/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
 ## 開發狀態
 穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20240318.1-s*  
+*目前更新到 m.20240318.1.e1-s*  
 
 開發版 (Cutting Edge, ce) | *仍舊提供更新，供嘗鮮用戶使用*  
 *目前測試項目: 搜尋系統及使用者介面優化 (linkandui)*  
@@ -52,7 +52,7 @@
 
 ## 最新更新日誌 
 如需觀看更詳細的 Github commits 日誌，請點下方連結  
-[m.20230716.7.e1-s...m.20240318.1-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230716.7.e1-s...m.20240318.1-s)
+[m.20230716.7.e1-s...m.20240318.1.e1-s](https://github.com/TK-Entertainment/tkablent/compare/m.20230716.7.e1-s...m.20240318.1.e1-s)
 
 ```diff
 =========================================
@@ -60,6 +60,9 @@ Codename TKablent | Version Stable
 Copyright 2022-present @ TK Entertainment
 Shared under MIT License
 =========================================
+# Version m.20240318.1.e1-s (緊急修復更新)
+!【修復】修復上版更新後導致的無法點播多首搜尋結果的問題
+
 # Version m.20240318.1-s
 !【修復】修復嘗試點播播放清單時，機器人沒有反應的問題
 => ErrorFeedback-2024032101

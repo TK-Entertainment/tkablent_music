@@ -15,7 +15,7 @@
 
 內部開發版 (Confidential) 共 8 版 | *已於 20220410 停止更新，由 Alpha 代替*  
 *最後更新到 # Build 20220410-2*
-# December 2023
+# March 2024
 ```
 =========================================
 Codename TKablent | Version Stable
@@ -23,6 +23,53 @@ Copyright 2022-present @ TK Entertainment
 Shared under MIT license
 =========================================
 ```
+## Version m.20240318.1.e1-s (緊急修復更新, [commit 234e246](https://github.com/TK-Entertainment/tkablent_music/commit/234e2467cff56e00560d3e9c7f64dcf622001758))
+```diff
+!【修復】修復上版更新後導致的無法點播多首搜尋結果的問題
+```
+
+## Version m.20240318.1-s [commit 9d7a34e](https://github.com/TK-Entertainment/tkablent_music/commit/9d7a34ef09b00062ec5f102556d28c32b6b8daf2)
+```diff
+!【修復】修復嘗試點播播放清單時，機器人沒有反應的問題
+=> ErrorFeedback-2024032101
+=> 感謝 @Jimmy0423 回報問題
+=> 此版本應已修復此問題
+```
+
+## Version m.20240318-s [PR #32](https://github.com/TK-Entertainment/tkablent_music/pull/32)
+### Merged from m.20231224.wl30_test-ce
+```diff
++【新增】機器人播放 Spotify 歌曲時會顯示相關警告
+=> 以前就已經確認 Spotify 音源準確性的問題
+=> 從此版本開始會顯示警告
+
+!【更新】機器人播放組件 API 更新到 Wavelink 3.0
+=> 這是一個很大的 API 更新，很多語法都改變了
+=> 還需要細項調整，此版本可能存在許多潛在問題
+
+!【優化】棄用許多外置 API 套件
+=> 因 Lavalink 4.0 帶來了新的插件功能，故此版本開始棄用了許多的外置 API
+=> 可能可以為機器人帶來部分效能提升
+
+!【優化】點播 Spotify 歌曲時，機器人將不再顯示等待畫面
+=> 拜 Lavalink 4.0 所賜，現在機器人可以很有效率的抓到歌曲
+=> 將不再需要等待
+
+!【優化】播放介面簡化，減少字數
+=> 為保持介面整潔，此版本簡化了播放介面的按鈕部分，減少了字數
+
+!【改變】/restart 指令改變為 /replay
+=> 從此版本開始，/restart 指令將重新命名為 /replay
+
+!【修復】直接使用連結點歌會另外跳出訊息的問題
+=> 此版本修復了這個問題
+
+!【修復】其他沒有特別寫出來的修正內容
+=> 修了蠻多有的沒的，已經忘記有哪些了 (*°∀°)
+
+!【改變】節慶提示字將自行成行
+```
+# December 2023
 ## Version m.20230716.7.e1-s (緊急修復更新, [Issue #23](https://github.com/TK-Entertainment/tkablent_music/issues/23) / [b8dea4d](https://github.com/TK-Entertainment/tkablent_music/commit/b8dea4d934a83cfaaa53a7d13cd1d38a119f27bf) / [ded775c](https://github.com/TK-Entertainment/tkablent_music/commit/ded775c445e786eed47171179e353fcd2a525b39))
 ```diff
 !【緊急修復】修復了播放資訊訊息在被意外刪除後，可能會導致機器人往後不在該伺服器傳送播放訊息的問題 (ErrorFeedback-2023121001)
