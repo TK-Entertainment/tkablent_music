@@ -40,7 +40,7 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【修復】修復嘗試點播播放清單時，機器人沒有反應的問題", "=> ErrorFeedback-2024032101\n=> 感謝 @jimmy0423 回報問題\n=> 此版本應已修復此問題"],
+            ["(!)", "【緊急修復】修復上版更新後導致的無法點播多首搜尋結果的問題", "============="],
             ["#", "⚠️ 已知問題", "============="],
             ["(!)", "【Bug】Spotify 的推薦歌曲功能將暫時無法使用\n(預計於 m.20240318.2-s 解決)", "=> 目前因 API 架構改變，尚未找到方法實作 Spotify 的推薦\n=> 故 Spotify 之歌曲將暫時無法使用機器人的推薦功能"],
             ["(!)", "【Bug】Bilibili 歌曲播放功能尚未確定可以使用\n(預計於 m.20240318.2-s 解決)", "=> 目前此版本尚未測試是否可以播放 BiliBili 的歌曲\n=> 故可能暫時無法使用"],
