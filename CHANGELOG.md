@@ -3,19 +3,19 @@
 > 此處為純文字更新日誌，若要查看完成含圖片的分版日誌  
 > 可到 [Releases](https://github.com/TK-Entertainment/tkablent_music/releases) 查看
 
-目前總共發布 53 個版本  
-穩定版 (Stable, s) 共 15 版 | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.7.e1-s*  
+目前總共發布 57 個版本  
+穩定版 (Stable, s) 共 18 版 | *正在提供更新，更新周期較慢*  
+*目前更新到 m.20240318.1.e1-s*  
 
-開發版 (Cutting Edge, ce) 共 23 版 | *仍舊提供更新，供嘗鮮用戶使用*  
-*目前更新到 m.20231209.linkandui-ce*  
+開發版 (Cutting Edge, ce) 共 24 版 | *仍舊提供更新，供嘗鮮用戶使用*  
+*目前更新到 m.20231224.wl30_test-ce*  
 
 前期開發版 (Alpha) 共 7 版 | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
 
 內部開發版 (Confidential) 共 8 版 | *已於 20220410 停止更新，由 Alpha 代替*  
 *最後更新到 # Build 20220410-2*
-# March 2024
+# April 2024
 ```
 =========================================
 Codename TKablent | Version Stable
@@ -35,7 +35,7 @@ Shared under MIT license
 => 感謝 @Jimmy0423 回報問題
 => 此版本應已修復此問題
 ```
-
+# March 2024
 ## Version m.20240318-s [PR #32](https://github.com/TK-Entertainment/tkablent_music/pull/32)
 ### Merged from m.20231224.wl30_test-ce
 ```diff
