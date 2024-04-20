@@ -449,7 +449,7 @@ class PlayerControl:
             **:arrow_forward: | 目前沒有歌曲正在播放**
             *輸入 **{self.bot.command_prefix}play** 來開始播放歌曲*"""
 
-            if await self.guild_info(channel.guild.id).playinfo is not None:
+            if self.guild_info(channel.guild.id).playinfo is not None:
                 await self.guild_info(channel.guild.id).playinfo.edit(content=msg)
             else:
                 if isinstance(channel, discord.Interaction):
