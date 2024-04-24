@@ -1,156 +1,37 @@
-from typing import *
-import asyncio, json, os, time
+from typing import TYPE_CHECKING, Union
+if TYPE_CHECKING:
+    from typing import *
+import asyncio, os
 import dotenv
 import validators
-import random
-import shutil
 
 import discord
 from discord.ext import commands
 from discord import app_commands
 
-import bilibili_api as bilibili
 import wavelink
-from wavelink.ext import spotify
-from .playlist import Playlist, SpotifyAlbum, SpotifyPlaylist, LoopState
+from .playlist import Playlist, LoopState
+from .utils.storage import GuildInfo
 
 INF = int(1e18)
-
-
-class GuildInfo:
-    def __init__(self, guild_id):
-        self.guild_id: int = guild_id
-        self.text_channel: discord.TextChannel = None
-        self._task: asyncio.Task = None
-        self._refresh_msg_task: asyncio.Task = None
-        self._timer: asyncio.Task = None
-        self._dsa: bool = None
-        self._multitype_remembered: bool = None
-        self._multitype_choice: str = None
-        self._timer_done: bool = None
-
-    @property
-    def data_survey_agreement(self):
-        if self._dsa is None:
-            self._dsa = self.fetch("dsa")
-        return self._dsa
-
-    @data_survey_agreement.setter
-    def data_survey_agreement(self, value: bool):
-        self._dsa = value
-        self.update("dsa", value)
-
-    @property
-    def multitype_remembered(self):
-        if self._multitype_remembered is None:
-            self._multitype_remembered = self.fetch("multitype_remembered")
-        return self._multitype_remembered
-
-    @multitype_remembered.setter
-    def multitype_remembered(self, value: bool):
-        self._multitype_remembered = value
-        self.update("multitype_remembered", value)
-
-    @property
-    def multitype_choice(self):
-        if self._multitype_choice is None:
-            self._multitype_choice = self.fetch("multitype_choice")
-        return self._multitype_choice
-
-    @multitype_choice.setter
-    def multitype_choice(self, value: str):
-        self._multitype_choice = value
-        self.update("multitype_choice", value)
-
-    def fetch(self, key: str) -> not None:
-        """fetch from database"""
-        with open(rf"{os.getcwd()}/utils/data.json", "r") as f:
-            data: dict = json.load(f)
-        if (
-            data.get(str(self.guild_id)) is None
-            or data[str(self.guild_id)].get(key) is None
-        ):
-            return data["default"][key]
-        return data[str(self.guild_id)][key]
-
-    def update(self, key: str, value: str) -> None:
-        """update database"""
-
-        with open(rf"{os.getcwd()}/utils/data.json", "r") as f:
-            data: dict = json.load(f)
-        if data.get(str(self.guild_id)) is None:
-            data[str(self.guild_id)] = dict()
-        data[str(self.guild_id)][key] = value
-        with open(rf"{os.getcwd()}/utils/data.json", "w") as f:
-            json.dump(data, f)
-
 
 class Player:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
-        self._spotify: spotify.SpotifyClient = None
-        self._cache: dict = None
-
-        self._cache_path = rf"{os.getcwd()}/utils/search_cache.json"
-        self._bak_cache_path = rf"{os.getcwd()}/utils/search_cache.json.bak"
-
-    def fetch_cache(self) -> None:
-        """fetch from database"""
-        try:
-            with open(self._cache_path, "r") as f:
-                self._cache = json.load(f)
-
-            shutil.copyfile(self._cache_path, self._bak_cache_path)
-        except json.decoder.JSONDecodeError:
-            with open(self._bak_cache_path, "r") as bak_f:
-                self._cache = json.load(bak_f)
-
-            shutil.copyfile(self._bak_cache_path, self._cache_path)
-
-    def update_cache(self, identifier: str, title: str, length: str, timestamp) -> None:
-        """update database"""
-        try:
-            with open(self._cache_path, "r") as f:
-                data: dict = json.load(f)
-
-            shutil.copyfile(self._cache_path, self._bak_cache_path)
-        except json.decoder.JSONDecodeError:
-            with open(self._bak_cache_path, "r") as bak_f:
-                data = json.load(bak_f)
-
-            shutil.copyfile(self._bak_cache_path, self._cache_path)
-
-        if data.get(identifier) is not None:
-            data[identifier]["title"] = title
-            data[identifier]["length"] = length
-            data[identifier]["timestamp"] = timestamp
-        else:
-            data[identifier] = dict(title=title, length=length, timestamp=timestamp)
-        with open(self._cache_path, "w") as f:
-            json.dump(data, f)
-
-        # self test json file
-        try:
-            with open(self._cache_path, "r") as f:
-                json.load(f)
-
-            self._cache[identifier] = dict(
-                title=title, length=length, timestamp=timestamp
-            )
-
-        except json.decoder.JSONDecodeError:  # revert if file fucked up
-            shutil.copyfile(self._bak_cache_path, self._cache_path)
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id]
 
+    ############
+    # Daemon setup (Wavelink, cache and etc.)
+    ############
     async def _create_daemon(self):
-        self.fetch_cache()
-
+        # Env value setup
+        # Wavelink needed value
         TW_HOST = os.getenv("WAVELINK_TW_HOST")
         LOCAL_SEARCH_HOST_1 = os.getenv("WAVELINK_SEARCH_HOST_1")
         LOCAL_SEARCH_HOST_2 = os.getenv("WAVELINK_SEARCH_HOST_2")
@@ -158,56 +39,34 @@ class Player:
         SEARCH_PORT_1 = os.getenv("WAVELINK_SEARCH_PORT_1")
         SEARCH_PORT_2 = os.getenv("WAVELINK_SEARCH_PORT_2")
         PASSWORD = os.getenv("WAVELINK_PWD")
-        SPOTIFY_ID = os.getenv("SPOTIFY_ID")
-        SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET")
-        SESSDATA = os.getenv("SESSDATA")
-        BILI_JCT = os.getenv("BILI_JCT")
-        BUVID3 = os.getenv("BUVID3")
-        DEDEUSERID = os.getenv("DEDEUSERID")
-        AC_TIME_VALUE = os.getenv("AC_TIME_VALUE")
 
-        self._playlist.init_spotify(SPOTIFY_ID, SPOTIFY_SECRET)
+        # Define Wavelink Host
         mainplayhost = wavelink.Node(
-            id="TW_PlayBackNode",
+            identifier="TW_PlayBackNode",
             uri=f"http://{TW_HOST}:{PORT}",
-            use_http=True,
             password=PASSWORD,
         )
         searchhost_1 = wavelink.Node(
-            id="SearchNode_1",
+            identifier="SearchNode_1",
             uri=f"http://{LOCAL_SEARCH_HOST_1}:{SEARCH_PORT_1}",
-            use_http=True,
             password=PASSWORD,
         )
         searchhost_2 = wavelink.Node(
-            id="SearchNode_2",
+            identifier="SearchNode_2",
             uri=f"http://{LOCAL_SEARCH_HOST_2}:{SEARCH_PORT_2}",
-            use_http=True,
             password=PASSWORD,
         )
 
-        self._bilibilic = bilibili.Credential(
-            sessdata=SESSDATA,
-            bili_jct=BILI_JCT,
-            buvid3=BUVID3,
-            dedeuserid=DEDEUSERID,
-            ac_time_value=AC_TIME_VALUE,
-        )
-
-        valid = await self._bilibilic.check_valid()
-
-        print(f"[BiliBili API] Cookie valid: {valid}")
-
-        self._spotify = spotify.SpotifyClient(
-            client_id=SPOTIFY_ID, client_secret=SPOTIFY_SECRET
-        )
-
-        await wavelink.NodePool.connect(
-            client=self.bot,
+        # Wavelink connection establishing
+        await wavelink.Pool.connect(
             nodes=[mainplayhost, searchhost_1, searchhost_2],
-            spotify=self._spotify,
+            cache_capacity=100,
+            client=self.bot,
         )
 
+    ############
+    # sessdata refresh (currently not working)
+    ############
     async def _refresh_sessdata(self):
         while True:
             need_refresh = await self._bilibilic.chcek_refresh()
@@ -227,55 +86,80 @@ class Player:
                 )
             await asyncio.sleep(120)
 
+    #############
+    # Join Core #
+    #############
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
-        mainplayhost = wavelink.NodePool.get_node(id="TW_PlayBackNode")
+        mainplayhost = wavelink.Pool.get_node("TW_PlayBackNode")
         if voice_client is None:
             await channel.connect(cls=wavelink.Player(nodes=[mainplayhost]))
 
+    ##############
+    # Leave Core #
+    ##############
     async def _leave(self, guild: discord.Guild):
         voice_client = guild.voice_client
         if voice_client is not None:
             await self._stop(guild)
             await voice_client.disconnect()
 
+    ###############
+    # Search Core #
+    ###############
     async def _search(self, guild: discord.Guild, trackinfo, requester: discord.Member):
         await self._playlist.add_songs(guild.id, trackinfo, requester)
 
+    ##############
+    # Pause Core #
+    ##############
     async def _pause(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
-        if not voice_client.is_paused() and voice_client.is_playing():
-            await voice_client.pause()
+        if not voice_client.paused and voice_client.playing:
+            await voice_client.pause(True)
             self._start_timer(guild)
 
+    ###############
+    # Resume Core #
+    ###############
     async def _resume(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
-        if voice_client.is_paused():
-            if self[guild.id]._timer is not None:
-                self[guild.id]._timer.cancel()
-                self[guild.id]._timer = None
-            await voice_client.resume()
+        if voice_client.paused:
+            self._stop_timer(guild)
+            await voice_client.pause(False)
 
+    #############
+    # Skip Core #
+    #############
     async def _skip(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
-        if voice_client.is_playing() or voice_client.is_paused():
-            if voice_client.is_paused():
-                await voice_client.resume()
-            await voice_client.stop()
+        if voice_client.playing or voice_client.paused:
+            await voice_client.skip()
             self._playlist[guild.id].times = 0
             if self._playlist[guild.id].loop_state == LoopState.SINGLEINF:
                 self._playlist[guild.id].loop_state = LoopState.NOTHING
 
+    #############
+    # Stop Core #
+    #############
     async def _stop(self, guild: discord.Guild):
         self._playlist[guild.id].clear()
+        self._cleanup(guild)
         await self._skip(guild)
 
+    #############
+    # Seek Core #
+    #############
     async def _seek(self, guild: discord.Guild, timestamp: float):
         voice_client: wavelink.Player = guild.voice_client
         if timestamp >= (self._playlist[guild.id].current().length) / 1000:
-            await voice_client.stop()
+            await voice_client.skip()
+            return
         await voice_client.seek(timestamp * 1000)
 
+    ###############
+    # Volume Core # (Currently not working)
+    ###############
     async def _volume(self, guild: discord.Guild, volume: float):
         voice_client: wavelink.Player = guild.voice_client
         if voice_client is not None:
@@ -289,22 +173,29 @@ class Player:
                 guild.id, voice_client.channel.id, self_mute=mute
             )
 
+    #############
+    # Play Core #
+    #############
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
-        vc: wavelink.Player = guild.voice_client
+        voice_client: wavelink.Player = guild.voice_client
+        self._start_timer(guild)
+
+        if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
+            await voice_client.play(self._playlist[guild.id].current())
+
+    ########
+    # Misc #
+    ########
+    def _start_timer(self, guild: discord.Guild):
+        self._stop_timer(guild)
+        coro = self._timer(guild)
+        self[guild.id]._timer = self.bot.loop.create_task(coro)
+
+    def _stop_timer(self, guild: discord.Guild):
         if self[guild.id]._timer is not None:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
-        self._start_timer(guild)
-
-        if not vc.is_playing() and len(self._playlist[guild.id].order) > 0:
-            await vc.play(self._playlist[guild.id].current())
-
-    def _start_timer(self, guild: discord.Guild):
-        if self[guild.id]._timer is not None:
-            self[guild.id]._timer.cancel()
-        coro = self._timer(guild)
-        self[guild.id]._timer = self.bot.loop.create_task(coro)
 
     async def _timer(self, guild: discord.Guild):
         await asyncio.sleep(600.0)
@@ -319,28 +210,32 @@ class Player:
             self[guild.id]._timer.cancel()
             self[guild.id]._timer = None
 
+# ========================================================================================================
 
 class MusicCog(Player, commands.Cog):
     def __init__(self, bot: commands.Bot, bot_version):
         Player.__init__(self, bot)
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
-        self.bot_version = bot_version
+        self.bot_version: str = bot_version
 
-    async def resolve_ui(self):
+    async def post_boot(self):
         from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
+        from .utils.track_helper import TrackHelper
 
         self.ui = UI(self, self.bot_version)
         self.auto_stage_available = auto_stage_available
         self.ui_guild_info = guild_info
         self._sec_to_hms = _sec_to_hms
-        from .ui import groupbutton
+        self.track_helper = TrackHelper(self.ui, self._playlist)
 
+        from .ui import groupbutton
         self.groupbutton = groupbutton
 
     @app_commands.command(name="help", description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         await self.ui.Help.Help(interaction)
 
     ##############################################
@@ -371,24 +266,30 @@ class MusicCog(Player, commands.Cog):
             except:
                 auto_stage_vaildation = False
 
+    ##############################################
+
     async def rejoin(self, interaction: discord.Interaction):
         voice_client: wavelink.Player = interaction.guild.voice_client
         # Get the bot former playing state
         former: discord.VoiceChannel = voice_client.channel
-        former_state: bool = voice_client.is_paused()
+        former_paused: bool = voice_client.paused
+
         # To determine is the music paused before rejoining or not
-        if not former_state:
+        if not former_paused:
             await self._pause(interaction.guild)
+
         # Moving itself to author's channel
         await voice_client.move_to(interaction.user.voice.channel)
         if isinstance(interaction.user.voice.channel, discord.StageChannel):
             await self.ensure_stage_status(interaction)
 
-        # If paused before rejoining, resume the music
-        if not former_state:
+        # If not paused before rejoining, resume the music
+        if not former_paused:
             await self._resume(interaction.guild)
+
         # Send a rejoin message
         await self.ui.Join.RejoinNormal(interaction)
+
         # If the former channel is a discord.StageInstance which is the stage
         # channel with topics, end that stage instance
         if isinstance(former, discord.StageChannel) and isinstance(
@@ -396,8 +297,10 @@ class MusicCog(Player, commands.Cog):
         ):
             await self.ui.Stage.EndStage(interaction.guild.id)
 
+    ##############################################
+
     async def join(self, interaction: discord.Interaction):
-        voice_client: wavelink.Player = interaction.guild.voice_client
+        voice_client = interaction.guild.voice_client
         if isinstance(voice_client, wavelink.Player):
             if voice_client.channel != interaction.user.voice.channel:
                 await self.rejoin(interaction)
@@ -476,6 +379,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.command(name="np", description="▶️ | 查看現在在播放什麼!")
     async def nowplaying(self, interaction: discord.Interaction):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         await self.ui.PlayerControl.NowPlaying(interaction)
 
     ##############################################
@@ -483,6 +387,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.command(name="stop", description="⏹️ | 停止音樂並清除待播清單")
     async def stop(self, interaction: discord.Interaction):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
+        await self.ui.Changelogs.SendChangelogs(interaction)
         try:
             await self._stop(interaction.guild)
             await self.ui.PlayerControl.StopSucceed(interaction)
@@ -511,8 +416,8 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    @app_commands.command(name="restart", description="🔁 | 重頭開始播放目前的歌曲")
-    async def restart(self, interaction: discord.Interaction):
+    @app_commands.command(name="replay", description="🔁 | 重頭開始播放目前的歌曲")
+    async def replay(self, interaction: discord.Interaction):
         try:
             await self._seek(interaction.guild, 0)
             await self.ui.PlayerControl.ReplaySucceed(interaction)
@@ -618,20 +523,16 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    async def process(
+    async def   process(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[
-            wavelink.YouTubeTrack,
-            wavelink.YouTubeMusicTrack,
-            wavelink.SoundCloudTrack,
-            wavelink.YouTubePlaylist,
-        ],
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
     ):
         # Call search function
         try:
             is_search = isinstance(trackinfo, list) and (
-                not isinstance(trackinfo, wavelink.YouTubePlaylist)
+                not isinstance(trackinfo[0], wavelink.Playlist) and (
+                len(trackinfo) > 1)
             )
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
@@ -646,10 +547,7 @@ class MusicCog(Player, commands.Cog):
     async def play(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[
-            wavelink.GenericTrack,
-            wavelink.SoundCloudTrack,
-        ],
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
     ):
         # Try to make bot join author's channel
         voice_client: wavelink.Player = interaction.guild.voice_client
@@ -673,72 +571,8 @@ class MusicCog(Player, commands.Cog):
             tmpmsg = await interaction.original_response()
             await tmpmsg.delete()
 
-    async def _save_to_cache(self, data) -> None:
-        await asyncio.sleep(3)
-        for identifier in data.keys():
-            title = data[identifier]["title"]
-            length = data[identifier]["length"]
-            timestamp = data[identifier]["timestamp"]
-
-            self.update_cache(identifier, title, length, timestamp)
-
-    async def get_search_suggest(
-        self, interaction: discord.Interaction, current: str
-    ) -> List[app_commands.Choice[str]]:
-        if validators.url(current) or current == "":
-            return []
-        else:
-            tracks = await self._get_track(interaction, current, quick_search=True)
-            result = []
-            data = {}
-
-            for i in range(len(tracks)):
-                if i == 16:
-                    break
-
-                if self._cache.get(tracks[i].identifier) is not None:
-                    expired = (
-                        int(time.time())
-                        - self._cache.get(tracks[i].identifier)["timestamp"]
-                    ) >= 2592000
-
-                    if not expired:
-                        result.append(
-                            app_commands.Choice(
-                                name=f"{self._cache[tracks[i].identifier]['title']} | {self._cache[tracks[i].identifier]['length']}",
-                                value=f"https://www.youtube.com/watch?v={tracks[i].identifier}",
-                            )
-                        )
-                        continue
-
-                if isinstance(tracks[i], str):
-                    tracks.pop(i)
-                    continue
-
-                length = self._sec_to_hms(
-                    seconds=(tracks[i].length) / 1000, format="symbol"
-                )
-
-                left_name_length = 70 - len(f" | {length}")
-
-                if len(tracks[i].title) >= left_name_length + len(" ..."):
-                    tracks[i].title = tracks[i].title[:left_name_length] + " ..."
-
-                result.append(
-                    app_commands.Choice(
-                        name=f"{tracks[i].title} | {length}",
-                        value=f"https://www.youtube.com/watch?v={tracks[i].identifier}",
-                    )
-                )
-
-                timestamp = int(time.time())
-                data[tracks[i].identifier] = dict(
-                    title=tracks[i].title, length=length, timestamp=timestamp
-                )
-
-            self.bot.loop.create_task(self._save_to_cache(data))
-
-            return result
+    async def get_search_suggest(self, interaction: discord.Interaction, current: str):
+        return await self.track_helper.get_search_suggest(interaction, current)
 
     @app_commands.command(name="play", description="🎶 | 想聽音樂？來這邊點歌吧~")
     @app_commands.describe(
@@ -748,215 +582,33 @@ class MusicCog(Player, commands.Cog):
     @discord.app_commands.autocomplete(search=get_search_suggest)
     async def _i_play(self, interaction: discord.Interaction, search: str):
         await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
-        if validators.url(search):
+        await self.ui.Changelogs.SendChangelogs(interaction)
+        if "sid=>" in search:
+            tracks = await self.track_helper.get_track(interaction, search)
+            await self.play(interaction, tracks)
+        elif validators.url(search):
             if (
                 "list" in search
                 and "watch" in search
                 and ("youtube" in search or "youtu.be" in search)
             ):
                 if self[interaction.guild.id].multitype_remembered:
-                    tracks = await self._get_track(
+                    tracks = await self.track_helper.get_track(
                         interaction, search, self[interaction.guild.id].multitype_choice
                     )
                 else:
                     await self.ui.PlayerControl.MultiTypeNotify(interaction, search)
                     return
             else:
-                tracks = await self._get_track(interaction, search)
+                tracks = await self.track_helper.get_track(interaction, search)
                 if isinstance(tracks, Exception) or tracks is None:
                     await self.ui.Search.SearchFailed(interaction, search)
             await self.play(interaction, tracks)
         else:
-            tracks = await self._get_track(interaction, search)
+            tracks = await self.track_helper.get_track(interaction, search)
             await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
 
-    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str):
-        searchnode = await self._playlist.get_best_searchnode()
-        if "BV" in search and "https://www.bilibili.com/" not in search:
-            vid = search
-        else:
-            try:
-                int(search)
-                is_aid = True
-            except:
-                is_aid = False
-            if is_aid:
-                vid = bilibili.aid2bvid(search)
-            else:
-                if "b23.tv" in search:
-                    search = bilibili.get_real_url(search, self._bilibilic)
-
-                url_split = search.split("/")
-                vid = url_split[4]
-
-        v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(page_index=0)
-        detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
-
-        data = detector.detect_all()
-        for t in data:
-            if isinstance(t, bilibili.video.AudioStreamDownloadURL):
-                raw_url = t.url.replace("&", "%26")
-                try:
-                    trackinfo = await searchnode.get_tracks(
-                        wavelink.GenericTrack, raw_url
-                    )
-                except Exception as e:
-                    raw_url = None
-                    continue
-                break
-            else:
-                raw_url = None
-
-        if raw_url == None:
-            return None
-
-        try:
-            trackinfo = await searchnode.get_tracks(wavelink.GenericTrack, raw_url)
-        except Exception as e:
-            return e
-
-        track = trackinfo[0]
-        vinfo = await v_data.get_info()
-        track.author = vinfo["owner"]["name"]
-        track.duration = vinfo["duration"] * 1000
-        track.identifier = vinfo["bvid"]
-        track.is_seekable = True
-        track.title = vinfo["title"]
-
-        return track
-
-    async def _get_track(
-        self,
-        interaction: discord.Interaction,
-        search: str,
-        choice="videoonly",
-        quick_search=False,
-    ):
-        searchnode = await self._playlist.get_best_searchnode()
-        if not quick_search:
-            await interaction.response.defer(ephemeral=True, thinking=True)
-        if ("bilibili" in search or "b23.tv" in search) and validators.url(search):
-            trackinfo = await self._get_bilibili_track(interaction, search)
-            if isinstance(trackinfo, Exception):
-                return trackinfo
-        elif "spotify" in search and validators.url(search):
-            if "track" in search:
-                searchtype = spotify.SpotifySearchType.track
-            elif "album" in search:
-                searchtype = spotify.SpotifySearchType.album
-            else:
-                searchtype = spotify.SpotifySearchType.playlist
-
-            if "album" in search or "artist" in search or "playlist" in search:
-                self.ui_guild_info(
-                    interaction.guild.id
-                ).processing_msg = await self.ui.Search.SearchInProgress(interaction)
-
-            try:
-                tracks = await spotify.SpotifyTrack.search(search, node=searchnode)
-            except:
-                tracks = None
-
-            if tracks is None:
-                trackinfo = None
-            else:
-                if searchtype == spotify.SpotifySearchType.track:
-                    tracks = tracks[0]
-                trackinfo = self._playlist.spotify_info_process(
-                    search, tracks, searchtype
-                )
-        else:
-            if "https://www.youtube.com/" in search or "https://youtu.be/" in search:
-                youtube_url = True
-                if "list" in search:
-                    extract = search.split("&")
-                    if choice == "videoonly":
-                        url = extract[0]
-                    elif choice == "playlist":
-                        url = f"https://www.youtube.com/playlist?{extract[1]}"
-                    else:
-                        url = search
-                else:
-                    url = search
-            else:
-                youtube_url = False
-                url = search
-
-            trackinfo = []
-
-            if quick_search:
-                method = [wavelink.YouTubeTrack]
-            else:
-                method = [
-                    wavelink.YouTubeTrack,
-                    wavelink.YouTubeMusicTrack,
-                    wavelink.SoundCloudTrack,
-                ]
-
-            if choice == "playlist" or "list" in url:
-                data = await wavelink.YouTubePlaylist.search(url, node=searchnode)
-                if data is not None:
-                    trackinfo = data
-            else:
-                for trackmethod in method:
-                    try:
-                        # SearchableTrack.search(query, node)
-                        data = await trackmethod.search(url, node=searchnode)
-                        if data is not None:
-                            trackinfo.extend(data)
-                            if youtube_url:
-                                break
-                    except Exception:
-                        # When there is no result for provided method
-                        # Then change to next method to search
-                        pass
-
-        if trackinfo is None:
-            await self.ui.Search.SearchFailed(interaction, search)
-            return None
-        elif not isinstance(
-            trackinfo,
-            Union[
-                spotify.SpotifyTrack,
-                SpotifyAlbum,
-                SpotifyPlaylist,
-                wavelink.YouTubePlaylist,
-                wavelink.GenericTrack,
-            ],
-        ):
-            if len(trackinfo) == 0:
-                await self.ui.Search.SearchFailed(interaction, search)
-                return None
-
-        if not isinstance(
-            trackinfo, Union[wavelink.GenericTrack, spotify.SpotifyTrack]
-        ):
-            tracklist = trackinfo
-
-        if isinstance(trackinfo, wavelink.GenericTrack):
-            trackinfo.suggested = False
-            tracklist = trackinfo
-        elif isinstance(trackinfo, spotify.SpotifyTrack):
-            trackinfo.suggested = False
-            trackinfo.is_stream = False
-            tracklist = trackinfo
-        elif isinstance(
-            tracklist, Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist]
-        ):
-            for track in tracklist.tracks:
-                track.suggested = False
-        else:
-            for track in tracklist:
-                track.suggested = False
-
-        return tracklist
-
     ##############################
-
-    async def _refresh_msg(self, guild):
-        await asyncio.sleep(3)
-        await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
 
     @commands.Cog.listener(name="on_voice_state_update")
     async def end_session(
@@ -978,30 +630,35 @@ class MusicCog(Player, commands.Cog):
             await self._leave(member.guild)
         self._cleanup(guild)
 
+    async def _get_current_stats(self):
+        active_player = len(self.bot.voice_clients)
+
+        print(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
+
     @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload: wavelink.TrackEventPayload):
-        guild = payload.player.guild
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
+        await self._get_current_stats()
         try:
+            guild = discord.Object(payload.track.extras.requested_guild)
             if self[guild.id]._timer is not None:
                 self[guild.id]._timer.cancel()
                 self[guild.id]._timer = None
-            await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
-            self[guild.id]._refresh_msg_task = self._playlist[
-                guild.id
-            ]._refresh_msg_task = self.bot.loop.create_task(self._refresh_msg(guild))
+            if self.ui_guild_info(guild.id).playinfo is None:
+                await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
+            else:
+                await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+
+            if self.guild_info(guild.id).lastskip:
+                self.guild_info(guild.id).lastskip = False
         except:
             pass
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload: wavelink.TrackEventPayload):
-        guild = payload.player.guild
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+        await self._get_current_stats()
+        guild: discord.Guild = self.bot.get_guild(payload.track.extras.requested_guild)
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.2)
-        if self[guild.id]._refresh_msg_task is not None:
-            self[guild.id]._refresh_msg_task.cancel()
-            self[guild.id]._refresh_msg_task = self._playlist[
-                guild.id
-            ]._refresh_msg_task = None
 
         if len(self._playlist[guild.id].order) == 0:
             if not (
@@ -1010,30 +667,21 @@ class MusicCog(Player, commands.Cog):
             ):
                 self.ui_guild_info(guild.id).leaveoperation = False
                 await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
-            self._start_timer(payload.player.guild)
+            self._start_timer(guild)
             return
         else:
-            self._playlist[guild.id]._refresh_msg_task = self[
-                guild.id
-            ]._refresh_msg_task
+            await self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
 
-            await asyncio.wait_for(
-                self._playlist.process_suggestion(guild, self.ui_guild_info(guild.id)),
-                None,
-            )
-
-            # Sync the task status with playlist
-            self[guild.id]._refresh_msg_task = self._playlist[
-                guild.id
-            ]._refresh_msg_task
+            player: wavelink.Player = guild.voice_client
 
             song = self._playlist[guild.id].current()
             try:
-                await payload.player.play(song)
+                await player.play(song)
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
                 pass
+
 
     # Error handler
     @commands.Cog.listener()
@@ -1069,66 +717,42 @@ class MusicCog(Player, commands.Cog):
             voice_client: wavelink.Player = member.guild.voice_client
             if len(voice_client.channel.members) == 1 and member != self.bot.user:
                 await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str("▶️")
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.disabled = True
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str("▶️")
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
+                
                 self.ui_guild_info(member.guild.id).playinfo_view.skip.disabled = True
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.skip.style = discord.ButtonStyle.gray
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.suggest.disabled = True
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.suggest.style = discord.ButtonStyle.gray
-                await self.ui_guild_info(member.guild.id).playinfo.edit(
-                    view=self.ui_guild_info(member.guild.id).playinfo_view
-                )
-                if not voice_client.is_paused():
+                self.ui_guild_info(member.guild.id).playinfo_view.skip.style = discord.ButtonStyle.gray
+                
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.disabled = True
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.gray
+                
+                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
+                
+                if not voice_client.paused:
                     await self._pause(member.guild)
             elif (
                 len(voice_client.channel.members) > 1
-                and voice_client.is_paused()
+                and voice_client.paused
                 and member != self.bot.user
-                and self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.disabled
+                and self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled
             ):
                 await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.disabled = False
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple
+                
                 if not len(self._playlist[member.guild.id].order) == 1:
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.skip.disabled = False
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.skip.style = discord.ButtonStyle.blurple
-                self.ui_guild_info(
-                    member.guild.id
-                ).playinfo_view.suggest.disabled = False
+                    self.ui_guild_info(member.guild.id).playinfo_view.skip.disabled = False
+                    self.ui_guild_info(member.guild.id).playinfo_view.skip.style = discord.ButtonStyle.blurple
+                
+                self.ui_guild_info(member.guild.id).playinfo_view.suggest.disabled = False
+                
                 if self.ui_guild_info(member.guild.id).music_suggestion:
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.suggest.style = discord.ButtonStyle.green
+                    self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.green
                 else:
-                    self.ui_guild_info(
-                        member.guild.id
-                    ).playinfo_view.suggest.style = discord.ButtonStyle.danger
+                    self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.danger
 
-                await self.ui_guild_info(member.guild.id).playinfo.edit(
-                    view=self.ui_guild_info(member.guild.id).playinfo_view
-                )
+                await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
         except:
             pass

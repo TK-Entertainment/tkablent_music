@@ -1,9 +1,10 @@
-from typing import *
+from typing import TYPE_CHECKING, Union, Optional
+if TYPE_CHECKING:
+    from typing import *
 import discord
 import copy
 
-from ..player import SpotifyAlbum
-from ..playlist import PlaylistBase, SpotifyPlaylist
+from ..playlist import PlaylistBase
 from .info import InfoGenerator
 from ..ui import (
     firstpage_emoji,
@@ -32,7 +33,7 @@ class Queue:
     async def Embed_AddedToQueue(
         self,
         interaction: discord.Interaction,
-        trackinfo: Union[wavelink.GenericTrack, wavelink.YouTubePlaylist],
+        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
         requester: Optional[discord.User],
         is_search,
     ) -> None:
@@ -42,10 +43,7 @@ class Queue:
         if len(playlist.order) == 1:
             return
         if (len(playlist.order) > 1 and is_search) or (
-            isinstance(
-                trackinfo,
-                Union[SpotifyAlbum, SpotifyPlaylist, wavelink.YouTubePlaylist],
-            )
+            isinstance(trackinfo, list) or isinstance(trackinfo[0], wavelink.Playlist) and (len(trackinfo) > 1)
         ):
             if is_search:
                 msg = f"""
@@ -53,12 +51,16 @@ class Queue:
             以下歌曲已加入待播清單中
             """
             else:
-                if isinstance(
-                    trackinfo, Union[SpotifyPlaylist, wavelink.YouTubePlaylist]
-                ):
+                if isinstance(trackinfo[0], wavelink.Playlist):
+                    if (trackinfo[0].url is not None) and ("spotify" in trackinfo[0].url):
+                        if trackinfo[0].type == "album":
+                            type_string = "Spotify 專輯"
+                        else:
+                            type_string = "Spotify 播放清單"
+                    else:
+                        type_string = "播放清單"
+                elif isinstance(trackinfo, list):
                     type_string = "播放清單"
-                elif isinstance(trackinfo, SpotifyAlbum):
-                    type_string = "Spotify 專輯"
 
                 msg = f"""
             **:white_check_mark: | 成功加入待播清單**
@@ -78,7 +80,8 @@ class Queue:
                 color_code="green", index=index, guild_id=interaction.guild.id
             )
 
-        if self.guild_info(interaction.guild.id).playinfo is not None:
+        if (self.guild_info(interaction.guild.id).playinfo is not None) and (
+            self.guild_info(interaction.guild.id).playinfo_view is not None):
             self.guild_info(
                 interaction.guild.id
             ).playinfo_view.skip.emoji = lastpage_emoji
@@ -96,27 +99,15 @@ class Queue:
                 view=self.guild_info(interaction.guild.id).playinfo_view
             )
 
-        if is_search:
-            await self.guild_info(interaction.guild.id).searchmsg.edit(
-                content=msg, embed=embed
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                msg, embed=embed, ephemeral=True
             )
-            self.guild_info(interaction.guild.id).searchmsg = None
         else:
-            if not interaction.response.is_done():
-                await interaction.response.send_message(
-                    msg, embed=embed, ephemeral=True
-                )
-            else:
-                if (
-                    isinstance(trackinfo, Union[SpotifyAlbum, SpotifyPlaylist])
-                    and self.guild_info(interaction.guild.id).processing_msg is not None
-                ):
-                    processing_msg = self.guild_info(
-                        interaction.guild.id
-                    ).processing_msg
-                    await interaction.edit_original_response(content=msg, embed=embed)
-                else:
-                    await interaction.channel.send(msg, embed=embed)
+            try:
+                await interaction.followup.send(msg, embed=embed, ephemeral=True)
+            except:
+                await interaction.channel.send(msg, embed=embed)
         try:
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
         except:
@@ -351,32 +342,32 @@ class Queue:
                     await msg.delete()
 
         view = QueueListing()
-        if len(playlist.order) < 2:
+        # if len(playlist.order) < 2:
+        #     view.clear_page_control()
+        #     if op == "button":
+        #         view.remove_item(view.done)
+        #         txt = "\n            *請點按「刪除這些訊息」來關閉此訊息*"
+        #     else:
+        #         txt = ""
+        #     await interaction.response.send_message(
+        #         f"""
+        #     **:information_source: | 待播歌曲**
+        #     目前沒有任何歌曲待播中
+        #     *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*{txt}
+        #     """,
+        #         ephemeral=(op == "button"),
+        #         view=view,
+        #     )
+        #     msg = await interaction.original_response()
+        #     return
+        # else:
+        embed = self._QueueEmbed(playlist, 0, op)
+        if (len(playlist.order)) <= 4:
             view.clear_page_control()
-            if op == "button":
-                view.remove_item(view.done)
-                txt = "\n            *請點按「刪除這些訊息」來關閉此訊息*"
-            else:
-                txt = ""
-            await interaction.response.send_message(
-                f"""
-            **:information_source: | 待播歌曲**
-            目前沒有任何歌曲待播中
-            *輸入 ** '{self.bot.command_prefix}play 關鍵字或網址' **可繼續點歌*{txt}
-            """,
-                ephemeral=(op == "button"),
-                view=view,
-            )
-            msg = await interaction.original_response()
-            return
-        else:
-            embed = self._QueueEmbed(playlist, 0, op)
-            if (len(playlist.order)) <= 4:
-                view.clear_page_control()
-            if op == "button":
-                view.remove_item(view.done)
+        if op == "button":
+            view.remove_item(view.done)
 
-            await interaction.response.send_message(
-                embed=embed, view=view, ephemeral=(op == "button")
-            )
-            msg = await interaction.original_response()
+        await interaction.response.send_message(
+            embed=embed, view=view, ephemeral=(op == "button")
+        )
+        msg = await interaction.original_response()

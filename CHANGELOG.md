@@ -3,19 +3,19 @@
 > 此處為純文字更新日誌，若要查看完成含圖片的分版日誌  
 > 可到 [Releases](https://github.com/TK-Entertainment/tkablent_music/releases) 查看
 
-目前總共發布 46 個版本  
-穩定版 (Stable, s) 共 11 版 | *正在提供更新，更新周期較慢*  
-*目前更新到 m.20230716.4-s*  
+目前總共發布 57 個版本  
+穩定版 (Stable, s) 共 18 版 | *正在提供更新，更新周期較慢*  
+*目前更新到 m.20240318.1.e1-s*  
 
-開發版 (Cutting Edge, ce) 共 21 版 | *仍舊提供更新，供嘗鮮用戶使用*  
-*目前更新到 m.20230922.linkandui-ce*  
+開發版 (Cutting Edge, ce) 共 24 版 | *仍舊提供更新，供嘗鮮用戶使用*  
+*目前更新到 m.20231224.wl30_test-ce*  
 
 前期開發版 (Alpha) 共 7 版 | *已於 20220813 停止更新，由 Cutting Edge 代替*  
 *最後更新到 Alpha 20220424 Update*  
 
 內部開發版 (Confidential) 共 8 版 | *已於 20220410 停止更新，由 Alpha 代替*  
 *最後更新到 # Build 20220410-2*
-# September 2023
+# April 2024
 ```
 =========================================
 Codename TKablent | Version Stable
@@ -23,6 +23,105 @@ Copyright 2022-present @ TK Entertainment
 Shared under MIT license
 =========================================
 ```
+## Version m.20240318.1.e1-s (緊急修復更新, [commit 234e246](https://github.com/TK-Entertainment/tkablent_music/commit/234e2467cff56e00560d3e9c7f64dcf622001758))
+```diff
+!【修復】修復上版更新後導致的無法點播多首搜尋結果的問題
+```
+
+## Version m.20240318.1-s [commit 9d7a34e](https://github.com/TK-Entertainment/tkablent_music/commit/9d7a34ef09b00062ec5f102556d28c32b6b8daf2)
+```diff
+!【修復】修復嘗試點播播放清單時，機器人沒有反應的問題
+=> ErrorFeedback-2024032101
+=> 感謝 @Jimmy0423 回報問題
+=> 此版本應已修復此問題
+```
+# March 2024
+## Version m.20240318-s [PR #32](https://github.com/TK-Entertainment/tkablent_music/pull/32)
+### Merged from m.20231224.wl30_test-ce
+```diff
++【新增】機器人播放 Spotify 歌曲時會顯示相關警告
+=> 以前就已經確認 Spotify 音源準確性的問題
+=> 從此版本開始會顯示警告
+
+!【更新】機器人播放組件 API 更新到 Wavelink 3.0
+=> 這是一個很大的 API 更新，很多語法都改變了
+=> 還需要細項調整，此版本可能存在許多潛在問題
+
+!【優化】棄用許多外置 API 套件
+=> 因 Lavalink 4.0 帶來了新的插件功能，故此版本開始棄用了許多的外置 API
+=> 可能可以為機器人帶來部分效能提升
+
+!【優化】點播 Spotify 歌曲時，機器人將不再顯示等待畫面
+=> 拜 Lavalink 4.0 所賜，現在機器人可以很有效率的抓到歌曲
+=> 將不再需要等待
+
+!【優化】播放介面簡化，減少字數
+=> 為保持介面整潔，此版本簡化了播放介面的按鈕部分，減少了字數
+
+!【改變】/restart 指令改變為 /replay
+=> 從此版本開始，/restart 指令將重新命名為 /replay
+
+!【修復】直接使用連結點歌會另外跳出訊息的問題
+=> 此版本修復了這個問題
+
+!【修復】其他沒有特別寫出來的修正內容
+=> 修了蠻多有的沒的，已經忘記有哪些了 (*°∀°)
+
+!【改變】節慶提示字將自行成行
+```
+# December 2023
+## Version m.20230716.7.e1-s (緊急修復更新, [Issue #23](https://github.com/TK-Entertainment/tkablent_music/issues/23) / [b8dea4d](https://github.com/TK-Entertainment/tkablent_music/commit/b8dea4d934a83cfaaa53a7d13cd1d38a119f27bf) / [ded775c](https://github.com/TK-Entertainment/tkablent_music/commit/ded775c445e786eed47171179e353fcd2a525b39))
+```diff
+!【緊急修復】修復了播放資訊訊息在被意外刪除後，可能會導致機器人往後不在該伺服器傳送播放訊息的問題 (ErrorFeedback-2023121001)
+=> 在此版本已經修復此問題
+```
+
+## Version m.20230716.7-s ([6ff709f](https://github.com/TK-Entertainment/tkablent_music/commit/6ff709fe7f974539deb1196f584d3a95b2d59929))
+```diff
+!【重要】此為維護性更新
+=> 此更新項目暫時不同步更新至測試版，僅在正式版提供
+=> 此更新所提供之修復會在新測試項目第一次推送時一同合併更新至測試版
+
+!【優化】推薦歌曲功能啟動的體驗 (詳情可參圖)
+=> 修改了一下推薦歌曲按鈕的工作方式
+=> 過去的版本會等待歌曲處理完成後才會更改狀態，但這很容易使 Discord 逾時而出現假性無回應狀態
+=> 此次更新優化了體驗，機器人會先更改狀態，並在之後才更新處理完成的歌曲
+
+!【修正】修復部分按鈕邏輯問題
+=> 此版本修復了有時按鈕已被停用，但是按鈕顏色仍然保持未停用時的狀態的問題
+```
+
+## Version m.20230716.6-s
+#### From Cutting Edge | m.20231209.linkandui-ce
+```diff
+!【重要】此為 linkandui 測試項目的最終版本
+=> 此版本為 linkandui 測試項目的最終版本，將在下一次更新 ce 版時轉移至下一個測試項目 wavelink30-depend 開始全新核心的測試
+=> 因測試版機器人目前使用人數較少，故此次將不進行退群動作
+=> 因配合新核心測試工作，穩定版將暫緩更新。請稍待新測試項目穩定後即會恢復
+
+!【優化】大幅加速搜尋提示字及本地緩存儲存處理速度
+=> 優化終於來啦，這次是個大的
+=> 經過內部測試，在相同環境、相同候選字、皆無快取的情況下
+=> 搜尋速度加快超過 5 倍速度，本地緩存儲存速度則加快約 1.4 倍
+=> 詳情可至 https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231209.linkandui-ce 查看
+
++【新增】新增各伺服器的更新資訊推送
+=> 考慮到並非所有使用者都有加入本群組，機器人自本版本起會在該伺服器更新後第一次傳送要求時傳送更新資訊，讓所有使用者知道我們準備了什麼好料的 (owob)
+```
+
+## Version m.20230716.5-s
+#### From Cutting Edge | m.20231205.linkandui-ce
+```diff
+!【優化】增加機器人穩定度及修正部分問題
+=> 重新編寫機器人對於搜尋結果本地快取的儲存方法，以防止機器人因進行快取儲存時導致的無回應狀態
+=> 詳情可至 https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20231205.linkandui-ce 查看
+
++【新增】新增播放伺服器服務提供商的資訊
+=> 特別感謝 404 Network Information Co. 對本專案的支援
+=> 可到 https://hello.simple.taipei/ 了解他們！
+```
+
+# September 2023
 ## Version m.20230716.4-s (PR [#20](https://github.com/TK-Entertainment/tkablent_music/pull/20))
 #### From Cutting Edge | m.20230922.linkandui-ce
 ```diff

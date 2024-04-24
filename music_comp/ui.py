@@ -1,8 +1,15 @@
-from typing import *
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 import datetime
 from enum import Enum, auto
+from .utils.storage import GuildUIInfo
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
+    from .player import MusicCog
 
 # Just for fetching current year
 cdt = datetime.datetime.now().date()
@@ -49,31 +56,6 @@ def _sec_to_hms(seconds, format) -> str:
         elif sec != 0:
             return f"{sec} 秒"
 
-
-from .player import MusicCog
-
-
-class GuildUIInfo:
-    def __init__(self, guild_id):
-        self.guild_id: int = guild_id
-        self.auto_stage_available: bool = True
-        self.stage_topic_exist: bool = False
-        self.stage_topic_checked: bool = False
-        self.skip: bool = False
-        self.lastskip: bool = False
-        self.search: bool = False
-        self.lasterrorinfo: dict = {}
-        self.leaveoperation: bool = False
-        self.playinfo: Coroutine[Any, Any, discord.Message] = None
-        self.playinfo_view: discord.ui.View = None
-        self.processing_msg: discord.Message = None
-        self.music_suggestion: bool = False
-        self.suggestions_source = None
-        self.searchmsg: Coroutine[Any, Any, discord.Message] = None
-        self.previous_titles: list[str] = []
-        self.suggestions: list = []
-
-
 class LeaveType(Enum):
     ByCommand = auto()
     ByButton = auto()
@@ -117,7 +99,7 @@ rescue_emoji = discord.PartialEmoji.from_str("🛟")
 
 
 @staticmethod
-def guild_info(guild_id) -> GuildUIInfo:
+def guild_info(guild_id: int) -> GuildUIInfo:
     if _guild_ui_info.get(guild_id) is None:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
     return _guild_ui_info[guild_id]
@@ -140,7 +122,7 @@ class GroupButton(discord.ui.View):
 
 
 class UI:
-    def __init__(self, music_bot, botversion):
+    def __init__(self, music_bot: MusicCog, botversion: str):
         global bot_version, musicbot, bot, embed_opt, groupbutton
         bot_version = botversion
 
@@ -159,60 +141,60 @@ class UI:
         ########
         # Info #
         ########
-        from .func.info import InfoGenerator
+        from .ui_comp.info import InfoGenerator
 
         self._InfoGenerator = InfoGenerator()
 
         ############################
         # General Warning Messages #
         ############################
-        from .func.exception_handler import ExceptionHandler
+        from .ui_comp.exception_handler import ExceptionHandler
 
         self.ExceptionHandler = ExceptionHandler(self._InfoGenerator)
 
         ########
         # Help #
         ########
-        from .func.help import Help
+        from .ui_comp.help import Help
 
         self.Help = Help()
 
         ########
         # Join #
         ########
-        from .func.join import Join
+        from .ui_comp.join import Join
 
         self.Join = Join(self.ExceptionHandler)
 
         #########
         # Stage #
         #########
-        from .func.stage import Stage
+        from .ui_comp.stage import Stage
 
         self.Stage = Stage()
 
         #########
         # Leave #
         #########
-        from .func.leave import Leave
+        from .ui_comp.leave import Leave
 
         self.Leave = Leave(self.ExceptionHandler, self._InfoGenerator)
 
         ##########
         # Search #
         ##########
-        from .func.search import Search
+        from .ui_comp.search import Search
 
         self.Search = Search(self.ExceptionHandler)
 
         #########
         # Queue #
         #########
-        from .func.queue import Queue
+        from .ui_comp.queue import Queue
 
         self.Queue = Queue(self._InfoGenerator)
 
-        from .func.queue_control import QueueControl
+        from .ui_comp.queue_control import QueueControl
 
         self.QueueControl = QueueControl(self.ExceptionHandler, self._InfoGenerator)
 
@@ -240,7 +222,7 @@ class UI:
         ########
         # Loop #
         ########
-        from .func.player_control import PlayerControl
+        from .ui_comp.player_control import PlayerControl
 
         self.PlayerControl = PlayerControl(
             self.ExceptionHandler,
@@ -250,10 +232,19 @@ class UI:
             self.Leave,
         )
 
-        # Survey Section
-        from .func.survey import Survey
+        ##########
+        # Survey #
+        ##########
+        from .ui_comp.survey import Survey
 
         self.Survey = Survey()
+
+        #############
+        # Changelog #
+        #############
+        from .ui_comp.changelog import Changelogs
+
+        self.Changelogs = Changelogs()
 
         ##########
         # Volume # Deprecated for now (might be used in the future)

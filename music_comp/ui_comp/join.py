@@ -1,4 +1,6 @@
-from typing import *
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
 import discord
 
 from .exception_handler import ExceptionHandler
@@ -38,7 +40,7 @@ class Join:
             try:
                 await interaction.response.send_message(msg)
             except discord.InteractionResponded:
-                await interaction.followup.send(content=msg)
+                await interaction.followup.send(content=msg, ephemeral=True)
 
     async def JoinStage(self, interaction: discord.Interaction, guild_id: int) -> None:
         channel = interaction.channel

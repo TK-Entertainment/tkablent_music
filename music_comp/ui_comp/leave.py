@@ -1,5 +1,6 @@
-from typing import *
-from discord.ext import commands
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from typing import *
 import discord
 import asyncio
 
@@ -46,15 +47,19 @@ class Leave:
     async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
         self.guild_info(interaction.guild.id).leaveoperation = True
         if self.guild_info(interaction.guild.id).playinfo is not None:
-            self.guild_info(interaction.guild.id).playinfo_view.clear_items()
-            self.guild_info(interaction.guild.id).playinfo_view.stop()
+            try:
+                self.guild_info(interaction.guild.id).playinfo_view.clear_items()
+                self.guild_info(interaction.guild.id).playinfo_view.stop()
+                await self.guild_info(interaction.guild.id).playinfo.edit(
+                    embed=self.info_generator._SongInfo(
+                        guild_id=interaction.guild.id, operation=LeaveType.ByCommand
+                    ),
+                    view=None,
+                )
+            except:
+                self.guild_info(interaction.guild.id).playinfo_view = None
+                self.guild_info(interaction.guild.id).playinfo = None
             await interaction.response.send_message("ㅤ", ephemeral=True)
-            await self.guild_info(interaction.guild.id).playinfo.edit(
-                embed=self.info_generator._SongInfo(
-                    guild_id=interaction.guild.id, operation=LeaveType.ByCommand
-                ),
-                view=None,
-            )
         else:
             await interaction.response.send_message(
                 embed=self.info_generator._SongInfo(
@@ -66,14 +71,18 @@ class Leave:
     async def LeaveOnTimeout(self, channel: discord.TextChannel) -> None:
         self.guild_info(channel.guild.id).leaveoperation = True
         if self.guild_info(channel.guild.id).playinfo is not None:
-            self.guild_info(channel.guild.id).playinfo_view.clear_items()
-            self.guild_info(channel.guild.id).playinfo_view.stop()
-            await self.guild_info(channel.guild.id).playinfo.edit(
-                embed=self.info_generator._SongInfo(
-                    guild_id=channel.guild.id, operation=LeaveType.ByTimeout
-                ),
-                view=None,
-            )
+            try:
+                self.guild_info(channel.guild.id).playinfo_view.clear_items()
+                self.guild_info(channel.guild.id).playinfo_view.stop()
+                await self.guild_info(channel.guild.id).playinfo.edit(
+                    embed=self.info_generator._SongInfo(
+                        guild_id=channel.guild.id, operation=LeaveType.ByTimeout
+                    ),
+                    view=None,
+                )
+            except:
+                self.guild_info(channel.guild.id).playinfo_view = None
+                self.guild_info(channel.guild.id).playinfo = None
         else:
             await channel.send(
                 embed=self.info_generator._SongInfo(

@@ -24,17 +24,18 @@ class Search:
                 """
         await interaction.response.send_message(msg, ephemeral=True)
 
-    async def SearchInProgress(self, interaction: discord.Interaction):
-        msg = f"""
-            **<a:Loading:1011280276325924915> | 正在載入音樂...**
-            大量 Spotify 歌曲會載入較慢...
-            目前機器人正在載入音樂，請稍等片刻
-            當音樂完成載入時，會顯示通知~
-            *你可以按下「刪除這些訊息」來關閉這個訊息*
-                """
+    # Deprecated soon
+    # async def SearchInProgress(self, interaction: discord.Interaction):
+    #     msg = f"""
+    #         **<a:Loading:1011280276325924915> | 正在載入音樂...**
+    #         大量 Spotify 歌曲會載入較慢...
+    #         目前機器人正在載入音樂，請稍等片刻
+    #         當音樂完成載入時，會顯示通知~
+    #         *你可以按下「刪除這些訊息」來關閉這個訊息*
+    #             """
 
-        await interaction.edit_original_response(content=msg)
-        return interaction.original_response()
+    #     await interaction.edit_original_response(content=msg)
+    #     return interaction.original_response()
 
     async def SearchFailed(self, interaction: discord.Interaction, url) -> None:
         await self.exception_handler._MusicExceptionHandler(interaction, None, url)
