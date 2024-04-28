@@ -1094,6 +1094,11 @@ class PlayerControl:
                 color = discord.ButtonStyle.danger
             await interaction.response.send_message(msg, ephemeral=True)
         if self.guild_info(interaction.guild.id).playinfo is not None:
+            if loopstate == LoopState.SINGLEINF:
+                icon = repeat_sing_emoji
+            else:
+                icon = repeat_emoji
+                
             await self.info_generator._UpdateSongInfo(interaction.guild.id)
             self.guild_info(
                 interaction.guild.id

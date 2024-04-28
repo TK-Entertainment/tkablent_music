@@ -13,12 +13,12 @@ class Survey:
     def __init__(self):
         from ..ui import musicbot, auto_stage_available, guild_info
 
-        self.enabled = False
+        self.enabled = True
 
-        self.survey_name = "202308_usual"
+        self.survey_name = "202404_05_usual"
 
         self.file_name = rf"{os.getcwd()}/music_comp/surveys/{self.survey_name}_survey.json"
-        self.survey_thread = 1137651881292865596
+        self.survey_thread = 1232541951191027742
 
         self.bot: commands.Bot = musicbot.bot
         self.musicbot = musicbot
@@ -81,7 +81,7 @@ class Survey:
             def __init__(self):
                 self.stars = discord.ui.TextInput(
                     custom_id="stars",
-                    label="請您填寫對於此機器人的體驗評價 (請填入數字，必填)",
+                    label="請您填寫對於此段時間機器人的體驗評價 (請填入數字，必填)",
                     placeholder=f"可填入 1(最差) ~ 10(最佳)",
                     style=discord.TextStyle.short,
                     min_length=1,
@@ -184,8 +184,8 @@ class Survey:
                 self.stop()
 
         embed = discord.Embed(
-            title="📝 | 使用者意見調查",
-            description="感謝貴伺服器使用 TKablent\n近期機器人已被超過 600 伺服器所使用，故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價",
+            title="📝 | TKablent 2024 年度 4/5 月使用者意見調查",
+            description="感謝貴伺服器使用 TKablent\n近期機器人已被超過 1000 伺服器所使用，故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價",
         )
         embed.set_footer(text="此問卷所收集的內容僅會提供給兩位TKE的開發者做為參考\n蒐集之資料會依據【隱私權政策】處理")
         view = SurveyBody()
