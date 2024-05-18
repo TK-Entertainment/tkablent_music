@@ -165,6 +165,7 @@ class InfoGenerator:
                 playing_state = ""
                 notice = ""
 
+            # Generate Time Field
             if not song.source == "spotify" and song.is_stream:
                 embed = discord.Embed(
                     title=f"{song.title}",
@@ -281,8 +282,20 @@ class InfoGenerator:
                     inline=False,
                 )
 
+            # If song is from Spotify, show album picture
             if song.source == "spotify" and (color != "green" or color != "red"):
                 embed.set_thumbnail(url=song.artwork)
+
+            # Generate Survey Notice
+            if self.musicbot.ui.Survey.enabled:
+                embed.add_field(
+                    name=f"📝 | {self.musicbot.ui.Survey.survey_displayname}",
+                    value=f"{self.musicbot.ui.Survey.survey_description}",
+                    inline=False,
+                )
+                footer_notice = "\n\n問卷所收集的內容僅會提供給兩位TKE的開發者做為參考\n蒐集之資料會依據【隱私權政策】處理"
+            else:
+                footer_notice = ""
 
             if (
                 not self.musicbot.track_helper.check_current_suggest_support(guild_id)
@@ -306,7 +319,7 @@ class InfoGenerator:
             )
 
         embed_opt["footer"]["text"] = (
-            embed_opt["footer"]["text"] + "\n播放伺服器由 404 Network Information Co. 提供支援"
+            embed_opt["footer"]["text"] + f"\n播放伺服器由 404 Network Information Co. 提供支援{footer_notice}"
         )
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
