@@ -475,6 +475,9 @@ class PlayerControl:
                 self.shuffle_task = None
                 super().__init__(timeout=None)
 
+                if self.musicbot.ui.Survey.enabled:
+                    self.add_item(self.musicbot.ui.Survey.getSurveyButton())
+
             async def restore_skip(self):
                 await asyncio.sleep(6)
                 self.skip.emoji = skip_emoji

@@ -14,46 +14,30 @@ class Survey:
         from ..ui import musicbot, auto_stage_available, guild_info
 
         self.enabled = False
+        self.survey_displayname = "TKablent 2024 年度 4/5 月使用者意見調查"
+        self.survey_description = "感謝貴伺服器使用 TKablent\n近期機器人已被超過 **1000** 伺服器所使用\n故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價"
 
-        self.survey_name = "202308_usual"
+        self._survey_filename = "202404_05_usual"
 
-        self.file_name = rf"{os.getcwd()}/music_comp/surveys/{self.survey_name}_survey.json"
-        self.survey_thread = 1137651881292865596
+        self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_filename}_survey.json"
+        self._survey_thread = 642704558996586496
 
-        self.bot: commands.Bot = musicbot.bot
-        self.musicbot = musicbot
-        self.auto_stage_available = auto_stage_available
-        self.guild_info = guild_info
-        self.lastsend = {}
+        self._bot: commands.Bot = musicbot.bot
+        self._musicbot = musicbot
+        self._auto_stage_available = auto_stage_available
+        self._guild_info = guild_info
 
-        with open(self.file_name, "r") as f:
+        with open(self._file_name, "r") as f:
             self._survey = json.load(f)
-
-    async def _need_to_send_survey(self, interaction: discord.Interaction) -> bool:
-        if self.lastsend.get(interaction.guild.id) is None:
-            self.lastsend[interaction.guild.id] = int(time.time())
-        else:
-            if int(time.time()) - self.lastsend[interaction.guild.id] < 10800:
-                return
-
-        for user in interaction.guild.members:
-            if user.id not in self._survey["user_ids"]:
-                self.lastsend[interaction.guild.id] = int(time.time())
-                await self._SurveyMsg(interaction)
-                break
-
-    async def SendSurvey(self, interaction: discord.Interaction) -> None:
-        if self.enabled:
-            self.bot.loop.create_task(self._need_to_send_survey(interaction))
 
     def survey(self, item) -> dict:
         return self._survey[item]
 
-    def update_cache(
+    def _update_cache(
         self, replier: str, replier_id: int, stars: str | int, suggestion: str
     ) -> None:
         """update database"""
-        with open(self.file_name, "r") as f:
+        with open(self._file_name, "r") as f:
             data: dict = json.load(f)
         if replier_id not in data.get("user_ids"):
             data["users"].append(replier)
@@ -64,24 +48,22 @@ class Survey:
 
         self._survey = data
 
-        with open(self.file_name, "w") as f:
+        with open(self._file_name, "w") as f:
             json.dump(data, f)
 
-    async def _SurveyMsg(self, interaction: discord.Interaction) -> None:
-        icon = discord.PartialEmoji.from_str("📝")
-
+    def getSurveyButton(self) -> discord.ui.Button:
         class SurveyModal(discord.ui.Modal):
-            bot = self.bot
-            survey_name = self.survey_name
+            bot = self._bot
+            survey_filename = self._survey_filename
             survey = self.survey
-            file_name = self.file_name
-            survey_thread = self.survey_thread
-            update_cache = self.update_cache
+            file_name = self._file_name
+            survey_thread = self._survey_thread
+            update_cache = self._update_cache
 
             def __init__(self):
                 self.stars = discord.ui.TextInput(
                     custom_id="stars",
-                    label="請您填寫對於此機器人的體驗評價 (請填入數字，必填)",
+                    label="請您填寫對於此段時間機器人的體驗評價 (請填入數字，必填)",
                     placeholder=f"可填入 1(最差) ~ 10(最佳)",
                     style=discord.TextStyle.short,
                     min_length=1,
@@ -128,11 +110,12 @@ class Survey:
                 ratio = round((replies / total) * 100, 2)
                 embed = discord.Embed(
                     title="已收到問卷調查",
-                    description=f"已收到問卷，問卷名稱: **{self.survey_name}**",
+                    description=f"已收到問卷，問卷名稱: **{self.survey_filename}**",
                     color=0x00FF00,
                 )
                 embed.add_field(name="評分", value=self.stars.value, inline=False)
-                embed.add_field(name="建議", value=self.suggestions.value, inline=False)
+                if not ((self.suggestions.value == "") or (len(self.suggestions.value) == 0)):
+                    embed.add_field(name="建議", value=self.suggestions.value, inline=False)
                 embed.set_author(name=user_name, icon_url=interaction.user.avatar)
                 embed.set_footer(
                     text=f"ID: {interaction.user.id} | {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n問卷回收率: {ratio}% ({replies} / {total})"
@@ -143,51 +126,16 @@ class Survey:
                     "已收到您的問卷，感謝您的填寫！", ephemeral=True
                 )
 
-        class SurveyBody(discord.ui.View):
+        class SurveyButton(discord.ui.Button):
             survey = self.survey
 
             def __init__(self):
-                super().__init__(timeout=None)
-                self.button = discord.ui.Button(
-                    emoji=rescue_emoji,
-                    style=discord.ButtonStyle.link,
-                    url="https://discord.gg/9qrpGh4e7V",
-                    label="支援群組",
-                    row=1,
-                )
-                self.add_item(self.button)
+                super().__init__(label="填寫問卷", emoji=discord.PartialEmoji.from_str("📝"), style=discord.ButtonStyle.blurple)
 
-            @discord.ui.button(
-                label="填寫問卷", emoji=icon, style=discord.ButtonStyle.blurple
-            )
-            async def survey_button(
-                self, interaction: discord.Interaction, button: discord.ui.Button
-            ):
+            async def callback(self, interaction: discord.Interaction):
                 if interaction.user.id in self.survey("user_ids"):
-                    await interaction.response.send_message(
-                        "您已經填寫過問卷囉，感謝您的填寫！", ephemeral=True
-                    )
+                    await interaction.response.send_message("您已經填寫過問卷囉，感謝您的填寫！", ephemeral=True)
                     return
                 await interaction.response.send_modal(SurveyModal())
-
-            @discord.ui.button(
-                label="關閉問卷", emoji=end_emoji, style=discord.ButtonStyle.danger
-            )
-            async def end(
-                self, interaction: discord.Interaction, button: discord.ui.Button
-            ):
-                self.clear_items()
-                try:
-                    await msg.delete()
-                except discord.HTTPException:
-                    pass
-                self.stop()
-
-        embed = discord.Embed(
-            title="📝 | 使用者意見調查",
-            description="感謝貴伺服器使用 TKablent\n近期機器人已被超過 600 伺服器所使用，故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價",
-        )
-        embed.set_footer(text="此問卷所收集的內容僅會提供給兩位TKE的開發者做為參考\n蒐集之資料會依據【隱私權政策】處理")
-        view = SurveyBody()
-
-        msg = await interaction.channel.send(embed=embed, view=view)
+    
+        return SurveyButton()

@@ -234,7 +234,6 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name="help", description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):
-        await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
         await self.ui.Changelogs.SendChangelogs(interaction)
         await self.ui.Help.Help(interaction)
 
@@ -255,16 +254,15 @@ class MusicCog(Player, commands.Cog):
         bot_itself: discord.Member = await interaction.guild.fetch_member(
             self.bot.user.id
         )
-        auto_stage_vaildation = self.auto_stage_available(interaction.guild.id)
 
         if interaction.user.voice.channel.instance is None:
             await self.ui.Stage.CreateStageInstance(interaction, interaction.guild.id)
 
-        if auto_stage_vaildation and bot_itself.voice.suppress:
+        if self.auto_stage_available(interaction.guild.id) and bot_itself.voice.suppress:
             try:
                 await bot_itself.edit(suppress=False)
             except:
-                auto_stage_vaildation = False
+                self.ui_guild_info(interaction.guild.id).auto_stage_available = False
 
     ##############################################
 
@@ -378,7 +376,6 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name="np", description="▶️ | 查看現在在播放什麼!")
     async def nowplaying(self, interaction: discord.Interaction):
-        await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
         await self.ui.Changelogs.SendChangelogs(interaction)
         await self.ui.PlayerControl.NowPlaying(interaction)
 
@@ -386,7 +383,6 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name="stop", description="⏹️ | 停止音樂並清除待播清單")
     async def stop(self, interaction: discord.Interaction):
-        await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
         await self.ui.Changelogs.SendChangelogs(interaction)
         try:
             await self._stop(interaction.guild)
@@ -581,7 +577,6 @@ class MusicCog(Player, commands.Cog):
     @app_commands.rename(search="影片網址或關鍵字")
     @discord.app_commands.autocomplete(search=get_search_suggest)
     async def _i_play(self, interaction: discord.Interaction, search: str):
-        await self.ui.Survey.SendSurvey(interaction)  # 202308 Survey
         await self.ui.Changelogs.SendChangelogs(interaction)
         if "sid=>" in search:
             tracks = await self.track_helper.get_track(interaction, search)
