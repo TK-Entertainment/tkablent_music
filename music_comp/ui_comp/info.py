@@ -65,6 +65,8 @@ class InfoGenerator:
 
         # This part for non-playing state
         if len(playlist.order) == 0:
+            footer_notice = ""
+
             # String that shows when bot leaving
             if isinstance(operation, LeaveType):
                 match operation:
