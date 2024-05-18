@@ -15,45 +15,27 @@ class Survey:
 
         self.enabled = False
 
-        self.survey_name = "202308_usual"
+        self.__survey_name = "202308_usual"
 
-        self.file_name = rf"{os.getcwd()}/music_comp/surveys/{self.survey_name}_survey.json"
-        self.survey_thread = 1137651881292865596
+        self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_name}_survey.json"
+        self._survey_thread = 1137651881292865596
 
-        self.bot: commands.Bot = musicbot.bot
-        self.musicbot = musicbot
-        self.auto_stage_available = auto_stage_available
-        self.guild_info = guild_info
-        self.lastsend = {}
+        self.__bot: commands.Bot = musicbot.bot
+        self._musicbot = musicbot
+        self._auto_stage_available = auto_stage_available
+        self._guild_info = guild_info
 
-        with open(self.file_name, "r") as f:
+        with open(self._file_name, "r") as f:
             self._survey = json.load(f)
-
-    async def _need_to_send_survey(self, interaction: discord.Interaction) -> bool:
-        if self.lastsend.get(interaction.guild.id) is None:
-            self.lastsend[interaction.guild.id] = int(time.time())
-        else:
-            if int(time.time()) - self.lastsend[interaction.guild.id] < 10800:
-                return
-
-        for user in interaction.guild.members:
-            if user.id not in self._survey["user_ids"]:
-                self.lastsend[interaction.guild.id] = int(time.time())
-                await self._SurveyMsg(interaction)
-                break
-
-    async def SendSurvey(self, interaction: discord.Interaction) -> None:
-        if self.enabled:
-            self.bot.loop.create_task(self._need_to_send_survey(interaction))
 
     def survey(self, item) -> dict:
         return self._survey[item]
 
-    def update_cache(
+    def _update_cache(
         self, replier: str, replier_id: int, stars: str | int, suggestion: str
     ) -> None:
         """update database"""
-        with open(self.file_name, "r") as f:
+        with open(self._file_name, "r") as f:
             data: dict = json.load(f)
         if replier_id not in data.get("user_ids"):
             data["users"].append(replier)
@@ -64,19 +46,17 @@ class Survey:
 
         self._survey = data
 
-        with open(self.file_name, "w") as f:
+        with open(self._file_name, "w") as f:
             json.dump(data, f)
 
-    async def _SurveyMsg(self, interaction: discord.Interaction) -> None:
-        icon = discord.PartialEmoji.from_str("📝")
-
+    def SurveyButton(self):
         class SurveyModal(discord.ui.Modal):
-            bot = self.bot
-            survey_name = self.survey_name
-            survey = self.survey
-            file_name = self.file_name
-            survey_thread = self.survey_thread
-            update_cache = self.update_cache
+            bot = self.__bot
+            survey_name = self._survey_name
+            survey = self._survey
+            file_name = self._file_name
+            survey_thread = self._survey_thread
+            update_cache = self._update_cache
 
             def __init__(self):
                 self.stars = discord.ui.TextInput(
@@ -158,7 +138,7 @@ class Survey:
                 self.add_item(self.button)
 
             @discord.ui.button(
-                label="填寫問卷", emoji=icon, style=discord.ButtonStyle.blurple
+                label="填寫問卷", emoji=discord.PartialEmoji.from_str("📝"), style=discord.ButtonStyle.blurple
             )
             async def survey_button(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -182,12 +162,3 @@ class Survey:
                 except discord.HTTPException:
                     pass
                 self.stop()
-
-        embed = discord.Embed(
-            title="📝 | 使用者意見調查",
-            description="感謝貴伺服器使用 TKablent\n近期機器人已被超過 600 伺服器所使用，故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價",
-        )
-        embed.set_footer(text="此問卷所收集的內容僅會提供給兩位TKE的開發者做為參考\n蒐集之資料會依據【隱私權政策】處理")
-        view = SurveyBody()
-
-        msg = await interaction.channel.send(embed=embed, view=view)

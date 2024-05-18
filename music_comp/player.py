@@ -255,16 +255,15 @@ class MusicCog(Player, commands.Cog):
         bot_itself: discord.Member = await interaction.guild.fetch_member(
             self.bot.user.id
         )
-        auto_stage_vaildation = self.auto_stage_available(interaction.guild.id)
 
         if interaction.user.voice.channel.instance is None:
             await self.ui.Stage.CreateStageInstance(interaction, interaction.guild.id)
 
-        if auto_stage_vaildation and bot_itself.voice.suppress:
+        if self.auto_stage_available(interaction.guild.id) and bot_itself.voice.suppress:
             try:
                 await bot_itself.edit(suppress=False)
             except:
-                auto_stage_vaildation = False
+                self.ui_guild_info(interaction.guild.id).auto_stage_available = False
 
     ##############################################
 
