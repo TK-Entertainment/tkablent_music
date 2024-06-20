@@ -37,7 +37,6 @@ class TrackHelper():
         BILI_JCT = os.getenv("BILI_JCT")
         BUVID3 = os.getenv("BUVID3")
         DEDEUSERID = os.getenv("DEDEUSERID")
-        AC_TIME_VALUE = os.getenv("AC_TIME_VALUE")
 
         self.ui = ui_comp
         self._cacheworker: CacheWorker = CacheWorker()
@@ -51,7 +50,6 @@ class TrackHelper():
             bili_jct=BILI_JCT,
             buvid3=BUVID3,
             dedeuserid=DEDEUSERID,
-            ac_time_value=AC_TIME_VALUE,
         )
 
     def __getitem__(self, guild_id: int) -> PlaylistBase:
@@ -115,7 +113,22 @@ class TrackHelper():
         self, interaction: discord.Interaction, current: str
     ) -> List[app_commands.Choice[str]]:
         if validators.url(current) or current == "":
-            return []
+            if current == "":
+                return []
+            
+            if ("spotify" in current):
+                follow_text = " Spotify 曲目"
+            elif ("bilibili" in current) or ("b23.tv" in current):
+                follow_text = " Bilibili 曲目"
+            elif ("soundcloud" in current):
+                follow_text = " SoundCloud 曲目"
+            else:
+                follow_text = "曲目"
+
+            return [app_commands.Choice(
+                name=f"透過 URL 點播{follow_text}",
+                value=f"{current}",
+            )]
         else:
             tracks = await self.get_track(interaction, current, quick_search=True)
             result = []
@@ -163,9 +176,11 @@ class TrackHelper():
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
         data = detector.detect_all()
+        data.reverse()
         for t in data:
             if isinstance(t, bilibili.video.AudioStreamDownloadURL):
-                raw_url = t.url.replace("&", "%26")
+                #raw_url = t.url.replace("&", "%26")
+                raw_url = t.url
                 try:
                     trackinfo = await wavelink.Pool.fetch_tracks(raw_url)
                 except Exception as e:
@@ -173,7 +188,7 @@ class TrackHelper():
                     continue
                 break
             else:
-                raw_url = None
+                break
 
         if raw_url == None:
             return None
@@ -185,11 +200,12 @@ class TrackHelper():
 
         track = trackinfo[0]
         vinfo = await v_data.get_info()
-        track.author = vinfo["owner"]["name"]
-        track.duration = vinfo["duration"] * 1000
-        track.identifier = vinfo["bvid"]
-        track.is_seekable = True
-        track.title = vinfo["title"]
+        track.extras = {
+            "title": vinfo["title"],
+            "author": vinfo["owner"]["name"], 
+            "identifier": vinfo["bvid"],
+            "duration": vinfo["duration"] * 1000,
+        }
 
         return track
 
@@ -234,7 +250,7 @@ class TrackHelper():
             elif track is None:
                 return [None]
             else:
-                tracks.extend(track)
+                tracks.append(track)
 
         elif (validators.url(search)) or ("sid=>" in search):
             url = self._parse_url(search, choice)

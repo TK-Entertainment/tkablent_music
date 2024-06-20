@@ -13,14 +13,13 @@ Current Version
 
 production = True
 prefix = "/"
-
 branch = "master"
 
 if production:
     status = discord.Status.online
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.2{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.3{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"

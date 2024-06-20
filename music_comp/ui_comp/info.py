@@ -65,6 +65,8 @@ class InfoGenerator:
 
         # This part for non-playing state
         if len(playlist.order) == 0:
+            footer_notice = ""
+
             # String that shows when bot leaving
             if isinstance(operation, LeaveType):
                 match operation:
@@ -165,18 +167,27 @@ class InfoGenerator:
                 playing_state = ""
                 notice = ""
 
+            if song.source != "spotify" and song.source != "youtube":
+                title = song.extras.title
+                author = song.extras.author
+                length = song.extras.duration
+            else:
+                title = song.title
+                author = song.author
+                length = song.length
+
             # Generate Time Field
             if not song.source == "spotify" and song.is_stream:
                 embed = discord.Embed(
-                    title=f"{song.title}",
-                    description=f"**{song.author}**\n*🔴 直播*{notice}",
+                    title=f"{title}",
+                    description=f"**{author}**\n*🔴 直播*{notice}",
                     colour=color,
                 )
             else:
-                time_string = self._sec_to_hms((song.length) / 1000, "zh")
+                time_string = self._sec_to_hms((length) / 1000, "zh")
                 embed = discord.Embed(
-                    title=f"{song.title}",
-                    description=f"**{song.author}**\n*{time_string}*{notice}",
+                    title=f"{title}",
+                    description=f"**{author}**\n*{time_string}*{notice}",
                     colour=color,
                 )
 
@@ -309,7 +320,7 @@ class InfoGenerator:
                     inline=False,
                 )
 
-            if ("bilibili" in song.uri):
+            if (song.source == "http"):
                 embed_opt["footer"]["text"] = (
                     "【!】bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
             )
