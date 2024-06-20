@@ -14,21 +14,23 @@ class Survey:
         from ..ui import musicbot, auto_stage_available, guild_info
 
         self.enabled = False
-        self.survey_displayname = "TKablent 2024 年度 4/5 月使用者意見調查"
-        self.survey_description = "感謝貴伺服器使用 TKablent\n近期機器人已被超過 **1000** 伺服器所使用\n故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價"
 
-        self._survey_filename = "202404_05_usual"
+        if self.enabled:
+            self.survey_displayname = "TKablent 2024 年度 4/5 月使用者意見調查"
+            self.survey_description = "感謝貴伺服器使用 TKablent\n近期機器人已被超過 **1000** 伺服器所使用\n故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價"
 
-        self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_filename}_survey.json"
-        self._survey_thread = 642704558996586496
+            self._survey_filename = "202404_05_usual"
 
-        self._bot: commands.Bot = musicbot.bot
-        self._musicbot = musicbot
-        self._auto_stage_available = auto_stage_available
-        self._guild_info = guild_info
+            self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_filename}_survey.json"
+            self._survey_thread = 642704558996586496
 
-        with open(self._file_name, "r") as f:
-            self._survey = json.load(f)
+            self._bot: commands.Bot = musicbot.bot
+            self._musicbot = musicbot
+            self._auto_stage_available = auto_stage_available
+            self._guild_info = guild_info
+
+            with open(self._file_name, "r") as f:
+                self._survey = json.load(f)
 
     def survey(self, item) -> dict:
         return self._survey[item]

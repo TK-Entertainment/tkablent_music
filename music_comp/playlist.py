@@ -166,7 +166,9 @@ class Playlist:
         else:
             for track in trackinfo:
                 track.requester = requester
-                track.extras = {"requested_guild": guild_id}
+                extras = dict(track.extras)
+                extras["requested_guild"] = guild_id
+                track.extras = extras
                 try:
                     if track.suggested != True or track.suggested is None:
                         track.suggested = False

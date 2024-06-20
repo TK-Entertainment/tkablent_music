@@ -17,7 +17,12 @@ class CacheWorker:
         try:
             with open(self._cache_path, "rb") as f:
                 self._cache: dict = json_decode(f.read())
-            
+
+            shutil.copyfile(self._cache_path, self._bak_cache_path)
+        except FileNotFoundError:
+            with open(self._cache_path, "wb") as f:
+                f.write(b"{}")
+            self._cache = {}
             shutil.copyfile(self._cache_path, self._bak_cache_path)
         except DecodeError:
             with open(self._bak_cache_path, "rb") as bak_f:

@@ -64,28 +64,6 @@ class Player:
             client=self.bot,
         )
 
-    ############
-    # sessdata refresh (currently not working)
-    ############
-    async def _refresh_sessdata(self):
-        while True:
-            need_refresh = await self._bilibilic.chcek_refresh()
-            if need_refresh:
-                await self._bilibilic.refresh()
-                sessdata = self._bilibilic.sessdata
-                bili_jct = self._bilibilic.bili_jct
-                dotenv.set_key(
-                    dotenv_path=rf"{os.getcwd()}/.env",
-                    key_to_set="SESSDATA",
-                    value_to_set=sessdata,
-                )
-                dotenv.set_key(
-                    dotenv_path=rf"{os.getcwd()}/.env",
-                    key_to_set="BILI_JCT",
-                    value_to_set=bili_jct,
-                )
-            await asyncio.sleep(120)
-
     #############
     # Join Core #
     #############
@@ -93,7 +71,9 @@ class Player:
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.Pool.get_node("TW_PlayBackNode")
         if voice_client is None:
-            await channel.connect(cls=wavelink.Player(nodes=[mainplayhost]))
+            player = wavelink.Player()
+            player.inactive_timeout = 600
+            await channel.connect(cls=player)
 
     ##############
     # Leave Core #
@@ -117,7 +97,6 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
         if not voice_client.paused and voice_client.playing:
             await voice_client.pause(True)
-            self._start_timer(guild)
 
     ###############
     # Resume Core #
@@ -125,7 +104,6 @@ class Player:
     async def _resume(self, guild: discord.Guild):
         voice_client: wavelink.Player = guild.voice_client
         if voice_client.paused:
-            self._stop_timer(guild)
             await voice_client.pause(False)
 
     #############
@@ -179,7 +157,6 @@ class Player:
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
         voice_client: wavelink.Player = guild.voice_client
-        self._start_timer(guild)
 
         if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
             await voice_client.play(self._playlist[guild.id].current())
@@ -187,28 +164,10 @@ class Player:
     ########
     # Misc #
     ########
-    def _start_timer(self, guild: discord.Guild):
-        self._stop_timer(guild)
-        coro = self._timer(guild)
-        self[guild.id]._timer = self.bot.loop.create_task(coro)
-
-    def _stop_timer(self, guild: discord.Guild):
-        if self[guild.id]._timer is not None:
-            self[guild.id]._timer.cancel()
-            self[guild.id]._timer = None
-
-    async def _timer(self, guild: discord.Guild):
-        await asyncio.sleep(600.0)
-        self[guild.id]._timer_done = True
-        await self._leave(guild)
-
     def _cleanup(self, guild: discord.Guild):
         if self[guild.id]._task is not None:
             self[guild.id]._task = None
         del self._playlist[guild.id]
-        if self[guild.id]._timer is not None:
-            self[guild.id]._timer.cancel()
-            self[guild.id]._timer = None
 
 # ========================================================================================================
 
@@ -231,6 +190,31 @@ class MusicCog(Player, commands.Cog):
 
         from .ui import groupbutton
         self.groupbutton = groupbutton
+
+    ############
+    # sessdata refresh (currently not working)
+    ############
+    async def _refresh_sessdata(self):
+        while True:
+            need_refresh = await self.track_helper._bilibilic.check_refresh()
+            if need_refresh:
+                await self.track_helper._bilibilic.refresh()
+                dotenv.set_key(
+                    dotenv_path=rf"{os.getcwd()}/.env",
+                    key_to_set="SESSDATA",
+                    value_to_set=self.track_helper._bilibilic.sessdata,
+                )
+                dotenv.set_key(
+                    dotenv_path=rf"{os.getcwd()}/.env",
+                    key_to_set="BILI_JCT",
+                    value_to_set=self.track_helper._bilibilic.bili_jct,
+                )
+                dotenv.set_key(
+                    dotenv_path=rf"{os.getcwd()}/.env",
+                    key_to_set="BUVID3",
+                    value_to_set=self.track_helper._bilibilic.buvid3,
+                )
+            await asyncio.sleep(120)
 
     @app_commands.command(name="help", description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):
@@ -617,11 +601,7 @@ class MusicCog(Player, commands.Cog):
         ):
             return
         guild = member.guild
-        channel = self[guild.id].text_channel
-        if self[guild.id]._timer_done:
-            self[guild.id]._timer_done = False
-            await self.ui.Leave.LeaveOnTimeout(channel)
-        elif after.channel is None:
+        if after.channel is None:
             await self._leave(member.guild)
         self._cleanup(guild)
 
@@ -631,13 +611,16 @@ class MusicCog(Player, commands.Cog):
         print(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
 
     @commands.Cog.listener()
+    async def on_wavelink_inactive_player(self, player: wavelink.Player):
+        channel = self[player.guild.id].text_channel
+        await self._leave(player.guild)
+        await self.ui.Leave.LeaveOnTimeout(channel)
+
+    @commands.Cog.listener()
     async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
         await self._get_current_stats()
         try:
             guild = discord.Object(payload.track.extras.requested_guild)
-            if self[guild.id]._timer is not None:
-                self[guild.id]._timer.cancel()
-                self[guild.id]._timer = None
             if self.ui_guild_info(guild.id).playinfo is None:
                 await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
             else:
@@ -658,11 +641,9 @@ class MusicCog(Player, commands.Cog):
         if len(self._playlist[guild.id].order) == 0:
             if not (
                 (self.ui_guild_info(guild.id).leaveoperation)
-                or (self[guild.id]._timer_done)
             ):
                 self.ui_guild_info(guild.id).leaveoperation = False
                 await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
-            self._start_timer(guild)
             return
         else:
             await self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
