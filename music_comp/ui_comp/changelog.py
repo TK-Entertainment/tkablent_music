@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = "https://cdn.discordapp.com/attachments/642704558996586496/1241245065796390922/image.png?ex=66497f0c&is=66482d8c&hm=2ce29ef25399ae36f48fde704beacee19390e876d3cfc02b74db7ec67125165d&"
+        self.picture = "https://cdn.discordapp.com/attachments/642704558996586496/1253438676613206026/image.png?ex=6675db3c&is=667489bc&hm=69a0fcfa4092d87aa64177be64efa30412fe7aa68247e936c81104e6bf8a8506&"
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
@@ -40,10 +40,10 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【改進】將問卷提示合併至播放介面，以減少問卷提示彈出的次數", "=> 有在近期的問卷中收到希望不要一直彈問卷出來的建議\n=> 在自行評估後也發現單獨彈出的方式較為不妥\n=> 故在此版本已將提示合併至播放介面中~"],
-            ["#", "⚠️ 已知問題", "============="],
-            ["(!)", "【Bug】Spotify 的推薦歌曲功能將暫時無法使用\n(預計於 m.20240318.3-s 解決)", "=> 目前因 API 架構改變，尚未找到方法實作 Spotify 的推薦\n=> 故 Spotify 之歌曲將暫時無法使用機器人的推薦功能"],
-            ["(!)", "【Bug】Bilibili 歌曲播放功能尚未確定可以使用\n(預計於 m.20240318.3-s 解決)", "=> 目前此版本尚未測試是否可以播放 BiliBili 的歌曲\n=> 故可能暫時無法使用"],
+            ["+", "【恢復】Bilibili 歌曲播放功能", "=> 已恢復 Bilibili 歌曲點播功能，但有時候可能還是會遇到無法點播的問題\n=> 如遇到無法點播的狀況，可以重新點播幾次"],
+            ["!", "【問卷】結束 2024.04/05 問卷", "=> 感謝您們的回覆，我們已收到您的意見及想法"],
+            ["!", "【改進】新增「透過 URL 點播」提示字", "=> 如圖，現在當您輸入 URL 的時候\n=> 機器人會提示選項「透過 URL 點播」，而非以前的無結果"],
+            ["!", "【改進】其餘的一些小小的穩定性改進", "============="],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
