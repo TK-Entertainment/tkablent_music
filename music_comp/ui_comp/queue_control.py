@@ -56,7 +56,7 @@ class QueueControl:
         embed.add_field(
             name=f"第 ~~{idx2}~~ -> **{idx1}** 順序",
             value="{}\n{}\n{} 點歌\n".format(
-                playlist[idx1].title, playlist[idx1].author, playlist[idx1].requester
+                playlist[idx1].title, playlist[idx1].author, playlist[idx1].extras.requester_name
             ),
             inline=True,
         )
@@ -64,7 +64,7 @@ class QueueControl:
         embed.add_field(
             name=f"第 ~~{idx1}~~ -> **{idx2}** 順序",
             value="{}\n{}\n{} 點歌\n".format(
-                playlist[idx2].title, playlist[idx2].author, playlist[idx2].requester
+                playlist[idx2].title, playlist[idx2].author, playlist[idx2].extras.requester_name
             ),
             inline=True,
         )
@@ -90,7 +90,7 @@ class QueueControl:
         embed.add_field(
             name=f"第 ~~{origin}~~ -> **{new}** 順序",
             value="{}\n{}\n{} 點歌\n".format(
-                playlist[new].title, playlist[new].author, playlist[new].requester
+                playlist[new].title, playlist[new].author, playlist[new].extras.requester_name
             ),
             inline=True,
         )

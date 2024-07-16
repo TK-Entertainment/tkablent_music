@@ -128,11 +128,11 @@ class Queue:
             if index == len(playlist.order):
                 break
             length = self._sec_to_hms((playlist[index].length) / 1000, "symbol")
-            if playlist[index].suggested:
+            if playlist[index].extras.suggested:
                 requester = "💡推薦歌曲"
                 index_text = ""
             else:
-                requester = f"{playlist[index].requester} 點歌"
+                requester = f"{playlist[index].extras.requester_name} 點歌"
                 index_text = f"第 {index} 順位\n"
             embed.add_field(
                 name="{}{}\n{}{}".format(

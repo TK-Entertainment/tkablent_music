@@ -15,7 +15,7 @@ from enum import Enum, auto
 
 from music_comp.ui import UI, _sec_to_hms
 from music_comp.playlist import LoopState, Playlist, PlaylistBase
-from .storage import GuildUIInfo
+from .storage import GuildUIInfo, GuildInfo
 from .cache import CacheWorker
 
 class SpotifySearchType(Enum):
@@ -65,19 +65,28 @@ class TrackHelper():
 #   Search Suggestion Process (Quick Search)
         
     # Processing track information for search suggestion
-    async def _search_suggest_processing(self, result: list, track, data: dict):
+    async def _search_suggest_processing(self, result: list, track: wavelink.Playable, data: dict, with_arrow=False):
         try:
-            if self._cache.get(track.identifier) is not None:
+            if track.source == "http":
+                vtitle = track.extras.title
+                duration = track.extras.duration
+                identifier = track.extras.identifier
+            else:
+                vtitle = track.title
+                duration = track.length
+                identifier = track.identifier
+
+            if self._cache.get(identifier) is not None:
                 expired = (
                     int(time.time())
-                    - self._cache.get(track.identifier)["timestamp"]
+                    - self._cache.get(identifier)["timestamp"]
                 ) >= 2592000
 
                 if not expired:
                     result.append(
                         app_commands.Choice(
-                            name=f"{self._cache[track.identifier]['title']} | {self._cache[track.identifier]['length']}",
-                            value=f"sid=>{track.identifier}",
+                            name="{}{} | {}".format(">> " if with_arrow else "", self._cache[identifier]['title'], self._cache[identifier]['length']),
+                            value=f"sid=>{identifier}",
                         )
                     )
                     return
@@ -86,36 +95,84 @@ class TrackHelper():
                 return
 
             length = _sec_to_hms(
-                seconds=(track.length) / 1000, format="symbol"
+                seconds=(duration) / 1000, format="symbol"
             )
 
             left_name_length = 70 - len(f" | {length}")
 
-            if len(track.title) >= left_name_length + len(" ..."):
-                track.title = track.title[:left_name_length] + " ..."
+            if len(title) >= left_name_length + len(" ..."):
+                title = vtitle[:left_name_length] + " ..."
+            else:
+                title = vtitle
 
             result.append(
                 app_commands.Choice(
-                    name=f"{track.title} | {length}",
-                    value=f"sid=>{track.identifier}",
+                    name="{}{} | {}".format(">> " if with_arrow else "", title, length),
+                    value=f"sid=>{identifier}",
                 )
             )
 
             timestamp = int(time.time())
-            data[track.identifier] = dict(
-                title=track.title, length=length, timestamp=timestamp
+            data[identifier] = dict(
+                title=title, length=length, timestamp=timestamp
             )
-        finally:
-            return
+        except Exception as e:
+            return None
 
     # Main part for search suggestion system
     async def get_search_suggest(
-        self, interaction: discord.Interaction, current: str
+        self, interaction: discord.Interaction, current: str, guild_info: GuildInfo
     ) -> List[app_commands.Choice[str]]:
-        if validators.url(current) or current == "":
-            if current == "":
-                return []
+        data = {}
+        if current == "":
+            choicelist = []
+            choicelist.append(app_commands.Choice(
+                name="💖【這群ㄉ最愛！】(請點擊前方有 >> 的項目)",
+                value="",
+            ))
+            if len(guild_info.mostly_played) <= 10:
+                choicelist.append(app_commands.Choice(
+                    name="== ❌ | 目前此項資料不足，暫時不可用。",
+                    value="",
+                ))
+            else:
+                tracks = []
+                result = []
+                for i, trackid in enumerate(guild_info.mostly_played):
+                    tracks.extend(await self.get_track(interaction, f"sid=>{trackid[0]}"))
+                    if i == 4: break
+                async with asyncio.TaskGroup() as taskgroup:
+                    for i in range(len(tracks)):
+                        taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
+                choicelist.extend(result)
             
+            choicelist.extend([
+                app_commands.Choice(
+                name="=====================",
+                value=""),
+                app_commands.Choice(
+                name="🕒【最近播放】(請點擊前方有 >> 的項目)",
+                value="")
+                ])
+            if len(guild_info.recently_played) == 0:
+                choicelist.append(app_commands.Choice(
+                    name="== ❌ | 最近這個群組沒放過啥歌 (*°∀°)",
+                    value="",
+                ))
+            else:
+                tracks = []
+                result = []
+                for trackid in guild_info.recently_played:
+                    tracks.extend(await self.get_track(interaction, f"sid=>{trackid}"))
+                async with asyncio.TaskGroup() as taskgroup:
+                    for i in range(len(tracks)):
+                        taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
+                choicelist.extend(result)
+
+            asyncio.create_task(self._cacheworker.update_cache(data))
+
+            return choicelist
+        elif validators.url(current):
             if ("spotify" in current):
                 follow_text = " Spotify 曲目"
             elif ("bilibili" in current) or ("b23.tv" in current):
@@ -126,13 +183,12 @@ class TrackHelper():
                 follow_text = "曲目"
 
             return [app_commands.Choice(
-                name=f"透過 URL 點播{follow_text}",
+                name=f">> 透過 URL 點播{follow_text}",
                 value=f"{current}",
             )]
         else:
             tracks = await self.get_track(interaction, current, quick_search=True)
             result = []
-            data = {}
 
             async with asyncio.TaskGroup() as taskgroup:
                 for i in range(len(tracks)):
@@ -224,7 +280,10 @@ class TrackHelper():
                 url = raw_url
         elif "sid=>" in raw_url:
             vid = raw_url.split("=>")[1]
-            url = f"https://www.youtube.com/watch?v={vid}"
+            if "BV" in vid or isinstance(vid, int):
+                url = f"https://www.bilibili.com/video/{vid}"
+            else:
+                url = f"https://www.youtube.com/watch?v={vid}"
         else:
             url = raw_url
 
@@ -254,7 +313,10 @@ class TrackHelper():
 
         elif (validators.url(search)) or ("sid=>" in search):
             url = self._parse_url(search, choice)
-            callback = await wavelink.Playable.search(url)
+            if "bilibili" in url:
+                callback = [await self._get_bilibili_track(interaction, url)]
+            else:
+                callback = await wavelink.Playable.search(url)
             if isinstance(callback, list):
                 tracks.extend(callback)
             elif isinstance(callback, wavelink.Playlist):
@@ -267,8 +329,8 @@ class TrackHelper():
                 ]
             else:
                 sources = [
-                    wavelink.TrackSource.YouTubeMusic, 
                     wavelink.TrackSource.YouTube,
+                    wavelink.TrackSource.YouTubeMusic, 
                     SearchType.Spotify(),
                     wavelink.TrackSource.SoundCloud,
                 ]
@@ -296,7 +358,7 @@ class TrackHelper():
     async def _get_suggest_track(
         self,
         suggestion: Dict[str, List[Dict]],
-        index: int,
+        index: int, # 用於產生推薦的目標歌曲 index
         ui_guild_info: GuildUIInfo,
         pre_process: bool,
     ) -> Optional[wavelink.Playable]:
@@ -312,8 +374,7 @@ class TrackHelper():
             pass
 
         if suggested_track is not None:
-            suggested_track.suggested = True
-            suggested_track.requested_guild = ui_guild_info.guild_id
+            suggested_track.extras = {"suggested": True, "requested_guild": ui_guild_info.guild_id, **dict(suggested_track.extras)}
             ui_guild_info.suggestions.append(suggested_track)
 
             if pre_process:
@@ -343,7 +404,7 @@ class TrackHelper():
             # check first one first
             if ui_guild_info.suggestions[0].title in ui_guild_info.previous_titles:
                 print(
-                    f"[Suggestion] {ui_guild_info.suggestions[0].title} has played before in {guild.id}, resuggested"
+                    f"[{guild.id} | Suggestion] {ui_guild_info.suggestions[0].title} has played before, resuggested"
                 )
                 ui_guild_info.suggestions.pop(0)
 
@@ -367,7 +428,7 @@ class TrackHelper():
         for i, track in enumerate(ui_guild_info.suggestions):
             if track.title in ui_guild_info.previous_titles:
                 print(
-                    f"[Suggestion] {track.title} has played before in {guild.id}, resuggested"
+                    f"[{guild.id} | Suggestion] {track.title} has played before, resuggested"
                 )
                 ui_guild_info.suggestions.pop(i)
                 while suggested_track is None:
@@ -389,7 +450,7 @@ class TrackHelper():
         suggested_track = None
 
         if len(ui_guild_info.suggestions) == 0:
-            print(f"[Suggestion] Started to fetch 12 suggestions for {guild.id}")
+            print(f"[{guild.id} | Suggestion] Started to fetch 12 suggestions")
 
             while suggested_track is None:
                 for index in range(2, 13, 1):
@@ -402,6 +463,8 @@ class TrackHelper():
                     else:
                         suggestion = await self._get_suggest_list(guild, playlist_index)
                         playlist_index += 1
+
+            print(f"[{guild.id} | Suggestion] Fetched 12 suggestions\n{suggested_track}")
 
     # Main core of suggestion processing system
     # Which decides whether enable suggestion or not in different cases
@@ -417,9 +480,12 @@ class TrackHelper():
             # If next song is user specific, then don't suggest anything
             if (
                 len(self[guild.id].order) == 2
-                and not self[guild.id].order[-1].suggested
+                and not self[guild.id].order[-1].extras.suggested
             ):
                 return
+
+            # Flag suggestion is in progress
+            ui_guild_info.suggestion_processing = True
 
             if self[guild.id].loop_state != LoopState.NOTHING:
                 # If loop state is singleloop, then don't add suggested song into cache
@@ -427,7 +493,7 @@ class TrackHelper():
                 # Also won't return any suggestion
                 if self[guild.id].loop_state != LoopState.PLAYLIST:
                     if len(self[guild.id].order) == 2 and (
-                        self[guild.id].order[-1].suggested
+                        self[guild.id].order[-1].extras.suggested
                     ):
                         ui_guild_info.previous_titles.remove(
                             self[guild.id].order[-1].title
@@ -436,27 +502,24 @@ class TrackHelper():
                     return
                 # Case of playlist loop
                 else:
-                    if self[guild.id].current().suggested:
+                    if self[guild.id].current().extras.suggested:
                         # Suggestion system here will ignore playlist loop
                         # Acting like loop not enabled 
                         # if current song is a song suggested
                         if len(self[guild.id].order) == 2 and (
-                            self[guild.id].order[-1].suggested
+                            self[guild.id].order[-1].extras.suggested
                         ):
                             return
                     else:
                         # Same thing like single loop
                         if len(self[guild.id].order) == 2 and (
-                            self[guild.id].order[-1].suggested
+                            self[guild.id].order[-1].extras.suggested
                         ):
                             ui_guild_info.previous_titles.remove(
                                 self[guild.id].order[-1].title
                             )
                             self.pop(guild.id, -1)
                             return
-
-            # Flag suggestion is in progress
-            ui_guild_info.suggestion_processing = True
 
             suggested_track = None
 
@@ -488,7 +551,7 @@ class TrackHelper():
             if len(ui_guild_info.previous_titles) > 64:
                 ui_guild_info.previous_titles.pop(0)
                 print(
-                    f"[Suggestion] The history storage of {guild.id} was full, removed the first item"
+                    f"[{guild.id} | Suggestion] The history storage was full, removed the first item"
                 )
 
             self[guild.id]._resuggest_task = await asyncio.wait_for(
@@ -500,9 +563,9 @@ class TrackHelper():
 
             ui_guild_info.previous_titles.append(ui_guild_info.suggestions[0].title)
             print(
-                f"[Suggestion] Suggested {ui_guild_info.suggestions[0].title} for {guild.id} in next song, added to history storage"
+                f"[{guild.id} | Suggestion] Suggested {ui_guild_info.suggestions[0].title} in next song, added to history storage"
             )
-            await self._playlist.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "自動推薦歌曲")
+            await self._playlist.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "NO_ID_AS_BOT_SUGGESTED")
             ui_guild_info.suggestion_processing = False
             if ui_guild_info.skip:
                 ui_guild_info.skip = False

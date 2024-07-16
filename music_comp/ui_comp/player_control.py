@@ -12,6 +12,7 @@ from .stage import Stage
 from .exception_handler import ExceptionHandler
 from .queue import Queue
 from .leave import Leave
+from .search import Search
 from ..ui import (
     _sec_to_hms,
     pause_emoji,
@@ -35,7 +36,7 @@ from ..ui import LeaveType, StopType
 
 
 class PlayerControl:
-    def __init__(self, exception_handler, info_generator, stage, queue, leave):
+    def __init__(self, exception_handler, info_generator, stage, queue, leave, search):
         from ..ui import bot, musicbot, guild_info, auto_stage_available, _sec_to_hms
 
         self.info_generator: InfoGenerator = info_generator
@@ -44,6 +45,7 @@ class PlayerControl:
         self.stage: Stage = stage
         self.queue: Queue = queue
         self.leave: Leave = leave
+        self.search: Search = search
         self.musicbot = musicbot
         self.guild_info = guild_info
         self.auto_stage_available = auto_stage_available
@@ -438,7 +440,7 @@ class PlayerControl:
         if (
             len(playlist.order) > 0
             and (playlist.loop_state != LoopState.NOTHING)
-            and not playlist.current().suggested
+            and not playlist.current().extras.suggested
             and not self.guild_info(channel.guild.id).skip
         ):
             await self.info_generator._UpdateSongInfo(channel.guild.id)
@@ -467,6 +469,7 @@ class PlayerControl:
             info_generator = self.info_generator
             queue = self.queue
             leave = self.leave
+            search = self.search
             guild_info = self.guild_info
             stop_refresh = self.stop_refresh
 
@@ -515,7 +518,7 @@ class PlayerControl:
                     self.guild_info(channel.guild.id).music_suggestion = False
                     if (
                         len(self.musicbot._playlist[channel.guild.id].order) == 2
-                        and self.musicbot._playlist[channel.guild.id].order[1].suggested
+                        and self.musicbot._playlist[channel.guild.id].order[1].extras.suggested
                     ):
                         self.musicbot._playlist[channel.guild.id].order.pop(1)
                         self.guild_info(
@@ -534,7 +537,7 @@ class PlayerControl:
                     self.guild_info(channel.guild.id).music_suggestion = True
                     if (
                         len(self.musicbot._playlist[channel.guild.id].order) == 2
-                        and self.musicbot._playlist[channel.guild.id].order[1].suggested
+                        and self.musicbot._playlist[channel.guild.id].order[1].extras.suggested
                     ):
                         self.guild_info(
                             channel.guild.id
@@ -562,13 +565,9 @@ class PlayerControl:
             ):
                 await self.toggle(interaction, button, "toggle")
                 if self.voice_client.paused:
-                    if self.musicbot[interaction.guild.id]._timer is not None:
-                        self.musicbot[interaction.guild.id]._timer.cancel()
-                        self.musicbot[interaction.guild.id]._timer = None
                     await self.voice_client.pause(False)
                     button.emoji = pause_emoji
                 else:
-                    self.musicbot._start_timer(interaction.guild)
                     await self.voice_client.pause(True)
                     button.emoji = play_emoji
 
@@ -766,9 +765,7 @@ class PlayerControl:
             async def new_song(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
-                await interaction.response.send_modal(
-                    self.queue.new_song_modal_helper()(interaction.user)
-                )
+                await self.search.SearchWhenPlaying(interaction, self.musicbot.track_helper, self.musicbot[interaction.guild_id], self.musicbot)
 
             @discord.ui.button(
                 label="暫無待播歌曲" if musicbot._playlist.is_noqueue(channel.guild.id) else "待播清單",
