@@ -6,6 +6,7 @@ import discord
 import asyncio
 import json
 import os
+import wavelink
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -13,23 +14,57 @@ class GuildInfo:
         self.text_channel: discord.TextChannel = None
         self._database: str = rf"{os.getcwd()}/music_comp/data.json"
         self._task: asyncio.Task = None
-        self._timer: asyncio.Task = None
-        self._dsa: bool = None
         self._multitype_remembered: bool = None
         self._multitype_choice: str = None
-        self._timer_done: bool = None
         self._changelogs_latestversion: str = None
+        self._recently_played: list = None
+        self._mostly_played: dict = None
 
     @property
-    def data_survey_agreement(self):
-        if self._dsa is None:
-            self._dsa = self.fetch("dsa")
-        return self._dsa
+    def recently_played(self):
+        if self._recently_played is None:
+            self._recently_played = self.fetch("recently_played")
+        return self._recently_played
+    
+    @recently_played.setter
+    def recently_played(self, value: list):
+        self._recently_played = value
+        self.update("recently_played", value)
 
-    @data_survey_agreement.setter
-    def data_survey_agreement(self, value: bool):
-        self._dsa = value
-        self.update("dsa", value)
+    @property
+    def mostly_played(self):
+        if self._mostly_played is None:
+            self._mostly_played = self.fetch("mostly_played")
+        return sorted(self._mostly_played.items(), key=lambda item: item[1], reverse=True)
+    
+    @mostly_played.setter
+    def mostly_played(self, value: list):
+        self._mostly_played = value
+        self.update("mostly_played", value)
+
+    def song_played(self, song: wavelink.Playable):
+        if song.source == "http":
+            identifier = song.extras.identifier
+        else:
+            identifier = song.identifier
+
+        # Initialize the song count to 0 if not present
+        if self._recently_played is None:
+            self._recently_played = self.fetch("recently_played")
+        if self._mostly_played is None:
+            self._mostly_played = self.fetch("mostly_played")
+
+        # Update the recently played list
+        if identifier in self._recently_played:
+            self._recently_played.remove(identifier)
+        self._recently_played.append(identifier)
+        if len(self._recently_played) > 5:
+            self._recently_played.pop()
+
+        if song.extras.requester_id is not None:
+            self._mostly_played[identifier] = self._mostly_played.get(identifier, 0) + 1
+        self.update("recently_played", self._recently_played)
+        self.update("mostly_played", self._mostly_played)
 
     @property
     def multitype_remembered(self):

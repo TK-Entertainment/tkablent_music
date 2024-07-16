@@ -180,13 +180,6 @@ class UI:
 
         self.Leave = Leave(self.ExceptionHandler, self._InfoGenerator)
 
-        ##########
-        # Search #
-        ##########
-        from .ui_comp.search import Search
-
-        self.Search = Search(self.ExceptionHandler)
-
         #########
         # Queue #
         #########
@@ -197,6 +190,13 @@ class UI:
         from .ui_comp.queue_control import QueueControl
 
         self.QueueControl = QueueControl(self.ExceptionHandler, self._InfoGenerator)
+
+        ##########
+        # Search #
+        ##########
+        from .ui_comp.search import Search
+
+        self.Search = Search(self.ExceptionHandler, self.Queue)
 
         ########
         # Play #
@@ -230,6 +230,7 @@ class UI:
             self.Stage,
             self.Queue,
             self.Leave,
+            self.Search
         )
 
         ##########

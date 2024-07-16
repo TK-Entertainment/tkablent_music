@@ -11,14 +11,11 @@ import wavelink
 
 INF = int(1e18)
 
-
 class SeekError(Exception):
     ...
 
-
 class OutOfBound(Exception):
     ...
-
 
 class GuildUIInfo:
     def __init__(self):
@@ -90,7 +87,7 @@ class PlaylistBase:
             self.times -= 1
         elif (
             self.loop_state == LoopState.PLAYLIST
-            and (not self.order[0].suggested)
+            and (not self.order[0].extras.suggested)
             and not is_skipped
         ):
             self.order.append(self.order.pop(0))
@@ -144,36 +141,40 @@ class Playlist:
         self,
         guild_id,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist]],
-        requester,
+        requester: discord.User,
     ):
-        if len(self[guild_id].order) == 2 and self[guild_id].order[1].suggested:
+        if len(self[guild_id].order) == 2 and self[guild_id].order[1].extras.suggested:
             if isinstance(trackinfo, list):
                 self[guild_id].order.pop(1)
-            elif not trackinfo.suggested:
+            elif not trackinfo.extras.suggested:
                 self[guild_id].order.pop(1)
 
         if isinstance(trackinfo[0], wavelink.Playlist):
             for track in trackinfo[0].tracks:
-                track.extras = {"requested_guild": guild_id}
-                track.requester = requester
-                track.requested_guild = guild_id
-                try:
-                    if track.suggested is None:
-                        track.suggested = False
-                except:
-                    track.suggested = False
+                track.extras = {
+                    "requested_guild": guild_id, 
+                    "requester_id": requester.id if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    "requester_name": requester.name if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    "requester_display_avatar": requester.display_avatar.url if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    "requester_discriminator": requester.discriminator if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    **dict(track.extras)
+                }
+                if not hasattr(track.extras, 'suggested') or track.extras.suggested is None:
+                    track.extras = {"suggested": False, **dict(track.extras)}
             self[guild_id].order.extend(trackinfo[0].tracks)
         else:
             for track in trackinfo:
-                track.requester = requester
-                extras = dict(track.extras)
-                extras["requested_guild"] = guild_id
-                track.extras = extras
-                try:
-                    if track.suggested != True or track.suggested is None:
-                        track.suggested = False
-                except:
-                    track.suggested = False
+                track.extras = {
+                    "requested_guild": guild_id, 
+                    "requester_id": requester.id if requester != "NO_ID_AS_BOT_SUGGESTED" else None, 
+                    "requester_name": requester.name if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    "requester_display_avatar": requester.display_avatar.url if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    "requester_discriminator": requester.discriminator if requester != "NO_ID_AS_BOT_SUGGESTED" else None, 
+                    **dict(track.extras)}
+
+                if not hasattr(track.extras, 'suggested') or track.extras.suggested is None:
+                    track.extras = {"suggested": False, **dict(track.extras)}
+
             self[guild_id].order.extend(trackinfo)
         
     def get_music_info(self, guild_id, index):

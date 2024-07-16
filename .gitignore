@@ -187,6 +187,7 @@ poetry.lock
 application.yml
 Lavalink.jar
 tkablent_dev/*
+tkablent_dev_mac/*
 TKablent_Codespaces.code-workspace
 music_comp/data.json
 music_comp/search_cache.json

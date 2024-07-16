@@ -451,7 +451,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.rename(idx="刪除歌曲位置")
     async def remove(self, interaction: discord.Interaction, idx: int):
         try:
-            if self._playlist[interaction.guild.id].order[idx].suggested:
+            if self._playlist[interaction.guild.id].order[idx].extras.suggested:
                 await self.ui.QueueControl.RemoveFailed(interaction, "不能移除建議歌曲")
                 return
             removed = self._playlist[interaction.guild.id].order[idx]
@@ -471,8 +471,8 @@ class MusicCog(Player, commands.Cog):
     async def swap(self, interaction: discord.Interaction, idx1: int, idx2: int):
         try:
             if (
-                self._playlist[interaction.guild.id].order[idx1].suggested
-                or self._playlist[interaction.guild.id].order[idx2].suggested
+                self._playlist[interaction.guild.id].order[idx1].extras.suggested
+                or self._playlist[interaction.guild.id].order[idx2].extras.suggested
             ):
                 await self.ui.QueueControl.SwapFailed(interaction, "不能移動建議歌曲")
                 return
@@ -491,8 +491,8 @@ class MusicCog(Player, commands.Cog):
     async def move_to(self, interaction: discord.Interaction, origin: int, new: int):
         try:
             if (
-                self._playlist[interaction.guild.id].order[origin].suggested
-                or self._playlist[interaction.guild.id].order[new].suggested
+                self._playlist[interaction.guild.id].order[origin].extras.suggested
+                or self._playlist[interaction.guild.id].order[new].extras.suggested
             ):
                 await self.ui.QueueControl.MoveToFailed(interaction, "不能移動建議歌曲")
                 return
@@ -503,7 +503,7 @@ class MusicCog(Player, commands.Cog):
 
     ##############################################
 
-    async def   process(
+    async def process(
         self,
         interaction: discord.Interaction,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
@@ -552,7 +552,7 @@ class MusicCog(Player, commands.Cog):
             await tmpmsg.delete()
 
     async def get_search_suggest(self, interaction: discord.Interaction, current: str):
-        return await self.track_helper.get_search_suggest(interaction, current)
+        return await self.track_helper.get_search_suggest(interaction, current, self[interaction.guild_id])
 
     @app_commands.command(name="play", description="🎶 | 想聽音樂？來這邊點歌吧~")
     @app_commands.describe(
@@ -625,10 +625,11 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.PlayerControl.PlayingMsg(self[guild.id].text_channel)
             else:
                 await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-
+            await self[guild.id].song_played(payload.track)
+            
             if self.guild_info(guild.id).lastskip:
                 self.guild_info(guild.id).lastskip = False
-        except:
+        except Exception as e:
             pass
 
     @commands.Cog.listener()

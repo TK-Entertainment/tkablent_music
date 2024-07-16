@@ -1,10 +1,22 @@
 from .exception_handler import ExceptionHandler
 import discord
 
+import wavelink
+from enum import Enum
+from ..utils.storage import GuildInfo
+from ..utils.track_helper import TrackHelper
+from ..ui import search_emoji
+from .queue import Queue
+
+class ButtonType(Enum):
+    RECOMMEND = 1
+    HISTORY = 2
+    OTHER = 3
 
 class Search:
-    def __init__(self, exception_handler):
+    def __init__(self, exception_handler, queue):
         self.exception_handler: ExceptionHandler = exception_handler
+        self.queue: Queue = queue
 
     async def YoutubeFuckedUp(self, interaction: discord.Interaction):
         msg = f"""
@@ -24,18 +36,87 @@ class Search:
                 """
         await interaction.response.send_message(msg, ephemeral=True)
 
-    # Deprecated soon
-    # async def SearchInProgress(self, interaction: discord.Interaction):
-    #     msg = f"""
-    #         **<a:Loading:1011280276325924915> | 正在載入音樂...**
-    #         大量 Spotify 歌曲會載入較慢...
-    #         目前機器人正在載入音樂，請稍等片刻
-    #         當音樂完成載入時，會顯示通知~
-    #         *你可以按下「刪除這些訊息」來關閉這個訊息*
-    #             """
+    async def SearchWhenPlaying(self, interaction: discord.Interaction, track_helper: TrackHelper, guild_info: GuildInfo, musicbot):
+        class MusicChooseButton(discord.ui.Button):
+            queue = self.queue
 
-    #     await interaction.edit_original_response(content=msg)
-    #     return interaction.original_response()
+            def __init__(self, trackid: str, number: int, musictype: ButtonType, musicbot):
+                grid = ["", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+
+                match musictype:
+                    case ButtonType.RECOMMEND:
+                        style = discord.ButtonStyle.blurple
+                        row = 1
+                    case ButtonType.HISTORY:
+                        style = discord.ButtonStyle.gray
+                        row = 2
+                    case ButtonType.OTHER:
+                        style = discord.ButtonStyle.green
+                        row = 3
+                
+                if musictype != ButtonType.OTHER:
+                    super().__init__(
+                        emoji=grid[number],
+                        style=style,
+                        row=row
+                    )
+                else:
+                    super().__init__(
+                        label="其他歌曲",
+                        emoji=search_emoji,
+                        style=style,
+                        row=row
+                    )
+
+                self.trackid = trackid
+                self.musictype = musictype
+                self.musicbot = musicbot
+
+            async def callback(self, interaction: discord.Interaction):
+                if self.musictype != ButtonType.OTHER:
+                    await self.musicbot._i_play.callback(
+                        self.musicbot, interaction, f"sid=>{self.trackid}"
+                    )
+                else:
+                    await interaction.response.send_modal(
+                        self.queue.new_song_modal_helper()(interaction.user)
+                    )
+        
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        embed = discord.Embed(
+            title="🎶 | 點播新歌曲",
+            description="您可以選擇以下的推薦/曾點播過的歌曲\n或點擊「其他歌曲」來點播其他的歌曲"
+        )
+        view = discord.ui.View()
+        embed.add_field(
+            name=f"💖【這群ㄉ最愛！】",
+            value="❌ | 目前此項資料不足，暫時不可用。" if len(guild_info.mostly_played) <= 10 else "===========",
+            inline=False
+        )
+        i = 1
+        if len(guild_info.mostly_played) > 10:
+            for k, trackid in enumerate(guild_info.mostly_played):
+                track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
+                embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
+                view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.RECOMMEND, musicbot))
+                i += 1
+                if k == 2: break
+
+        embed.add_field(
+            name=f"🕒【最近播放】", 
+            value="❌ | 最近這個群組沒放過啥歌 (*°∀°)" if len(guild_info.recently_played) == 0 else "===========",
+            inline=False
+        )
+        if len(guild_info.recently_played) != 0:
+            for k, trackid in enumerate(guild_info.recently_played):
+                track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+                embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
+                view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.HISTORY, musicbot))
+                i += 1
+                if k == 2: break    
+
+        view.add_item(MusicChooseButton(0, i, ButtonType.OTHER, musicbot))
+        await interaction.followup.send(embed=embed, view=view)
 
     async def SearchFailed(self, interaction: discord.Interaction, url) -> None:
         await self.exception_handler._MusicExceptionHandler(interaction, None, url)

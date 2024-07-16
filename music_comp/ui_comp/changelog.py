@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = "https://cdn.discordapp.com/attachments/642704558996586496/1253438676613206026/image.png?ex=6675db3c&is=667489bc&hm=69a0fcfa4092d87aa64177be64efa30412fe7aa68247e936c81104e6bf8a8506&"
+        self.picture = "https://cdn.discordapp.com/attachments/642704558996586496/1262838299735621684/image.png?ex=66980d51&is=6696bbd1&hm=0443c66aa4de144678a868d73eb39936a27de92e5fe8aa65d204aa3b75762eea&"
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
@@ -40,10 +40,10 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["+", "【恢復】Bilibili 歌曲播放功能", "=> 已恢復 Bilibili 歌曲點播功能，但有時候可能還是會遇到無法點播的問題\n=> 如遇到無法點播的狀況，可以重新點播幾次"],
-            ["!", "【問卷】結束 2024.04/05 問卷", "=> 感謝您們的回覆，我們已收到您的意見及想法"],
-            ["!", "【改進】新增「透過 URL 點播」提示字", "=> 如圖，現在當您輸入 URL 的時候\n=> 機器人會提示選項「透過 URL 點播」，而非以前的無結果"],
-            ["!", "【改進】其餘的一些小小的穩定性改進", "============="],
+            ["+", "【新增】新增群組最愛點播/近期點播選項 (可參圖)", "=> 在上次意見回饋中，我們發現有些群組希望能夠快速點播最愛或近期點播過的歌曲\n=> 現在您可以在點播選單中選擇「這群ㄉ最愛！」或「最近播放」來點播\n=> 請注意，最愛歌曲的結果會在該群組點播歌曲至一定數量時出現 (不含自動播放)"],
+            ["+", "【新增】全新新增歌曲介面 (由播放介面進入)", "=> 現在最愛點播/近期點播選項也在點選介面上可用！\n=> 使用手機的你也可以點播最愛點播/近期點播的歌了"],
+            ["!", "【修復】修復上個版本無法透過介面暫停的問題", "=> 此版本已修復此問題"],
+            ["!", "【改進】一些有的沒的穩定性及可靠性修復", "=> 我也不知道修了啥，但應該是有的 (*°∀°)"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:

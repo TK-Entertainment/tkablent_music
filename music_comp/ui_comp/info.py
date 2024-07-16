@@ -167,7 +167,7 @@ class InfoGenerator:
                 playing_state = ""
                 notice = ""
 
-            if song.source != "spotify" and song.source != "youtube":
+            if song.source == "http":
                 title = song.extras.title
                 author = song.extras.author
                 length = song.extras.duration
@@ -192,8 +192,8 @@ class InfoGenerator:
                 )
 
             # Generate Embed Author (indicates song requester)
-            # song.suggested: bool (self defined)
-            if song.suggested:
+            # song.extras.suggested: bool (self defined)
+            if song.extras.suggested:
                 # If song is suggested by bot, then indicates it as suggested song
                 if holiday == "xmas" or holiday == "xmaseve":
                     embed.set_author(
@@ -207,16 +207,17 @@ class InfoGenerator:
                     )
             else:
                 # Otherwise, show the requester of the song
-                # song.requester: discord.User (self defined)
-                if song.requester.discriminator == "0":
+                # song.extras.requester_id: Requester ID (discord.User.id)
+
+                if song.extras.requester_discriminator == "0":
                     embed.set_author(
-                        name=f"{playing_state}這首歌由 {song.requester.name} 點播",
-                        icon_url=song.requester.display_avatar,
+                        name=f"{playing_state}這首歌由 {song.extras.requester_name} 點播",
+                        icon_url=song.extras.requester_display_avatar,
                     )
                 else:
                     embed.set_author(
-                        name=f"{playing_state}這首歌由 {song.requester.name}#{song.requester.discriminator} 點播",
-                        icon_url=song.requester.display_avatar,
+                        name=f"{playing_state}這首歌由 {song.extras.requester_name}#{song.extras.requester_discriminator} 點播",
+                        icon_url=song.extras.requester_display_avatar,
                     )
             
             # Generate stream notice
@@ -258,11 +259,13 @@ class InfoGenerator:
                 offset = 0
 
             # Upcoming song (via Suggestion)
-            # playlist[].suggested: bool (self defined)
+            # playlist[].extras.suggested: bool (self defined)
             if (
                 self.guild_info(guild_id).music_suggestion
-                and not ((len(playlist.order) >= 2 and not playlist[-1].suggested))
-                and ((len(playlist.order) == 2 and playlist[-1].suggested) or self.guild_info(guild_id).suggestion_processing)
+                and (
+                    playlist[-1].extras.suggested
+                    or (len(playlist.order) == 1 and self.guild_info(guild_id).suggestion_processing)
+                )
                 and color_code != "red"
             ):
                 if self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing:
@@ -283,7 +286,7 @@ class InfoGenerator:
 
             # Upcoming song
             elif len(playlist.order) - offset > 1 and color_code != "red":
-                queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].requester}*\n"
+                queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
                 if len(playlist.order) > 2:
                     queuelist += f"*...還有 {len(playlist.order)-2-offset} 首歌*"
 
@@ -320,10 +323,12 @@ class InfoGenerator:
                     inline=False,
                 )
 
+            # Bilibili Info Notice
             if (song.source == "http"):
                 embed_opt["footer"]["text"] = (
-                    "【!】bilibili 播放測試 | 此功能僅供試用，不保證穩定\n" + embed_opt["footer"]["text"]
+                    "【!】bilibili 曲目 | 不保證穩定\n" + embed_opt["footer"]["text"]
             )
+            # Spotify Info Notice
             if ("spotify" in song.uri):
                 embed_opt["footer"]["text"] = (
                     "【!】目前播放 Spotify 歌曲，結果可能不準確\n" + embed_opt["footer"]["text"]
@@ -352,9 +357,6 @@ class InfoGenerator:
             else:
                 title = f":newspaper: | 音樂播放清單"
                 url = None
-
-            if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
-                embed.set_thumbnail(url=playlist.artwork)
             
         color = discord.Colour.from_rgb(97, 219, 83)
         embed = discord.Embed(title=title, url=url, colour=color)
@@ -386,6 +388,9 @@ class InfoGenerator:
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
         
+        if (playlist[0].uri is not None) and ("spotify" in playlist[0].uri):
+            embed.set_thumbnail(url=playlist.artwork)
+
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 
         return embed
