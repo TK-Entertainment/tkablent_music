@@ -268,13 +268,16 @@ class InfoGenerator:
                 )
                 and color_code != "red"
             ):
-                if self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing:
+                if self.guild_info(guild_id).suggestion_failure:
+                    queuelist += f"**推薦歌曲載入失敗**"
+                elif self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing:
                     queuelist += f"**推薦歌曲載入中**"
                 else:
                     queuelist += f"**:bulb:** {playlist[1].title}"
                 embed.add_field(
                     name="{}即將播放".format(
-                        f":hourglass: | " if self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing else ""
+                        f":hourglass: | " if self.guild_info(guild_id).skip or self.guild_info(guild_id).suggestion_processing 
+                        else ":x: | " if self.guild_info(guild_id).suggestion_failure else ""
                     ),
                     value=queuelist,
                     inline=False,
@@ -389,7 +392,7 @@ class InfoGenerator:
         )
         
         if (playlist[0].uri is not None) and ("spotify" in playlist[0].uri):
-            embed.set_thumbnail(url=playlist.artwork)
+            embed.set_thumbnail(url=playlist[0].artwork)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
 

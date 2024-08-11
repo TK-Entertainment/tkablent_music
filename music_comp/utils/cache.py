@@ -31,6 +31,7 @@ class CacheWorker:
             shutil.copyfile(self._bak_cache_path, self._cache_path)
 
     async def update_cache(self, new_data: dict) -> None:
+        await asyncio.sleep(2)
         """update database"""
         try:
             with open(self._cache_path, "rb") as f:
@@ -49,7 +50,10 @@ class CacheWorker:
             shutil.copyfile(self._bak_cache_path, self._cache_path)
             if debug: print("[DEBUG | Cache Module] Overwriting main cache file with backup")
 
+        await asyncio.sleep(0.02)
+
         for identifier in new_data.keys():
+            await asyncio.sleep(0.02)
             if debug: print(f"[DEBUG | Cache Module] Fetched {identifier}")
             if data.get(identifier) is not None:
                 if debug: print(f"[DEBUG | Cache Module] Updating {identifier}")

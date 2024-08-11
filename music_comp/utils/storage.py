@@ -7,6 +7,9 @@ import asyncio
 import json
 import os
 import wavelink
+from msgspec.json import decode as json_decode
+from msgspec import DecodeError
+from msgspec.json import encode as json_encode
 
 class GuildInfo:
     def __init__(self, guild_id):
@@ -101,8 +104,8 @@ class GuildInfo:
 
     def fetch(self, key: str) -> None:
         """fetch from database"""
-        with open(self._database, "r") as f:
-            data: dict = json.load(f)
+        with open(self._database, "rb") as f:
+            data: dict = json_decode(f.read())
         if (
             data.get(str(self.guild_id)) is None
             or data[str(self.guild_id)].get(key) is None
@@ -113,13 +116,13 @@ class GuildInfo:
     def update(self, key: str, value: str) -> None:
         """update database"""
 
-        with open(self._database, "r") as f:
-            data: dict = json.load(f)
+        with open(self._database, "rb") as f:
+            data: dict = json_decode(f.read())
         if data.get(str(self.guild_id)) is None:
             data[str(self.guild_id)] = dict()
         data[str(self.guild_id)][key] = value
-        with open(self._database, "w") as f:
-            json.dump(data, f)
+        with open(self._database, "wb") as f:
+            f.write(json_encode(data))
 
 class GuildUIInfo:
     def __init__(self, guild_id):
@@ -146,6 +149,7 @@ class GuildUIInfo:
         # Indicate that the suggestion is under processing
         # Will be reseted to False after process is done
         self.suggestion_processing: bool = False
+        self.suggestion_failure: bool = False
 
         self.lasterrorinfo: dict = {}
 
