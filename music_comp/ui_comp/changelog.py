@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = "https://cdn.discordapp.com/attachments/642704558996586496/1262838299735621684/image.png?ex=66980d51&is=6696bbd1&hm=0443c66aa4de144678a868d73eb39936a27de92e5fe8aa65d204aa3b75762eea&"
+        self.picture = ""
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
@@ -40,10 +40,11 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["+", "【新增】新增群組最愛點播/近期點播選項 (可參圖)", "=> 在上次意見回饋中，我們發現有些群組希望能夠快速點播最愛或近期點播過的歌曲\n=> 現在您可以在點播選單中選擇「這群ㄉ最愛！」或「最近播放」來點播\n=> 請注意，最愛歌曲的結果會在該群組點播歌曲至一定數量時出現 (不含自動播放)"],
-            ["+", "【新增】全新新增歌曲介面 (由播放介面進入)", "=> 現在最愛點播/近期點播選項也在點選介面上可用！\n=> 使用手機的你也可以點播最愛點播/近期點播的歌了"],
-            ["!", "【修復】修復上個版本無法透過介面暫停的問題", "=> 此版本已修復此問題"],
-            ["!", "【改進】一些有的沒的穩定性及可靠性修復", "=> 我也不知道修了啥，但應該是有的 (*°∀°)"],
+            ["!", "【改進】針對一些嚴重影響播放的問題進行穩定性改進", "=> 此版本已修復此問題"],
+            ["!", "【修復】嘗試改進快速搜尋推薦的速度", "=> 此版本嘗試改善此問題導致的部分群組無法使用的問題"],
+            ["(!)", "【緊急修復】嘗試修復因近期 API 限制影響，造成機器人當機的問題", "=> 此版本嘗試修復此問題，若仍舊發生請至支援群組回報"],
+            ["(!)", "【緊急修復】修復因近期 API 限制影響，有部分伺服器無法使用推薦候選功能", "=> 此版本已修復此問題，但可能造成部分歌曲不會列入選項內"],
+            ["(!)", "【緊急修復】修復上個版本後，快速搜尋功能失效的問題", "=> 此版本已修復此問題"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:

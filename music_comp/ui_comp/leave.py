@@ -20,8 +20,11 @@ class Leave:
         self.musicbot = musicbot
 
     async def refresh_and_reset(self, guild: discord.Guild):
+        guild_info = self.guild_info(guild.id)
+
         await asyncio.sleep(3)
-        await self.info_generator._UpdateSongInfo(guild.id)
+        if not guild_info.playinfo is None:
+            await self.info_generator._UpdateSongInfo(guild.id)
         self.reset_value(guild)
 
     def reset_value(self, guild):

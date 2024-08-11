@@ -4,6 +4,7 @@ if TYPE_CHECKING:
 import asyncio, os
 import dotenv
 import validators
+import random
 
 import discord
 from discord.ext import commands
@@ -33,6 +34,7 @@ class Player:
         # Env value setup
         # Wavelink needed value
         TW_HOST = os.getenv("WAVELINK_TW_HOST")
+        BILI_HOST = os.getenv("WAVELINK_BILI_HOST")
         LOCAL_SEARCH_HOST_1 = os.getenv("WAVELINK_SEARCH_HOST_1")
         LOCAL_SEARCH_HOST_2 = os.getenv("WAVELINK_SEARCH_HOST_2")
         PORT = os.getenv("WAVELINK_PORT")
@@ -44,6 +46,11 @@ class Player:
         mainplayhost = wavelink.Node(
             identifier="TW_PlayBackNode",
             uri=f"http://{TW_HOST}:{PORT}",
+            password=PASSWORD,
+        )
+        bilibili_host = wavelink.Node(
+            identifier="BilibiliNode",
+            uri=f"http://{BILI_HOST}:{PORT}",
             password=PASSWORD,
         )
         searchhost_1 = wavelink.Node(
@@ -59,7 +66,7 @@ class Player:
 
         # Wavelink connection establishing
         await wavelink.Pool.connect(
-            nodes=[mainplayhost, searchhost_1, searchhost_2],
+            nodes=[mainplayhost, bilibili_host, searchhost_1, searchhost_2],
             cache_capacity=100,
             client=self.bot,
         )
@@ -71,7 +78,7 @@ class Player:
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.Pool.get_node("TW_PlayBackNode")
         if voice_client is None:
-            player = wavelink.Player()
+            player = wavelink.Player(nodes=[mainplayhost])
             player.inactive_timeout = 600
             await channel.connect(cls=player)
 
@@ -157,6 +164,12 @@ class Player:
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel
         voice_client: wavelink.Player = guild.voice_client
+
+        if self._playlist[guild.id].current() is not None and self._playlist[guild.id].current().source == "http":
+            voice_client.switch_node(wavelink.Pool.get_node("BilibiliNode"))
+        else:
+            if voice_client.node.identifier != "TW_PlayBackNode":
+                voice_client.switch_node(wavelink.Pool.get_node("TW_PlayBackNode"))
 
         if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
             await voice_client.play(self._playlist[guild.id].current())
@@ -580,7 +593,7 @@ class MusicCog(Player, commands.Cog):
                     return
             else:
                 tracks = await self.track_helper.get_track(interaction, search)
-                if isinstance(tracks, Exception) or tracks is None:
+                if isinstance(tracks, Exception) or tracks is [None] or tracks is None:
                     await self.ui.Search.SearchFailed(interaction, search)
             await self.play(interaction, tracks)
         else:
@@ -647,9 +660,9 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.PlayerControl.DonePlaying(self[guild.id].text_channel)
             return
         else:
-            await self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)),
-
             player: wavelink.Player = guild.voice_client
+
+            self.bot.loop.create_task(self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)))
 
             song = self._playlist[guild.id].current()
             try:
@@ -659,6 +672,19 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
                 pass
 
+    @commands.Cog.listener()
+    async def on_wavelink_node_disconnected(self, payload: wavelink.NodeDisconnectedEventPayload) -> None:
+        node: wavelink.Node = payload.node
+        new_node: wavelink.Node = wavelink.Pool.get_node()  # You can get a specific node if you want...
+        if not new_node:
+            return
+        
+        players: dict[int, wavelink.Player] = node.players
+        for guild_id, player in players.items():
+            try:
+                await player.switch_node(new_node)
+            except RuntimeError:
+                await player.disconnect()
 
     # Error handler
     @commands.Cog.listener()
@@ -692,8 +718,14 @@ class MusicCog(Player, commands.Cog):
     ):
         try:
             voice_client: wavelink.Player = member.guild.voice_client
-            if len(voice_client.channel.members) == 1 and member != self.bot.user:
-                await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
+            if len(voice_client.channel.members) == 1 and member != self.bot.user \
+                and len(self._playlist[member.guild.id].order) > 0:
+                
+                if not self.ui_guild_info(member.guild.id).playinfo is None:
+                    await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
+                else:
+                    await self.ui.PlayerControl.PlayingMsg(self[member.guild.id].text_channel)
+
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str("▶️")
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
@@ -714,7 +746,10 @@ class MusicCog(Player, commands.Cog):
                 and member != self.bot.user
                 and self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled
             ):
-                await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
+                if not self.ui_guild_info(member.guild.id).playinfo is None:
+                    await self.ui._InfoGenerator._UpdateSongInfo(member.guild.id)
+                else:
+                    await self.ui.PlayerControl.PlayingMsg(self[member.guild.id].text_channel)
                 
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = False
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.blurple

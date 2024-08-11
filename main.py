@@ -19,7 +19,7 @@ if production:
     status = discord.Status.online
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.4{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.5{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
@@ -30,7 +30,7 @@ TOKEN = os.getenv("TOKEN")
 intents = discord.Intents.default()
 intents.message_content = False
 bot = commands.AutoShardedBot(
-    command_prefix=prefix, intents=intents, help_command=None, status=status
+    command_prefix=prefix, intents=intents, help_command=None, status=status, shard_count=10
 )
 
 from music_comp import *
@@ -49,7 +49,6 @@ async def precense_update():
         for precense in precenses:
             await bot.change_presence(activity=precense)
             await asyncio.sleep(10)
-
 
 async def count_total():
     total_count = 0
@@ -102,7 +101,6 @@ async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
         伺服器名稱: {payload.node.identifier}
     """
     )
-
 
 try:
     bot.run(TOKEN)

@@ -102,22 +102,26 @@ class PlayerControl:
                         break
 
                     if len(result[currentindex].title) > 100:
-                        result[currentindex].title = (
+                        title = (
                             result[currentindex].title[:95] + "..."
                         )
+                    else:
+                        title = result[currentindex].title
 
                     if len(result[currentindex].author) > 85:
-                        result[currentindex].author = (
+                        author = (
                             result[currentindex].author[:70] + "..."
                         )
+                    else:
+                        author = result[currentindex].author
 
                     length = _sec_to_hms(
                         seconds=(result[currentindex].length) / 1000, format="symbol"
                     )
                     self.add_option(
-                        label=result[currentindex].title,
+                        label=title,
                         value=currentindex,
-                        description=f"{result[currentindex].author} / {length}",
+                        description=f"{author} / {length}",
                     )
 
                 self.max_values = len(self.options)
@@ -427,7 +431,8 @@ class PlayerControl:
 
     async def stop_refresh(self, guild):
         await asyncio.sleep(3)
-        await self.info_generator._UpdateSongInfo(guild.id)
+        if not self.guild_info(guild.id).playinfo is None:
+            await self.info_generator._UpdateSongInfo(guild.id)
         self.guild_info(guild.id).playinfo = None
         self.guild_info(guild.id).playinfo_view = None
         self.guild_info(guild.id).leaveoperation = False
@@ -550,7 +555,8 @@ class PlayerControl:
                         ).playinfo_view.skip.disabled = False
                     else:
                         self.guild_info(channel.guild.id).suggestion_processing = True
-                await self.info_generator._UpdateSongInfo(interaction.guild.id)
+                if self.guild_info(channel.guild.id).playinfo is not None:
+                    await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 await interaction.response.edit_message(view=view)
                 await self.toggle(interaction, button, "done")
                 if self.guild_info(channel.guild.id).music_suggestion:
