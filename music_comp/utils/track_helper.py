@@ -239,14 +239,14 @@ class TrackHelper():
             if is_aid:
                 vid = bilibili.aid2bvid(search)
             else:
-                if "b23.tv" in search:
+                if search.startswith("https://b23.tv"):
                     search = bilibili.get_real_url(search, self._bilibilic)
 
                 url_split = search.split("/")
                 vid = url_split[4]
 
         v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(page_index=0)
+        download_url_data = await v_data.get_download_url(page_index=0, html5=True)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
         data = detector.detect_all()

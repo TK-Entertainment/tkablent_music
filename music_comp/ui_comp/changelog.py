@@ -40,6 +40,7 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
+            ["!", "【改進】(Patch 1 .p1) 嘗試改善 BiliBili 點播穩定度", "=> 嘗試修正了 BiliBili 點播時可能出現的問題"],
             ["!", "【改進】針對一些嚴重影響播放的問題進行穩定性改進", "=> 此版本已修復此問題"],
             ["!", "【修復】嘗試改進快速搜尋推薦的速度", "=> 此版本嘗試改善此問題導致的部分群組無法使用的問題"],
             ["(!)", "【緊急修復】嘗試修復因近期 API 限制影響，造成機器人當機的問題", "=> 此版本嘗試修復此問題，若仍舊發生請至支援群組回報"],

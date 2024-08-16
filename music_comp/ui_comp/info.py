@@ -391,7 +391,9 @@ class InfoGenerator:
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
         
-        if (playlist[0].uri is not None) and ("spotify" in playlist[0].uri):
+        url = playlist[0].url if isinstance(playlist[0], wavelink.Playlist) else playlist[0].uri
+
+        if (url is not None) and ("spotify" in url):
             embed.set_thumbnail(url=playlist[0].artwork)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))

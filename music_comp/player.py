@@ -165,12 +165,6 @@ class Player:
         self[guild.id].text_channel = channel
         voice_client: wavelink.Player = guild.voice_client
 
-        if self._playlist[guild.id].current() is not None and self._playlist[guild.id].current().source == "http":
-            voice_client.switch_node(wavelink.Pool.get_node("BilibiliNode"))
-        else:
-            if voice_client.node.identifier != "TW_PlayBackNode":
-                voice_client.switch_node(wavelink.Pool.get_node("TW_PlayBackNode"))
-
         if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
             await voice_client.play(self._playlist[guild.id].current())
 
