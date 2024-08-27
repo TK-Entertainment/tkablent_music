@@ -13,16 +13,16 @@ class Survey:
     def __init__(self):
         from ..ui import musicbot, auto_stage_available, guild_info
 
-        self.enabled = False
+        self.enabled = True
 
         if self.enabled:
-            self.survey_displayname = "TKablent 2024 年度 4/5 月使用者意見調查"
-            self.survey_description = "感謝貴伺服器使用 TKablent\n近期機器人已被超過 **1000** 伺服器所使用\n故想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價"
+            self.survey_displayname = "TKablent 2024 年度 8 月使用者意見調查"
+            self.survey_description = "感謝貴伺服器使用 TKablent\n我們想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價"
 
-            self._survey_filename = "202404_05_usual"
+            self._survey_filename = "202408_usual"
 
             self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_filename}_survey.json"
-            self._survey_thread = 642704558996586496
+            self._survey_thread = 1276827797402292254
 
             self._bot: commands.Bot = musicbot.bot
             self._musicbot = musicbot

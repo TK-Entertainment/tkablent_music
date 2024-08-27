@@ -57,8 +57,11 @@ class TrackHelper():
     def __getitem__(self, guild_id: int=None) -> PlaylistBase:
         return self._playlist[guild_id]
 
-    def check_current_suggest_support(self, guild_id) -> bool:
+    def check_current_suggest_support(self, guild_id) -> Optional[bool]:
         current = self[guild_id].current()
+
+        if current is None:
+            return None
 
         return (
             current.source == "youtube"
@@ -227,7 +230,9 @@ class TrackHelper():
 #   Track Fetching System        
 
     # Getting songs via bilibili api
-    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str) -> Union[wavelink.Playable, Exception]:
+    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str, quick_search: bool = False) -> Union[wavelink.Playable, Exception]:
+        print("BiliBili Cookie validity:", await self._bilibilic.check_valid())
+        
         if "BV" in search and "https://www.bilibili.com/" not in search:
             vid = search
         else:
@@ -246,23 +251,37 @@ class TrackHelper():
                 vid = url_split[4]
 
         v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(page_index=0, html5=True)
+        download_url_data = await v_data.get_download_url(0, html5=False)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
         data = detector.detect_all()
         data.reverse()
-        for t in data:
-            #raw_url = t.url.replace("&", "%26")
-            raw_url = t.url
+
+        raw_url = None
+
+        if not quick_search:
+            for t in data:
+                #raw_url = t.url.replace("&", "%26")
+                if isinstance(t, bilibili.video.AudioStreamDownloadURL):
+                    raw_url = t.url
+                    try:
+                        trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
+                    except Exception as e:
+                        raw_url = None
+                        continue
+                    break
+                else:
+                    continue
+
+        if raw_url == None:
+            # Try fallback to html5 download url (result in lower quality)
+            download_url_data = await v_data.get_download_url(0, html5=True)
+            detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
+            raw_url = detector.detect_all()[0].url
             try:
                 trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
             except Exception as e:
-                raw_url = None
-                continue
-            break
-
-        if raw_url == None:
-            return None
+                return None
 
         try:
             trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
@@ -333,7 +352,7 @@ class TrackHelper():
         elif (validators.url(search)) or ("sid=>" in search):
             url = self._parse_url(search, choice)
             if "bilibili" in url:
-                callback = [await self._get_bilibili_track(interaction, url)]
+                callback = [await self._get_bilibili_track(interaction, url, quick_search=True)]
             else:
                 try:
                     callback = await wavelink.Playable.search(url, node=random.choice(nodes))
