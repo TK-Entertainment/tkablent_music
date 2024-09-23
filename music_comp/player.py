@@ -704,6 +704,24 @@ class MusicCog(Player, commands.Cog):
         )
 
     @commands.Cog.listener("on_voice_state_update")
+    async def _stop_playingui(
+        self,
+        member: discord.Member,
+        before: discord.VoiceState,
+        after: discord.VoiceState,
+    ):
+        try:
+            if len(self._playlist[member.guild.id].order) == 0:
+                if not (
+                    (self.ui_guild_info(member.guild.id).leaveoperation)
+                ):
+                    self.ui_guild_info(member.guild.id).leaveoperation = False
+                await self.ui.PlayerControl.DonePlaying(self[member.guild.id].text_channel)
+            return
+        except:
+            pass
+
+    @commands.Cog.listener("on_voice_state_update")
     async def _pause_on_being_alone(
         self,
         member: discord.Member,

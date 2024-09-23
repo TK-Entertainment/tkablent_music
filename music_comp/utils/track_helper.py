@@ -14,6 +14,7 @@ import os
 import random
 from enum import Enum, auto
 from difflib import SequenceMatcher
+import queue
 
 from music_comp.ui import UI, _sec_to_hms
 from music_comp.playlist import LoopState, Playlist, PlaylistBase
@@ -41,7 +42,8 @@ class TrackHelper():
         DEDEUSERID = os.getenv("DEDEUSERID")
 
         self.ui = ui_comp
-        self._cacheworker: CacheWorker = CacheWorker()
+        self._cachequeue = queue.Queue()
+        self._cacheworker: CacheWorker = CacheWorker(self._cachequeue)
         self._cache: dict = self._cacheworker._cache
         self._playlist = playlist
         self.ytapi: YTMusic = YTMusic(requests_session=False)
@@ -53,6 +55,8 @@ class TrackHelper():
             buvid3=BUVID3,
             dedeuserid=DEDEUSERID
         )
+
+        self._cacheworker.start()
 
     def __getitem__(self, guild_id: int=None) -> PlaylistBase:
         return self._playlist[guild_id]
@@ -190,7 +194,7 @@ class TrackHelper():
                         taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
                 choicelist.extend(result)
 
-            asyncio.create_task(self._cacheworker.update_cache(data))
+            self._cachequeue.put(data)
 
             return choicelist
         elif validators.url(current):
@@ -222,7 +226,7 @@ class TrackHelper():
                     # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
                     taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data))
 
-            asyncio.create_task(self._cacheworker.update_cache(data))
+            self._cachequeue.put(data)
 
             return result
             

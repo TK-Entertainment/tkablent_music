@@ -97,6 +97,7 @@ class Search:
         if len(guild_info.mostly_played) > 10:
             for k, trackid in enumerate(guild_info.mostly_played):
                 track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
+                if track is None: continue
                 embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
                 view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.RECOMMEND, musicbot))
                 i += 1
@@ -110,6 +111,7 @@ class Search:
         if len(guild_info.recently_played) != 0:
             for k, trackid in enumerate(guild_info.recently_played):
                 track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+                if track is None: continue
                 embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
                 view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.HISTORY, musicbot))
                 i += 1

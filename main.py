@@ -19,7 +19,7 @@ if production:
     status = discord.Status.online
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.5.p3{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.5.p4{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
@@ -47,7 +47,10 @@ precenses = [
 async def precense_update():
     while True:
         for precense in precenses:
-            await bot.change_presence(activity=precense)
+            try:
+                await bot.change_presence(activity=precense)
+            except discord.errors.HTTPException:
+                pass
             await asyncio.sleep(10)
 
 async def count_total():
