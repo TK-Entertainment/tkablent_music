@@ -13,7 +13,7 @@ class Survey:
     def __init__(self):
         from ..ui import musicbot, auto_stage_available, guild_info
 
-        self.enabled = True
+        self.enabled = False
 
         if self.enabled:
             self.survey_displayname = "TKablent 2024 年度 8 月使用者意見調查"

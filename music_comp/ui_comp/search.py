@@ -1,8 +1,8 @@
 from .exception_handler import ExceptionHandler
 import discord
 
-import wavelink
 from enum import Enum
+import time
 from ..utils.storage import GuildInfo
 from ..utils.track_helper import TrackHelper
 from ..ui import search_emoji
@@ -96,10 +96,16 @@ class Search:
         i = 1
         if len(guild_info.mostly_played) > 10:
             for k, trackid in enumerate(guild_info.mostly_played):
-                track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
-                if track is None: continue
-                embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
-                view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.RECOMMEND, musicbot))
+                if musicbot.track_helper._cache.get(trackid[0]) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid)["timestamp"] >= 2592000):
+                    track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
+                    if track is None: continue
+                    title = track[0].title
+                    identifier = track[0].identifier
+                else:
+                    title = musicbot.track_helper._cache[trackid[0]]["title"]
+                    identifier = trackid[0]
+                embed.add_field(name=f"【{i}】", value=f"{title}", inline=True)
+                view.add_item(MusicChooseButton(identifier, i, ButtonType.RECOMMEND, musicbot))
                 i += 1
                 if k == 2: break
 
@@ -110,10 +116,16 @@ class Search:
         )
         if len(guild_info.recently_played) != 0:
             for k, trackid in enumerate(guild_info.recently_played):
-                track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
-                if track is None: continue
-                embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
-                view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.HISTORY, musicbot))
+                if musicbot.track_helper._cache.get(trackid) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid)["timestamp"] >= 2592000):
+                    track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+                    if track is None: continue
+                    title = track[0].title
+                    identifier = track[0].identifier
+                else:
+                    title = musicbot.track_helper._cache[trackid]["title"]
+                    identifier = trackid
+                embed.add_field(name=f"【{i}】", value=f"{title}", inline=True)
+                view.add_item(MusicChooseButton(identifier, i, ButtonType.HISTORY, musicbot))
                 i += 1
                 if k == 2: break    
 

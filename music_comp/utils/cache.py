@@ -51,7 +51,7 @@ class CacheWorker(threading.Thread):
         """purge outdated data"""
         data = self._cache
         for identifier in list(data.keys()):
-            if time.time() - data[identifier]["timestamp"] > 2592000:
+            if time.time() - data[identifier]["timestamp"] >= 2592000:
                 del data[identifier]
 
         with open(self._cache_path, "wb"):

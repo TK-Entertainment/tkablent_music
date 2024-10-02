@@ -131,15 +131,23 @@ class TrackHelper():
         except Exception as e:
             return None
 
-    async def _fetch_fast_suggestion(self, interaction: discord.Interaction, trackid: Union[list, str], tracks: list):
+    async def _fetch_fast_suggestion(self, interaction: discord.Interaction, trackid: Union[list, str], result: list, data: dict):
         try:
-            if isinstance(trackid, str):
+            if not isinstance(trackid, str):
+                trackid = trackid[0]
+            
+            if self._cache.get(trackid) is None or (int(time.time()) - self._cache.get(trackid)["timestamp"] >= 2592000):
                 track = await self.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+                await self._search_suggest_processing(result, track, data, with_arrow=True)
             else:
-                track = await self.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
+                result.append(
+                    app_commands.Choice(
+                        name="{}{} | {}".format(">> ", self._cache[trackid]["title"], self._cache[trackid]["length"]),
+                        value=f"sid=>{trackid}",
+                    )
+                ) 
         except wavelink.exceptions.LavalinkLoadException:
             return None
-        tracks.extend(track)
 
     # Main part for search suggestion system
     async def get_search_suggest(
@@ -164,10 +172,7 @@ class TrackHelper():
                     for i, trackid in enumerate(guild_info.mostly_played):
                         if i >= 4:
                             break
-                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, tracks))
-                async with asyncio.TaskGroup() as taskgroup:
-                    for i in range(len(tracks)):
-                        taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
+                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, result, data))
                 choicelist.extend(result)
             
             choicelist.extend([
@@ -188,10 +193,7 @@ class TrackHelper():
                 result = []
                 async with asyncio.TaskGroup() as taskgroup:
                     for trackid in guild_info.recently_played:
-                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, tracks))
-                async with asyncio.TaskGroup() as taskgroup:
-                    for i in range(len(tracks)):
-                        taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
+                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, result, data))
                 choicelist.extend(result)
 
             self._cachequeue.put(data)

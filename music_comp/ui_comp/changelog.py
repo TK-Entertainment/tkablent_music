@@ -40,6 +40,7 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
+            ["!", "【改進】(Patch 5 .p5) 嘗試改善推薦處理速度", "=> 嘗試改善機器人處理推薦項目的速度"],
             ["!", "【改進】(Patch 4 .p4) 嘗試改善機器人穩定度", "=> 嘗試改善機器人因性能問題而導致穩定度下降的問題"],
         ]
 

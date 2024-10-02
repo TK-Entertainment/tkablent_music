@@ -395,6 +395,8 @@ class MusicCog(Player, commands.Cog):
                 timestamp = 0
                 for idx, val in enumerate(tmp):
                     timestamp += (60**idx) * val
+            else:
+                raise ValueError(f"Args validation failed, got: {timestamp}")
             await self._seek(interaction.guild, timestamp)
             await self.ui.PlayerControl.SeekSucceed(interaction, timestamp)
         except ValueError as e:  # For ignoring string with ":" like "o:ro"
@@ -644,7 +646,7 @@ class MusicCog(Player, commands.Cog):
         await self._get_current_stats()
         guild: discord.Guild = self.bot.get_guild(payload.track.extras.requested_guild)
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
-        await asyncio.sleep(0.2)
+        await asyncio.sleep(0.5)
 
         if len(self._playlist[guild.id].order) == 0:
             if not (
