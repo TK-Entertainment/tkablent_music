@@ -11,7 +11,7 @@ debug = False
 
 class CacheWorker(threading.Thread):
     def __init__(self, queue: queue.Queue): 
-        threading.Thread.__init__(self)
+        threading.Thread.__init__(self, name="CacheWorker")
         self._cache_path = rf"{os.getcwd()}/music_comp/search_cache.json"
         self._bak_cache_path = rf"{os.getcwd()}/music_comp/search_cache.json.bak"
         self._queue = queue
@@ -138,3 +138,7 @@ class CacheWorker(threading.Thread):
         except DecodeError:  # revert if file fucked up
             if debug: print("[DEBUG | Cache Module] Local cache corrupted, reverting to last backup")
             shutil.copyfile(self._bak_cache_path, self._cache_path)
+
+    @property
+    def cache(self):
+        return self._cache
