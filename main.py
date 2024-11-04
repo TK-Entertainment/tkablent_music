@@ -64,11 +64,15 @@ async def count_total():
 
 @bot.event
 async def on_ready():
+    allowed_guilds = list(map(int, os.getenv("ALLOWED_GUILDS").split(",")))
     bot.loop.create_task(precense_update())
     bot.loop.create_task(count_total())
     await bot.add_cog(MusicCog(bot, bot_version))
-    await bot.add_cog(HelperCog(bot))
+    bot.tree.add_command(HelperCog(bot), override=True)
     await bot.tree.sync()
+
+    for guild_id in allowed_guilds:
+        await bot.tree.sync(guild=discord.Object(id=guild_id))
 
     cog: MusicCog = bot.cogs["MusicCog"]
     await cog.post_boot()

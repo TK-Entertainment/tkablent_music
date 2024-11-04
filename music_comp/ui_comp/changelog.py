@@ -40,8 +40,9 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【改進】(Patch 5 .p5) 嘗試改善推薦處理速度", "=> 嘗試改善機器人處理推薦項目的速度"],
-            ["!", "【改進】(Patch 4 .p4) 嘗試改善機器人穩定度", "=> 嘗試改善機器人因性能問題而導致穩定度下降的問題"],
+            ["!", "【修復】(Patch 7 .p7) 修復 /help 中誤植之指令", "=> /wholeloop -> /queueloop\n*Ref: ErrorFeedback-2024101901*"],
+            ["!", "【修復】(Patch 7 .p7) 修復 /queueloop 回應失敗的問題", "=> 此版本已修復這個問題\n*Ref: ErrorFeedback-2024101901*"],
+            ["!", "【修復】(Patch 7 .p7) 修復「新增音樂」按鈕無回應的問題", "=> 此版本已修復這個問題"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:

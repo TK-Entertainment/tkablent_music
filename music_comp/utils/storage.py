@@ -4,7 +4,6 @@ if TYPE_CHECKING:
 
 import discord
 import asyncio
-import json
 import os
 import wavelink
 from msgspec.json import decode as json_decode
@@ -14,7 +13,8 @@ from msgspec.json import encode as json_encode
 class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
-        self.text_channel: discord.TextChannel = None
+        self._text_channel: discord.TextChannel = None
+
         self._database: str = rf"{os.getcwd()}/music_comp/data.json"
         self._task: asyncio.Task = None
         self._multitype_remembered: bool = None
@@ -22,6 +22,17 @@ class GuildInfo:
         self._changelogs_latestversion: str = None
         self._recently_played: list = None
         self._mostly_played: dict = None
+
+    @property
+    def text_channel(self):
+        if self._text_channel is None:
+            self._text_channel = discord.Object(self.fetch("text_channel"))
+        return self._text_channel
+    
+    @text_channel.setter
+    def text_channel(self, value: discord.TextChannel):
+        self._text_channel = value
+        self.update("text_channel", value.id)
 
     @property
     def recently_played(self):
