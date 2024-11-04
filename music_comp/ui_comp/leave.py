@@ -6,7 +6,7 @@ import asyncio
 
 from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
-from ..ui import LeaveType
+from ..enums import LeaveType
 
 
 class Leave:

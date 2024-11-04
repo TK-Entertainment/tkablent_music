@@ -2,12 +2,13 @@ import random
 from typing import TYPE_CHECKING, Optional, Union, Any, Coroutine, Dict
 if TYPE_CHECKING:
     from typing import *
-from enum import Enum, auto
 
 import asyncio
 
 import discord
 import wavelink
+
+from .enums import LoopState
 
 INF = int(1e18)
 
@@ -37,13 +38,6 @@ class GuildUIInfo:
         self.suggestions_source 
         self.previous_titles: list[str]
         self.suggestions: list
-
-class LoopState(Enum):
-    NOTHING = auto()
-    SINGLE = auto()
-    PLAYLIST = auto()
-    SINGLEINF = auto()
-
 
 class PlaylistBase:
     """maintain some info in a playlist for single guild"""

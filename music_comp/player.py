@@ -4,7 +4,6 @@ if TYPE_CHECKING:
 import asyncio, os
 import dotenv
 import validators
-import random
 
 import discord
 from discord.ext import commands
@@ -13,6 +12,7 @@ from discord import app_commands
 import wavelink
 from .playlist import Playlist, LoopState
 from .utils.storage import GuildInfo
+from .emoji import Emoji
 
 INF = int(1e18)
 
@@ -184,6 +184,11 @@ class MusicCog(Player, commands.Cog):
         commands.Cog.__init__(self)
         self.bot: commands.Bot = bot
         self.bot_version: str = bot_version
+        self.ui = None
+        self.auto_stage_available = None
+        self.ui_guild_info = None
+        self._sec_to_hms = None
+        self.track_helper = None
 
     async def post_boot(self):
         from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
@@ -740,7 +745,7 @@ class MusicCog(Player, commands.Cog):
                 else:
                     await self.ui.PlayerControl.PlayingMsg(self[member.guild.id].text_channel)
 
-                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.emoji = discord.PartialEmoji.from_str("▶️")
+                self.ui_guild_info(member.guild.id).playinfo_view.playorpause.emoji = Emoji.play_emoji
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.disabled = True
                 self.ui_guild_info(member.guild.id).playinfo_view.playorpause.style = discord.ButtonStyle.gray
                 

@@ -8,8 +8,8 @@ import copy
 
 import wavelink
 from ..playlist import LoopState
-from ..ui import LeaveType, StopType
-from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
+from ..enums import LeaveType, StopType
+from ..emoji import Emoji
 
 
 class InfoGenerator:
@@ -321,7 +321,7 @@ class InfoGenerator:
             ):  # color code refer to behaviour
                 # red stands for delete information, green stands for add to queue notice
                 embed.add_field(
-                    name=f"{caution_emoji} | 自動歌曲推薦已暫時停用",
+                    name=f"{Emoji.caution_emoji} | 自動歌曲推薦已暫時停用",
                     value=f"此歌曲暫時不支援自動歌曲推薦功能\n請播放其他歌曲來使用此功能",
                     inline=False,
                 )
@@ -351,11 +351,11 @@ class InfoGenerator:
     ):
         # Generate Embed Body
         if isinstance(playlist, list) and not isinstance(playlist[0], wavelink.Playlist):
-            title = f"{search_emoji} | 選取的搜尋歌曲"
+            title = f"{Emoji.search_emoji} | 選取的搜尋歌曲"
             url = None
         elif isinstance(playlist[0], wavelink.Playlist):
             if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
-                title = f"{spotify_emoji} | {playlist[0].name}"
+                title = f"{Emoji.spotify_emoji} | {playlist[0].name}"
                 url = playlist[0].url
             else:
                 title = f":newspaper: | 音樂播放清單"
@@ -410,7 +410,7 @@ class InfoGenerator:
                 self.guild_info(guild_id).playinfo = None
                 self.guild_info(guild_id).playinfo_view = None
         else:
-            self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
+            self.guild_info(guild_id).playinfo_view.skip.emoji = Emoji.skip_emoji
             if len(self.musicbot._playlist[guild_id].order) == 1:
                 self.guild_info(
                     guild_id
@@ -440,7 +440,7 @@ class InfoGenerator:
                 # Modify loop button to non-loop state
                 self.guild_info(
                     guild_id
-                ).playinfo_view.loop_control.emoji = repeat_emoji
+                ).playinfo_view.loop_control.emoji = Emoji.repeat_emoji
                 self.guild_info(guild_id).playinfo_view.loop_control.label = ""
                 self.guild_info(
                     guild_id

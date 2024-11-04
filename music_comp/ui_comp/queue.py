@@ -6,14 +6,7 @@ import copy
 
 from ..playlist import PlaylistBase
 from .info import InfoGenerator
-from ..ui import (
-    firstpage_emoji,
-    prevpage_emoji,
-    nextpage_emoji,
-    lastpage_emoji,
-    search_emoji,
-    end_emoji,
-)
+from ..emoji import Emoji
 
 import wavelink
 
@@ -84,7 +77,7 @@ class Queue:
             self.guild_info(interaction.guild.id).playinfo_view is not None):
             self.guild_info(
                 interaction.guild.id
-            ).playinfo_view.skip.emoji = lastpage_emoji
+            ).playinfo_view.skip.emoji = Emoji.lastpage_emoji
             self.guild_info(
                 interaction.guild.id
             ).playinfo_view.skip.disabled = self.guild_info(
@@ -269,7 +262,7 @@ class Queue:
                     ) = discord.ButtonStyle.blurple
 
             @discord.ui.button(
-                emoji=firstpage_emoji, style=discord.ButtonStyle.gray, disabled=True
+                emoji=Emoji.firstpage_emoji, style=discord.ButtonStyle.gray, disabled=True
             )
             async def firstpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -280,7 +273,7 @@ class Queue:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(
-                emoji=prevpage_emoji, style=discord.ButtonStyle.gray, disabled=True
+                emoji=Emoji.prevpage_emoji, style=discord.ButtonStyle.gray, disabled=True
             )
             async def prevpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -292,7 +285,7 @@ class Queue:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(emoji=nextpage_emoji, style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=Emoji.nextpage_emoji, style=discord.ButtonStyle.blurple)
             async def nextpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
@@ -303,7 +296,7 @@ class Queue:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(emoji=lastpage_emoji, style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=Emoji.lastpage_emoji, style=discord.ButtonStyle.blurple)
             async def lastpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
@@ -313,7 +306,7 @@ class Queue:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(
-                emoji=search_emoji, label="搜尋/新增歌曲", style=discord.ButtonStyle.green
+                emoji=Emoji.search_emoji, label="搜尋/新增歌曲", style=discord.ButtonStyle.green
             )
             async def new_song(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -322,7 +315,7 @@ class Queue:
                     self.NewSongModal(interaction.user)
                 )
 
-            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=Emoji.end_emoji, style=discord.ButtonStyle.danger)
             async def done(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):

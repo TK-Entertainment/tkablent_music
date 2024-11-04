@@ -4,9 +4,8 @@ if TYPE_CHECKING:
 import discord
 from discord.ext import commands
 import json, os
-from ..ui import rescue_emoji, end_emoji
+from ..emoji import Emoji
 from datetime import datetime
-import time
 
 
 class Survey:
@@ -132,7 +131,7 @@ class Survey:
             survey = self.survey
 
             def __init__(self):
-                super().__init__(label="填寫問卷", emoji=discord.PartialEmoji.from_str("📝"), style=discord.ButtonStyle.blurple)
+                super().__init__(label="填寫問卷", emoji=Emoji.document_emoji, style=discord.ButtonStyle.blurple)
 
             async def callback(self, interaction: discord.Interaction):
                 if interaction.user.id in self.survey("user_ids"):

@@ -3,7 +3,7 @@ if TYPE_CHECKING:
     from typing import *
 import discord
 from discord.ext import commands
-from ..ui import rescue_emoji, end_emoji
+from ..emoji import Emoji
 import copy
 
 
@@ -57,7 +57,7 @@ class Changelogs:
             def __init__(self):
                 super().__init__(timeout=None)
                 self.groupbutton = discord.ui.Button(
-                    emoji=rescue_emoji,
+                    emoji=Emoji.rescue_emoji,
                     style=discord.ButtonStyle.link,
                     url="https://discord.gg/9qrpGh4e7V",
                     label="支援群組",
@@ -73,7 +73,7 @@ class Changelogs:
                 self.add_item(self.groupbutton)
 
             @discord.ui.button(
-                emoji=end_emoji, style=discord.ButtonStyle.danger
+                emoji=Emoji.end_emoji, style=discord.ButtonStyle.danger
             )
             async def end(
                 self, interaction: discord.Interaction, button: discord.ui.Button
