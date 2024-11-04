@@ -12,7 +12,6 @@ import asyncio
 import time
 import os
 import random
-from enum import Enum, auto
 from difflib import SequenceMatcher
 import queue
 
@@ -20,18 +19,7 @@ from music_comp.ui import UI, _sec_to_hms
 from music_comp.playlist import LoopState, Playlist, PlaylistBase
 from .storage import GuildUIInfo, GuildInfo
 from .cache import CacheWorker
-
-class SpotifySearchType(Enum):
-    TRACK = auto()
-    ALBUM = auto()
-    PLAYLIST = auto()
-
-class SearchType(Enum):
-    SPOTIFY = "spsearch"
-
-    @classmethod
-    def Spotify(cls) -> str:
-        return cls.SPOTIFY.value
+from music_comp.enums import SearchType
 
 class TrackHelper():
     def __init__(self, ui_comp: UI, playlist: Playlist):
@@ -43,8 +31,8 @@ class TrackHelper():
 
         self.ui = ui_comp
         self._cachequeue = queue.Queue()
-        self._cacheworker: CacheWorker = CacheWorker(self._cachequeue)
-        self._cache: dict = self._cacheworker._cache
+        self._cache_worker: CacheWorker = CacheWorker(self._cachequeue)
+        self._cache: dict = self._cache_worker._cache
         self._playlist = playlist
         self.ytapi: YTMusic = YTMusic(requests_session=False)
 
@@ -56,7 +44,7 @@ class TrackHelper():
             dedeuserid=DEDEUSERID
         )
 
-        self._cacheworker.start()
+        self._cache_worker.start()
 
     def __getitem__(self, guild_id: int=None) -> PlaylistBase:
         return self._playlist[guild_id]
@@ -138,7 +126,7 @@ class TrackHelper():
             
             if self._cache.get(trackid) is None or (int(time.time()) - self._cache.get(trackid)["timestamp"] >= 2592000):
                 track = await self.get_track(interaction, f"sid=>{trackid}", quick_search=True)
-                await self._search_suggest_processing(result, track, data, with_arrow=True)
+                await self._search_suggest_processing(result, track[0], data, with_arrow=True)
             else:
                 result.append(
                     app_commands.Choice(
@@ -236,7 +224,7 @@ class TrackHelper():
 #   Track Fetching System        
 
     # Getting songs via bilibili api
-    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str, quick_search: bool = False) -> Union[wavelink.Playable, Exception]:
+    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str, quick_search: bool = False) -> Union[wavelink.Playable, wavelink.LavalinkLoadException, None]:
         print("BiliBili Cookie validity:", await self._bilibilic.check_valid())
         
         if "BV" in search and "https://www.bilibili.com/" not in search:
@@ -245,10 +233,10 @@ class TrackHelper():
             try:
                 int(search)
                 is_aid = True
-            except:
+            except ValueError:
                 is_aid = False
             if is_aid:
-                vid = bilibili.aid2bvid(search)
+                vid = bilibili.aid2bvid(int(search))
             else:
                 if search.startswith("https://b23.tv"):
                     search = bilibili.get_real_url(search, self._bilibilic)
@@ -257,7 +245,7 @@ class TrackHelper():
                 vid = url_split[4]
 
         v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(0, html5=False)
+        download_url_data = await v_data.get_download_url(0)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
         data = detector.detect_all()
@@ -271,27 +259,20 @@ class TrackHelper():
                 if isinstance(t, bilibili.video.AudioStreamDownloadURL):
                     raw_url = t.url
                     try:
-                        trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
-                    except Exception as e:
+                        await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
+                    except wavelink.LavalinkLoadException as e:
                         raw_url = None
                         continue
                     break
                 else:
                     continue
 
-        if raw_url == None:
-            # Try fallback to html5 download url (result in lower quality)
-            download_url_data = await v_data.get_download_url(0, html5=True)
-            detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
-            raw_url = detector.detect_all()[0].url
-            try:
-                trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
-            except Exception as e:
-                return None
+        if raw_url is None:
+            return None
 
         try:
             trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
-        except Exception as e:
+        except wavelink.LavalinkLoadException as e:
             return e
 
         track = trackinfo[0]
@@ -380,7 +361,7 @@ class TrackHelper():
                 sources = [
                     wavelink.TrackSource.YouTube,
                     wavelink.TrackSource.YouTubeMusic, 
-                    SearchType.Spotify(),
+                    SearchType.spotify(),
                     wavelink.TrackSource.SoundCloud,
                 ]
 
