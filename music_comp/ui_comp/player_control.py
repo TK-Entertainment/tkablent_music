@@ -71,6 +71,7 @@ class PlayerControl:
             ):
                 super().__init__(placeholder="請選擇一個或多個結果...", min_values=1, row=0)
                 self.interaction = None
+                cache = self.musicbot.track_helper._cache
 
                 for i in range(len(result)):
                     currentindex = i + 24 * (page - 1)
@@ -84,12 +85,20 @@ class PlayerControl:
                     if i > 24:
                         break
 
-                    if len(result[currentindex].title) > 100:
-                        title = (
-                            result[currentindex].title[:95] + "..."
-                        )
+                    if cache.get(result[currentindex].identifier):
+                        title = cache[result[currentindex].identifier]["title"]
+                        length = cache[result[currentindex].identifier]["length"]
                     else:
-                        title = result[currentindex].title
+                        if len(result[currentindex].title) > 100:
+                            title = (
+                                result[currentindex].title[:95] + "..."
+                            )
+                        else:
+                            title = result[currentindex].title
+
+                        length = _sec_to_hms(
+                            seconds=(result[currentindex].length) / 1000, format="symbol"
+                        )
 
                     if len(result[currentindex].author) > 85:
                         author = (
@@ -97,10 +106,7 @@ class PlayerControl:
                         )
                     else:
                         author = result[currentindex].author
-
-                    length = _sec_to_hms(
-                        seconds=(result[currentindex].length) / 1000, format="symbol"
-                    )
+                        
                     self.add_option(
                         label=title,
                         value=currentindex,
