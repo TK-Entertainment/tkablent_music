@@ -216,8 +216,27 @@ class TrackHelper():
                     # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
                     taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data))
 
-            self._cachequeue.put(data)
+            current_index = 0
+            last_index = 0
 
+            for i, track in enumerate(result):
+                index = -1
+                for j, trackinfo in enumerate(guild_info.mostly_played):
+                    if trackinfo[0] == track.value[5:]:
+                        index = j
+                        break
+                if index == -1:
+                    continue
+                result.pop(i)
+                track.name = f"(⭐)" + track.name
+                if index > last_index:
+                    result.insert(0, track)
+                else:
+                    result.insert(index, track)
+                last_index = index
+                current_index += 1
+
+            self._cachequeue.put(data)
             return result
             
 # ================================================================================================= #
