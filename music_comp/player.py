@@ -710,20 +710,18 @@ class MusicCog(Player, commands.Cog):
             view=self.groupbutton,
         )
 
-    @commands.Cog.listener("on_voice_state_update")
-    async def _stop_playingui(
+    @commands.Cog.listener()
+    async def on_wavelink_player_update(
         self,
-        member: discord.Member,
-        before: discord.VoiceState,
-        after: discord.VoiceState,
+        payload: wavelink.PlayerUpdateEventPayload
     ):
         try:
-            if len(self._playlist[member.guild.id].order) == 0:
+            if len(self._playlist[payload.player.guild.id].order) == 0:
                 if not (
-                    (self.ui_guild_info(member.guild.id).leaveoperation)
+                    (self.ui_guild_info(payload.player.guild.id).leaveoperation)
                 ):
-                    self.ui_guild_info(member.guild.id).leaveoperation = False
-                await self.ui.PlayerControl.DonePlaying(self[member.guild.id].text_channel)
+                    self.ui_guild_info(payload.player.guild.id).leaveoperation = False
+                await self.ui.PlayerControl.DonePlaying(self[payload.player.guild.id].text_channel)
             return
         except:
             pass
