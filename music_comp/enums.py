@@ -23,7 +23,6 @@ class LeaveType(Enum):
     ByButton = auto()
     ByTimeout = auto()
 
-
 class StopType(Enum):
     ByCommand = auto()
     ByButton = auto()

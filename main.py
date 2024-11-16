@@ -3,6 +3,7 @@ import os, dotenv, sys, asyncio
 import discord
 from discord.ext import commands
 import wavelink
+import uvloop
 
 print(
 f""" 
@@ -10,6 +11,8 @@ Current Version
 {sys.version}
 """
 )
+
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 production = True
 prefix = "/"
@@ -19,7 +22,7 @@ if production:
     status = discord.Status.online
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.5.p7{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.5.p8{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
