@@ -1,4 +1,5 @@
 import discord
+import wavelink
 from discord.ext import commands
 from discord import app_commands
 import datetime
@@ -90,9 +91,16 @@ class HelperCog(app_commands.Group):
             embed = discord.Embed(title="機器人將進行更新作業", description=f"TKablent 將在 5 分鐘後進行更新作業\n將更新至 **{version}**\n更新內容將會在開機後第一次使用時通知您\n\n期間將無法使用本機器人，還請見諒\n機器人若狀態為綠燈且顯示 **正在播放...** 即代表重啟完成\n\n*請注意: 本次更新後，您目前正在使用的播放清單將會被清除，以保證相容性問題*", colour=discord.Colour.red())
             embed.set_author(name="TKablent 系統通知", icon_url="https://i.imgur.com/p4vHa3y.png")
             embed.set_footer(text=f"公告時間: {issued_time}")
+
+            guilds: list[discord.Guild] = []
+
+            for node in wavelink.Pool.nodes.values():
+                for voice_client in node.players.values():
+                    guilds.append(voice_client.guild)
+
             i = 1
-            for guild in self.bot.guilds:
-                print(f"[Announcement] Sending to {guild.name} ({i}/{len(self.bot.guilds)})")
+            for guild in guilds:
+                print(f"[Announcement] Sending to {guild.name} ({i}/{len(guilds)}")
                 try:
                     if fetch(guild.id, "text_channel") is not None:
                         embed.set_footer(text=f"公告時間: {issued_time}")

@@ -623,6 +623,7 @@ class MusicCog(Player, commands.Cog):
         active_player = len(self.bot.voice_clients)
 
         print(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
+        dotenv.set_key("../.env", "GUILD_COUNT", str(len(self.bot.guilds)))
 
     @commands.Cog.listener()
     async def on_wavelink_inactive_player(self, player: wavelink.Player):

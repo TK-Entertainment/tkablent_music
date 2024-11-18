@@ -22,18 +22,20 @@ if production:
     status = discord.Status.online
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.5.p8{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.5.p9{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
     status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
 
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
+GUILD_COUNT = int(os.getenv("GUILD_COUNT", 0))
 
 intents = discord.Intents.default()
 intents.message_content = False
+
 bot = commands.AutoShardedBot(
-    command_prefix=prefix, intents=intents, help_command=None, status=status, shard_count=4
+    command_prefix=prefix, intents=intents, help_command=None, status=status, shard_count=(GUILD_COUNT // 150) + 1
 )
 
 from music_comp import *
@@ -81,6 +83,8 @@ async def on_ready():
     await cog.post_boot()
     await cog._create_daemon()
 
+    dotenv.set_key(".env", "GUILD_COUNT", str(len(bot.guilds)))
+
     print(
         f"""
         =========================================
@@ -114,6 +118,8 @@ async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
 
 try:
     bot.run(TOKEN)
+    del TOKEN
+    del GUILD_COUNT
 except AttributeError:
     print(
         f"""

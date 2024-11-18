@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = ""
+        self.picture = "https://i.imgur.com/UZ1ycuW.png"
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
@@ -40,9 +40,10 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【修復】(Patch 7 .p7) 修復 /help 中誤植之指令", "=> /wholeloop -> /queueloop\n*Ref: ErrorFeedback-2024101901*"],
-            ["!", "【修復】(Patch 7 .p7) 修復 /queueloop 回應失敗的問題", "=> 此版本已修復這個問題\n*Ref: ErrorFeedback-2024101901*"],
-            ["!", "【修復】(Patch 7 .p7) 修復「新增音樂」按鈕無回應的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】(Patch 9 .p9) 修復最近播放沒有正常顯示的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】(Patch 8 .p8) 新增常聽歌曲至搜尋結果內", "=> 若搜尋結果內有常聽歌曲，則會在搜尋結果內顯示 (⭐) 標籤"],
+            ["!", "【優化】(Patch 8 .p8) 優化傳統搜尋介面搜尋速度", "=> 嘗試加速傳統介面的搜尋速度"],
+            ["!", "【修復】(Patch 8 .p8) 修復結束播放後介面沒有正常回收的問題", "=> 此版本已修復這個問題"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
