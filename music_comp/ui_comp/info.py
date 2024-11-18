@@ -289,7 +289,10 @@ class InfoGenerator:
 
             # Upcoming song
             elif len(playlist.order) - offset > 1 and color_code != "red":
-                queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
+                if (song.source == "http"):
+                    queuelist += f"**>> {playlist[1+offset].extras.title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
+                else:
+                    queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
                 if len(playlist.order) > 2:
                     queuelist += f"*...還有 {len(playlist.order)-2-offset} 首歌*"
 
@@ -380,7 +383,10 @@ class InfoGenerator:
             tracklist = playlist[0].tracks
 
         for i, track in enumerate(tracklist):
-            pllist += f"{i+1}. {track.title}\n"
+            if (track.source == "http"):
+                pllist += f"{i+1}. {track.extras.title}\n"
+            else:
+                pllist += f"{i+1}. {track.title}\n"
             if i == 1:
                 break
 
