@@ -12,7 +12,7 @@ class Changelogs:
         from ..ui import musicbot, bot_version, embed_opt
         embed_opt_raw = copy.deepcopy(embed_opt)
         embed_opt_raw["footer"]["text"] = (
-            embed_opt_raw["footer"]["text"] + "\n播放伺服器由 404 Network Information Co. 提供支援"
+            embed_opt_raw["footer"]["text"] + "\n播放伺服器由 Simple Information, Inc. 提供支援"
         )
         self.embed_opt = embed_opt_raw
 

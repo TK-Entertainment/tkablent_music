@@ -338,7 +338,7 @@ class InfoGenerator:
             )
 
         embed_opt["footer"]["text"] = (
-            embed_opt["footer"]["text"] + f"\n播放伺服器由 404 Network Information Co. 提供支援{footer_notice}"
+            embed_opt["footer"]["text"] + f"\n播放伺服器由 Simple Information, Inc. 提供支援{footer_notice}"
         )
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
