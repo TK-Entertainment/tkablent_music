@@ -71,8 +71,8 @@ class GuildInfo:
         # Update the recently played list
         if identifier in self._recently_played:
             self._recently_played.remove(identifier)
-        self._recently_played.append(identifier)
-        if len(self._recently_played) > 5:
+        self._recently_played.insert(0, identifier)
+        while len(self._recently_played) > 5:
             self._recently_played.pop()
 
         if song.extras.requester_id is not None:
