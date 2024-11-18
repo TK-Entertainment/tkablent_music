@@ -220,6 +220,8 @@ class TrackHelper():
             last_index = 0
 
             for i, track in enumerate(result):
+                if track.name.startswith("(⭐)"):
+                    continue
                 index = -1
                 for j, trackinfo in enumerate(guild_info.mostly_played):
                     if trackinfo[0] == track.value[5:]:
@@ -228,11 +230,14 @@ class TrackHelper():
                 if index == -1:
                     continue
                 result.pop(i)
-                track.name = f"(⭐)" + track.name
-                if index > last_index:
+                if len(track.name + "(⭐) ") >= 100:
+                    track.name = "(⭐) " + track.name.split(" | ")[0][:-10] + " ..." + " | " + track.name.split(" | ")[1]
+                else:
+                    track.name = "(⭐) " + track.name
+                if index < last_index:
                     result.insert(0, track)
                 else:
-                    result.insert(index, track)
+                    result.insert(current_index, track)
                 last_index = index
                 current_index += 1
 
