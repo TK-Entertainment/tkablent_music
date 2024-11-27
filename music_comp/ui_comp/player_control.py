@@ -550,6 +550,15 @@ class PlayerControl:
                 await self.toggle(interaction, button, "done")
                 if self.guild_info(channel.guild.id).music_suggestion:
                     await self.musicbot.track_helper.process_suggestion(channel.guild, self.guild_info(channel.guild.id))
+                
+                if self.guild_info(channel.guild.id).music_suggestion:
+                    while self.guild_info(channel.guild.id).suggestion_processing:
+                        await asyncio.sleep(0.01)
+                        if self.guild_info(channel.guild.id).leaveoperation:
+                            break
+
+                    if self.guild_info(channel.guild.id).playinfo is not None:
+                        await self.info_generator._UpdateSongInfo(interaction.guild.id)
 
             @discord.ui.button(
                 emoji=Emoji.pause_emoji if not voice_client.paused else Emoji.play_emoji,
@@ -615,6 +624,17 @@ class PlayerControl:
 
                 await interaction.response.edit_message(embed=embed)
                 await self.toggle(interaction, button, "done")
+
+                if self.guild_info(channel.guild.id).music_suggestion:
+                    while self.guild_info(channel.guild.id).suggestion_processing:
+                        await asyncio.sleep(0.01)
+                        if self.guild_info(channel.guild.id).leaveoperation:
+                            break
+                else:
+                    await asyncio.sleep(1)
+
+                if self.guild_info(channel.guild.id).playinfo is not None:
+                    await self.info_generator._UpdateSongInfo(interaction.guild.id)
 
             @discord.ui.button(
                 emoji=Emoji.shuffle_emoji,

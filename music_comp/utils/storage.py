@@ -172,3 +172,5 @@ class GuildUIInfo:
         self.suggestions_source = None
         self.previous_titles: list[str] = []
         self.suggestions: list = []
+
+        self.timer_task: asyncio.Task = None

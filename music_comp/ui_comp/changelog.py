@@ -31,8 +31,8 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = "https://i.imgur.com/UZ1ycuW.png"
-        self.emergency_build = False
+        self.picture = ""
+        self.emergency_build = True
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
 
@@ -40,10 +40,9 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【修復】(Patch 9 .p9) 修復最近播放沒有正常顯示的問題", "=> 此版本已修復這個問題"],
-            ["!", "【修復】(Patch 8 .p8) 新增常聽歌曲至搜尋結果內", "=> 若搜尋結果內有常聽歌曲，則會在搜尋結果內顯示 (⭐) 標籤"],
-            ["!", "【優化】(Patch 8 .p8) 優化傳統搜尋介面搜尋速度", "=> 嘗試加速傳統介面的搜尋速度"],
-            ["!", "【修復】(Patch 8 .p8) 修復結束播放後介面沒有正常回收的問題", "=> 此版本已修復這個問題"],
+            ["(!)", "【緊急修復】修復新增歌曲有機率爛掉的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】(Patch 10 .p10) 修復推薦歌曲載入狀態顯示異常的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】(Patch 10 .p10) 修復機器人在使用者退出自動暫停後並不會退出的問題", "=> 此版本已修復這個問題"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:

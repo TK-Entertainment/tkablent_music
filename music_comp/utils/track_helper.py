@@ -202,7 +202,12 @@ class TrackHelper():
                 value=f"{current}",
             )]
         else:
-            tracks = await self.get_track(interaction, current, quick_search=True)
+            try:
+                tracks = await self.get_track(interaction, current, quick_search=True)
+            except bilibili.ArgsException:
+                return [app_commands.Choice(name="❌ | Bilibili VID/AID 格式錯誤", value="")]
+            except wavelink.LavalinkLoadException as e:
+                return [app_commands.Choice(name="❌ | 抓取曲目時發生問題", value="")]
             result = []
 
             async with asyncio.TaskGroup() as taskgroup:
@@ -251,7 +256,7 @@ class TrackHelper():
     async def _get_bilibili_track(self, interaction: discord.Interaction, search: str, quick_search: bool = False) -> Union[wavelink.Playable, wavelink.LavalinkLoadException, None]:
         print("BiliBili Cookie validity:", await self._bilibilic.check_valid())
         
-        if "BV" in search and "https://www.bilibili.com/" not in search:
+        if "BV" in search and "https://www.bilibili.com/" not in search and "https://b23.tv/" not in search:
             vid = search
         else:
             try:
@@ -268,7 +273,10 @@ class TrackHelper():
                 url_split = search.split("/")
                 vid = url_split[4]
 
-        v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
+        try:
+            v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
+        except bilibili.ArgsException as e:
+            return e
         download_url_data = await v_data.get_download_url(0)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
@@ -277,19 +285,18 @@ class TrackHelper():
 
         raw_url = None
 
-        if not quick_search:
-            for t in data:
-                #raw_url = t.url.replace("&", "%26")
-                if isinstance(t, bilibili.video.AudioStreamDownloadURL):
-                    raw_url = t.url
-                    try:
-                        await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
-                    except wavelink.LavalinkLoadException as e:
-                        raw_url = None
-                        continue
-                    break
-                else:
+        for t in data:
+            #raw_url = t.url.replace("&", "%26")
+            if isinstance(t, bilibili.video.AudioStreamDownloadURL):
+                raw_url = t.url
+                try:
+                    await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
+                except wavelink.LavalinkLoadException as e:
+                    raw_url = None
                     continue
+                break
+            else:
+                continue
 
         if raw_url is None:
             return None
@@ -364,6 +371,8 @@ class TrackHelper():
             url = self._parse_url(search, choice)
             if "bilibili" in url:
                 callback = [await self._get_bilibili_track(interaction, url, quick_search=True)]
+                if isinstance(callback[0], Exception):
+                    return callback[0]
             else:
                 try:
                     callback = await wavelink.Playable.search(url, node=random.choice(nodes))
@@ -517,7 +526,7 @@ class TrackHelper():
             else:
                 for previous_titles in ui_guild_info.previous_titles:
                     match_ratio = SequenceMatcher(None, track.title, previous_titles).ratio()
-                    if match_ratio >= 0.87:
+                    if match_ratio >= 0.92:
                         print(
                             f"[{guild.id} | Suggestion] {track.title} has played before, resuggested"
                         )
@@ -688,4 +697,3 @@ class TrackHelper():
             ui_guild_info.suggestion_processing = False
             if ui_guild_info.skip:
                 ui_guild_info.skip = False
-            await self.ui._InfoGenerator._UpdateSongInfo(guild.id)

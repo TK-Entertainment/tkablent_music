@@ -67,7 +67,7 @@ class Player:
         # Wavelink connection establishing
         await wavelink.Pool.connect(
             nodes=[mainplayhost, bilibili_host, searchhost_1, searchhost_2],
-            cache_capacity=100,
+            cache_capacity=1000,
             client=self.bot,
         )
 
@@ -647,6 +647,16 @@ class MusicCog(Player, commands.Cog):
         except Exception as e:
             pass
 
+    async def _refresh_after_suggested(self, guild: discord.Guild):
+        if self.ui_guild_info(guild.id).music_suggestion:
+            while self.ui_guild_info(guild.id).suggestion_processing:
+                await asyncio.sleep(0.01)
+            
+            try:
+                await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+            except:
+                self._refresh_after_suggested(guild)
+
     @commands.Cog.listener()
     async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
         await self._get_current_stats()
@@ -673,6 +683,8 @@ class MusicCog(Player, commands.Cog):
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self[guild.id].text_channel, e)
                 pass
+
+            self.bot.loop.create_task(self._refresh_after_suggested(guild))
 
     @commands.Cog.listener()
     async def on_wavelink_node_disconnected(self, payload: wavelink.NodeDisconnectedEventPayload) -> None:
@@ -727,6 +739,10 @@ class MusicCog(Player, commands.Cog):
         except:
             pass
 
+    async def _alone_timer(self, time: int, voice_client: wavelink.Player):
+        await asyncio.sleep(time)
+        await self.on_wavelink_inactive_player(voice_client)
+
     @commands.Cog.listener("on_voice_state_update")
     async def _pause_on_being_alone(
         self,
@@ -758,6 +774,11 @@ class MusicCog(Player, commands.Cog):
                 
                 if not voice_client.paused:
                     await self._pause(member.guild)
+
+                if not self.ui_guild_info(member.guild.id).timer_task is None:
+                    self.ui_guild_info(member.guild.id).timer_task.cancel()
+                    self.ui_guild_info(member.guild.id).timer_task = None
+                self.ui_guild_info(member.guild.id).timer_task = self.bot.loop.create_task(self._alone_timer(voice_client.inactive_timeout, voice_client))
             elif (
                 len(voice_client.channel.members) > 1
                 and voice_client.paused
@@ -784,5 +805,9 @@ class MusicCog(Player, commands.Cog):
                     self.ui_guild_info(member.guild.id).playinfo_view.suggest.style = discord.ButtonStyle.danger
 
                 await self.ui_guild_info(member.guild.id).playinfo.edit(view=self.ui_guild_info(member.guild.id).playinfo_view)
+
+                if not self.ui_guild_info(member.guild.id).timer_task is None:
+                    self.ui_guild_info(member.guild.id).timer_task.cancel()
+                    self.ui_guild_info(member.guild.id).timer_task = None
         except:
             pass

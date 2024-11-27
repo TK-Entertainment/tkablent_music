@@ -89,7 +89,7 @@ class Search:
             for k, trackid in enumerate(guild_info.mostly_played):
                 if musicbot.track_helper._cache.get(trackid[0]) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid[0])["timestamp"] >= 2592000):
                     track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
-                    if track is None: continue
+                    if track[0] is None: continue
                     title = track[0].title
                     identifier = track[0].identifier
                 else:

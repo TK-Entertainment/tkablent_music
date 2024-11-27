@@ -21,6 +21,9 @@ class Leave:
 
     async def refresh_and_reset(self, guild: discord.Guild):
         guild_info = self.guild_info(guild.id)
+        if guild_info.timer_task is not None:
+            guild_info.timer_task.cancel()
+            guild_info.timer_task = None
 
         await asyncio.sleep(3)
         if not guild_info.playinfo is None:

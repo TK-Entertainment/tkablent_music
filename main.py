@@ -19,12 +19,10 @@ prefix = "/"
 branch = "master"
 
 if production:
-    status = discord.Status.online
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.5.p9{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.5.p10.e4{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 else:
-    status = discord.Status.dnd
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
 
 dotenv.load_dotenv()
@@ -35,7 +33,7 @@ intents = discord.Intents.default()
 intents.message_content = False
 
 bot = commands.AutoShardedBot(
-    command_prefix=prefix, intents=intents, help_command=None, status=status, shard_count=(GUILD_COUNT // 150) + 1
+    command_prefix=prefix, intents=intents, help_command=None, status=discord.Status.dnd, activity=discord.Game("正在開機，請稍候再輸入指令"), shard_count=(GUILD_COUNT // 150) + 1
 )
 
 from music_comp import *
@@ -70,7 +68,6 @@ async def count_total():
 @bot.event
 async def on_ready():
     allowed_guilds = list(map(int, os.getenv("ALLOWED_GUILDS").split(",")))
-    bot.loop.create_task(precense_update())
     bot.loop.create_task(count_total())
     await bot.add_cog(MusicCog(bot, bot_version))
     bot.tree.add_command(HelperCog(bot), override=True)
@@ -104,6 +101,10 @@ async def on_ready():
         即代表此機器人已成功開機
     """
     )
+    await bot.change_presence(activity=discord.Game(f"開機完成owo | {bot.command_prefix}help"))
+    bot.status = discord.Status.online
+    await asyncio.sleep(5)
+    bot.loop.create_task(precense_update())
 
 
 @bot.event
