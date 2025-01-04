@@ -1,4 +1,5 @@
 <img src="https://i.imgur.com/wApgX8J.png" height=64 width=64></img>
+<img src="https://i.imgur.com/p4vHa3y.png" height=128 width=128 align="right" />
 ### A Project of TK Entertainment
 # TKablent
 [![TKablent 支援伺服器](https://discordapp.com/api/guilds/1010564921005707335/widget.png?style=shield)](https://discord.gg/9qrpGh4e7V)
