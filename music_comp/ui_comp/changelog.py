@@ -32,7 +32,7 @@ class Changelogs:
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
         self.picture = ""
-        self.emergency_build = True
+        self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
 
@@ -40,9 +40,8 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["(!)", "【緊急修復】修復新增歌曲有機率爛掉的問題", "=> 此版本已修復這個問題"],
-            ["!", "【修復】(Patch 10 .p10) 修復推薦歌曲載入狀態顯示異常的問題", "=> 此版本已修復這個問題"],
-            ["!", "【修復】(Patch 10 .p10) 修復機器人在使用者退出自動暫停後並不會退出的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】(Patch 11 .p11) 修復機器人控制介面可能會不穩定的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】(Patch 11 .p11) 嘗試性修正機器人會自己罷工的問題", "=> 此問題修復方案仍在觀察中"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:

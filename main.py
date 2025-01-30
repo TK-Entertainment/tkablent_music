@@ -4,6 +4,9 @@ import discord
 from discord.ext import commands
 import wavelink
 import uvloop
+import sentry_sdk
+from sentry_sdk import capture_exception
+import logging
 
 print(
 f""" 
@@ -21,7 +24,25 @@ branch = "master"
 if production:
     production_status = "s"  # ce for cutting edge, s for stable
     test_subject = "wl3.0_test"
-    bot_version = "m.20240318.5.p10.e4{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    bot_version = "m.20240318.5.p11{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+    print(os.getenv("SENTRY_DSN"))
+    sentry_sdk.init(
+        dsn=os.getenv("SENTRY_DSN"),
+        traces_sample_rate=1.0,
+        _experiments={
+            "continuous_profiling_auto_start": True,
+        },
+    )
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s : [%(levelname)s] %(message)s"
+    )
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
 else:
     bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
 
@@ -52,15 +73,15 @@ async def precense_update():
         for precense in precenses:
             try:
                 await bot.change_presence(activity=precense)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.warning("Failed to update precense: {e}")
             await asyncio.sleep(10)
 
 async def count_total():
     total_count = 0
     for guild in bot.guilds:
         total_count += guild.member_count
-    print(
+    logging.info(
         f"[Statistics] Bot is now serving {total_count} users in {len(bot.guilds)} guilds."
     )
 
@@ -82,6 +103,7 @@ async def on_ready():
 
     dotenv.set_key(".env", "GUILD_COUNT", str(len(bot.guilds)))
 
+    logging.info("Bot is ready to serve.")
     print(
         f"""
         =========================================
@@ -109,7 +131,7 @@ async def on_ready():
 
 @bot.event
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
-    print(
+    logging.info(
         f"""
         Wavelink 音樂處理伺服器已準備完畢
 
@@ -122,6 +144,8 @@ try:
     del TOKEN
     del GUILD_COUNT
 except AttributeError:
+    logging.error("Bot failed to boot, invalid TOKEN")
+    capture_exception(AttributeError)
     print(
         f"""
     =========================================

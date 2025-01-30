@@ -5,6 +5,7 @@ if TYPE_CHECKING:
 import discord
 import wavelink
 import asyncio
+import logging
 
 from ..playlist import LoopState
 from .info import InfoGenerator
@@ -508,7 +509,7 @@ class PlayerControl:
                 if self.guild_info(channel.guild.id).music_suggestion:
                     button.label = "⬜ 推薦音樂"
                     button.style = discord.ButtonStyle.danger
-                    print(f"[Suggestion] {channel.guild.id} disabled auto suggestion")
+                    logging.info(f"[Suggestion] {channel.guild.id} disabled auto suggestion")
                     self.guild_info(channel.guild.id).music_suggestion = False
                     if (
                         len(self.musicbot._playlist[channel.guild.id].order) == 2
@@ -527,7 +528,7 @@ class PlayerControl:
                 else:
                     button.label = "✅ 推薦音樂"
                     button.style = discord.ButtonStyle.success
-                    print(f"[Suggestion] {channel.guild.id} enabled auto suggestion")
+                    logging.info(f"[Suggestion] {channel.guild.id} enabled auto suggestion")
                     self.guild_info(channel.guild.id).music_suggestion = True
                     if (
                         len(self.musicbot._playlist[channel.guild.id].order) == 2

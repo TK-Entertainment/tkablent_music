@@ -6,6 +6,8 @@ import bilibili_api as bilibili
 from ytmusicapi import YTMusic
 import wavelink
 import discord
+import logging
+from sentry_sdk import capture_exception
 from discord import app_commands
 import validators
 import asyncio
@@ -34,7 +36,7 @@ class TrackHelper():
         self._cache_worker: CacheWorker = CacheWorker(self._cachequeue)
         self._cache: dict = self._cache_worker._cache
         self._playlist = playlist
-        self.ytapi: YTMusic = YTMusic(requests_session=False)
+        self.ytapi: YTMusic = YTMusic(requests_session=False, language="zh_TW")
 
         # Bilibili API init
         self._bilibilic = bilibili.Credential(
@@ -117,6 +119,8 @@ class TrackHelper():
                 title=title, length=length, timestamp=timestamp
             )
         except Exception as e:
+            logging.error(f"Error in search suggestion processing: {e}")
+            capture_exception(e)
             return None
 
     async def _fetch_fast_suggestion(self, interaction: discord.Interaction, trackid: Union[list, str], result: list, data: dict):
@@ -134,7 +138,9 @@ class TrackHelper():
                         value=f"sid=>{trackid}",
                     )
                 ) 
-        except wavelink.exceptions.LavalinkLoadException:
+        except wavelink.exceptions.LavalinkLoadException as e:
+            logging.error(f"Error in fetching fast suggestion: {e}")
+            capture_exception(e)
             return None
 
     # Main part for search suggestion system
@@ -207,6 +213,8 @@ class TrackHelper():
             except bilibili.ArgsException:
                 return [app_commands.Choice(name="❌ | Bilibili VID/AID 格式錯誤", value="")]
             except wavelink.LavalinkLoadException as e:
+                logging.error(f"Error in search suggestion: {e}")
+                capture_exception(e)
                 return [app_commands.Choice(name="❌ | 抓取曲目時發生問題", value="")]
             result = []
 
@@ -254,7 +262,7 @@ class TrackHelper():
 
     # Getting songs via bilibili api
     async def _get_bilibili_track(self, interaction: discord.Interaction, search: str, quick_search: bool = False) -> Union[wavelink.Playable, wavelink.LavalinkLoadException, None]:
-        print("BiliBili Cookie validity:", await self._bilibilic.check_valid())
+        logging.info("BiliBili Cookie validity:", await self._bilibilic.check_valid())
         
         if "BV" in search and "https://www.bilibili.com/" not in search and "https://b23.tv/" not in search:
             vid = search
@@ -376,7 +384,9 @@ class TrackHelper():
             else:
                 try:
                     callback = await wavelink.Playable.search(url, node=random.choice(nodes))
-                except wavelink.exceptions.LavalinkLoadException:
+                except wavelink.exceptions.LavalinkLoadException as e:
+                    logging.error(f"Error in fetching track: {e}")
+                    capture_exception(e)
                     callback = None
             if callback is None:
                 return [None]
@@ -473,7 +483,7 @@ class TrackHelper():
             resuggested_required = False
             # check first one first
             if ui_guild_info.suggestions[0].title in ui_guild_info.previous_titles:
-                print(
+                logging.info(
                     f"[{guild.id} | Suggestion] {ui_guild_info.suggestions[0].title} has played before, resuggested"
                 )
                 ui_guild_info.suggestions.pop(0)
@@ -481,12 +491,12 @@ class TrackHelper():
             else:
                 for previous_titles in ui_guild_info.previous_titles:
                     match_ratio = SequenceMatcher(None, ui_guild_info.suggestions[0].title, previous_titles).ratio()
-                    if match_ratio >= 0.87:
-                        print(
+                    if match_ratio >= 0.92:
+                        logging.info(
                             f"[{guild.id} | Suggestion] {ui_guild_info.suggestions[0].title} has played before, resuggested"
                         )
-                        print("[DEBUG ONLY] ", ui_guild_info.previous_titles)
-                        print(f"[DEBUG ONLY] {previous_titles} is detected match with {ui_guild_info.suggestions[0].title} with ratio {match_ratio}")
+                        logging.debug("[DEBUG ONLY] ", ui_guild_info.previous_titles)
+                        logging.debug(f"[DEBUG ONLY] {previous_titles} is detected match with {ui_guild_info.suggestions[0].title} with ratio {match_ratio}")
                         ui_guild_info.suggestions.pop(0)
                         resuggested_required = True
 
@@ -518,7 +528,7 @@ class TrackHelper():
         for i, track in enumerate(ui_guild_info.suggestions):
             resuggested_required = False
             if track.title in ui_guild_info.previous_titles:
-                print(
+                logging.info(
                     f"[{guild.id} | Suggestion] {track.title} has played before, resuggested"
                 )
                 ui_guild_info.suggestions.pop(i)
@@ -527,11 +537,11 @@ class TrackHelper():
                 for previous_titles in ui_guild_info.previous_titles:
                     match_ratio = SequenceMatcher(None, track.title, previous_titles).ratio()
                     if match_ratio >= 0.92:
-                        print(
+                        logging.info(
                             f"[{guild.id} | Suggestion] {track.title} has played before, resuggested"
                         )
-                        print("[DEBUG ONLY] ", ui_guild_info.previous_titles)
-                        print(f"[DEBUG ONLY] {previous_titles} is detected match with {track.title} with ratio {match_ratio}")
+                        logging.debug("[DEBUG ONLY] ", ui_guild_info.previous_titles)
+                        logging.debug(f"[DEBUG ONLY] {previous_titles} is detected match with {track.title} with ratio {match_ratio}")
                         ui_guild_info.suggestions.pop(i)
                         resuggested_required = True
 
@@ -561,7 +571,7 @@ class TrackHelper():
         suggested_track = None
 
         if len(ui_guild_info.suggestions) == 0:
-            print(f"[{guild.id} | Suggestion] Started to fetch 12 suggestions")
+            logging.info(f"[{guild.id} | Suggestion] Started to fetch 12 suggestions")
 
             tried = 0
 
@@ -583,7 +593,7 @@ class TrackHelper():
                 await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
                 return
 
-            print(f"[{guild.id} | Suggestion] Fetched 12 suggestions\n{suggested_track}")
+            logging.info(f"[{guild.id} | Suggestion] Fetched 12 suggestions\n{suggested_track}")
 
     # Main core of suggestion processing system
     # Which decides whether enable suggestion or not in different cases
@@ -669,8 +679,10 @@ class TrackHelper():
                 
                 if suggested_track is None:
                     ui_guild_info.suggestion_failure = True
-                    await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-                    return
+                    try:
+                        await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+                    finally:
+                        return
 
             if self[guild.id]._resuggest_task is not None:
                 self[guild.id]._resuggest_task.cancel()
@@ -678,7 +690,7 @@ class TrackHelper():
 
             if len(ui_guild_info.previous_titles) > 64:
                 ui_guild_info.previous_titles.pop(0)
-                print(
+                logging.info(
                     f"[{guild.id} | Suggestion] The history storage was full, removed the first item"
                 )
 
@@ -690,10 +702,12 @@ class TrackHelper():
             )
 
             ui_guild_info.previous_titles.append(ui_guild_info.suggestions[0].title)
-            print(
+            logging.info(
                 f"[{guild.id} | Suggestion] Suggested {ui_guild_info.suggestions[0].title} in next song, added to history storage"
             )
             await self._playlist.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "NO_ID_AS_BOT_SUGGESTED")
-            ui_guild_info.suggestion_processing = False
+            
             if ui_guild_info.skip:
                 ui_guild_info.skip = False
+            ui_guild_info.suggestion_processing = False
+           

@@ -86,7 +86,8 @@ class Search:
         i = 1
         if len(guild_info.mostly_played) > 10:
             mostly_played = ""
-            for k, trackid in enumerate(guild_info.mostly_played):
+            k = 0
+            for trackid in guild_info.mostly_played:
                 if musicbot.track_helper._cache.get(trackid[0]) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid[0])["timestamp"] >= 2592000):
                     track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
                     if track[0] is None: continue
@@ -99,7 +100,8 @@ class Search:
                 #embed.add_field(name=f"【{i}】", value=f"{title}", inline=True)
                 view.add_item(MusicChooseButton(identifier, i, ButtonType.RECOMMEND, musicbot))
                 i += 1
-                if k == 2: break
+                k += 1
+                if k == 4: break
             
             if mostly_played == "": mostly_played = "❌ | 目前無可用推薦項目 (*°∀°)"
             
@@ -111,7 +113,8 @@ class Search:
 
         if len(guild_info.recently_played) != 0:
             recently_played = ""
-            for k, trackid in enumerate(guild_info.recently_played):
+            k = 0
+            for trackid in guild_info.recently_played:
                 if musicbot.track_helper._cache.get(trackid) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid)["timestamp"] >= 2592000):
                     track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
                     if track[0] is None: continue
@@ -125,7 +128,8 @@ class Search:
                 #embed.add_field(name=f"【{i}】", value=f"{title}", inline=True)
                 view.add_item(MusicChooseButton(identifier, i, ButtonType.HISTORY, musicbot))
                 i += 1
-                if k == 2: break  
+                k += 1
+                if k == 4: break  
             if recently_played == "": recently_played = "❌ | 目前無可用推薦項目 (*°∀°)"
 
         embed.add_field(

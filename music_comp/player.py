@@ -4,6 +4,8 @@ if TYPE_CHECKING:
 import asyncio, os
 import dotenv
 import validators
+import logging
+from sentry_sdk import capture_exception
 
 import discord
 from discord.ext import commands
@@ -67,7 +69,6 @@ class Player:
         # Wavelink connection establishing
         await wavelink.Pool.connect(
             nodes=[mainplayhost, bilibili_host, searchhost_1, searchhost_2],
-            cache_capacity=1000,
             client=self.bot,
         )
 
@@ -77,10 +78,14 @@ class Player:
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
         mainplayhost = wavelink.Pool.get_node("TW_PlayBackNode")
+        backupplayhost = wavelink.Pool.get_node("BilibiliNode")
         if voice_client is None:
-            player = wavelink.Player(nodes=[mainplayhost])
+            if mainplayhost.status == wavelink.NodeStatus.CONNECTED:
+                player = wavelink.Player(nodes=[mainplayhost])
+            else:
+                player = wavelink.Player(nodes=[backupplayhost])
             player.inactive_timeout = 600
-            await channel.connect(cls=player)
+            await channel.connect(cls=player, self_deaf=True)
 
     ##############
     # Leave Core #
@@ -257,8 +262,9 @@ class MusicCog(Player, commands.Cog):
         if self.auto_stage_available(interaction.guild.id) and bot_itself.voice.suppress:
             try:
                 await bot_itself.edit(suppress=False)
-            except:
+            except Exception as e:
                 self.ui_guild_info(interaction.guild.id).auto_stage_available = False
+                logging.warning(f"Failed to unsuppress bot: {e}")
 
     ##############################################
 
@@ -622,7 +628,7 @@ class MusicCog(Player, commands.Cog):
     async def _get_current_stats(self):
         active_player = len(self.bot.voice_clients)
 
-        print(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
+        logging.info(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
         dotenv.set_key("../.env", "GUILD_COUNT", str(len(self.bot.guilds)))
 
     @commands.Cog.listener()
@@ -645,7 +651,8 @@ class MusicCog(Player, commands.Cog):
             if self.guild_info(guild.id).lastskip:
                 self.guild_info(guild.id).lastskip = False
         except Exception as e:
-            pass
+            logging.error(f"Error on_wavelink_track_start: {e}")
+            capture_exception(e)
 
     async def _refresh_after_suggested(self, guild: discord.Guild):
         if self.ui_guild_info(guild.id).music_suggestion:
@@ -686,19 +693,19 @@ class MusicCog(Player, commands.Cog):
 
             self.bot.loop.create_task(self._refresh_after_suggested(guild))
 
-    @commands.Cog.listener()
-    async def on_wavelink_node_disconnected(self, payload: wavelink.NodeDisconnectedEventPayload) -> None:
-        node: wavelink.Node = payload.node
-        new_node: wavelink.Node = wavelink.Pool.get_node()  # You can get a specific node if you want...
-        if not new_node:
-            return
+    # @commands.Cog.listener()
+    # async def on_wavelink_node_disconnected(self, payload: wavelink.NodeDisconnectedEventPayload) -> None:
+    #     node: wavelink.Node = payload.node
+    #     new_node: wavelink.Node = wavelink.Pool.get_node()  # You can get a specific node if you want...
+    #     if not new_node:
+    #         return
         
-        players: dict[int, wavelink.Player] = node.players
-        for guild_id, player in players.items():
-            try:
-                await player.switch_node(new_node)
-            except RuntimeError:
-                await player.disconnect()
+    #     players: dict[int, wavelink.Player] = node.players
+    #     for guild_id, player in players.items():
+    #         try:
+    #             await player.switch_node(new_node)
+    #         except RuntimeError:
+    #             await player.disconnect()
 
     # Error handler
     @commands.Cog.listener()
@@ -709,7 +716,7 @@ class MusicCog(Player, commands.Cog):
             return
         elif isinstance(error, commands.MissingRequiredArgument):
             return
-        print(error)
+        logging.error(error)
         await ctx.send(
             f"""
             **:no_entry: | 失敗 | UNKNOWNERROR**
@@ -736,8 +743,10 @@ class MusicCog(Player, commands.Cog):
                     self.ui_guild_info(payload.player.guild.id).leaveoperation = False
                 await self.ui.PlayerControl.DonePlaying(self[payload.player.guild.id].text_channel)
             return
-        except:
-            pass
+        except Exception as e:
+            logging.error(f"Error on_wavelink_player_update: {e}")
+            capture_exception(e)
+            
 
     async def _alone_timer(self, time: int, voice_client: wavelink.Player):
         await asyncio.sleep(time)
@@ -809,5 +818,5 @@ class MusicCog(Player, commands.Cog):
                 if not self.ui_guild_info(member.guild.id).timer_task is None:
                     self.ui_guild_info(member.guild.id).timer_task.cancel()
                     self.ui_guild_info(member.guild.id).timer_task = None
-        except:
-            pass
+        except Exception as e:
+            logging.debug(f"Error on_voice_state_update: {e}")

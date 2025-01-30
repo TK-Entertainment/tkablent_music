@@ -4,6 +4,8 @@ from discord.ext import commands
 from discord import app_commands
 import datetime
 import os
+import logging
+from sentry_sdk import capture_exception
 import asyncio
 from msgspec.json import decode as json_decode
 
@@ -36,7 +38,8 @@ class HelperCog(app_commands.Group):
             try:
                 await interaction.response.send_message(f"[INTERNAL USE ONLY]\nCurrently joined:\n```\n{self.bot.guilds}\n```\n[CONFIDENTIAL]")
             except Exception as e:
-                print(e)
+                logging.error(e)
+                capture_exception(e)
 
     @app_commands.command(name="test_announce", description="INTERNAL USE ONLY: Test announcing")
     async def test_announce(self, interaction: discord.Interaction, title: str, description: str, send: bool):
@@ -50,7 +53,8 @@ class HelperCog(app_commands.Group):
                 embed.set_footer(text=f"公告時間: {issued_time}")
                 await interaction.response.send_message(embed=embed)
             except Exception as e:
-                print(e)
+                logging.error(e)
+                capture_exception(e)
 
     async def announce_task(self, interaction: discord.Interaction, title: str, description: str, issued_time: str):
             try:
@@ -59,7 +63,7 @@ class HelperCog(app_commands.Group):
                 embed.set_author(name="TKablent 系統通知", icon_url="https://i.imgur.com/p4vHa3y.png")
                 embed.set_footer(text=f"公告時間: {issued_time}")
                 for guild in self.bot.guilds:
-                    print(f"[Announcement] Sending to {guild.name} ({i}/{len(self.bot.guilds)})")
+                    logging.info(f"[Announcement] Sending to {guild.name} ({i}/{len(self.bot.guilds)})")
                     try:
                         if fetch(guild.id, "text_channel") is not None:
                             embed.set_footer(text=f"公告時間: {issued_time}")
@@ -76,7 +80,8 @@ class HelperCog(app_commands.Group):
                                 continue   
                     i += 1
             except Exception as e:
-                print(e)
+                logging.error(e)
+                capture_exception(e)
 
     async def announce(self, interaction: discord.Interaction, title: str, description: str):
         if interaction.guild.id in allowed_guilds:
@@ -100,7 +105,7 @@ class HelperCog(app_commands.Group):
 
             i = 1
             for guild in guilds:
-                print(f"[Announcement] Sending to {guild.name} ({i}/{len(guilds)}")
+                logging.info(f"[Announcement] Sending to {guild.name} ({i}/{len(guilds)}")
                 try:
                     if fetch(guild.id, "text_channel") is not None:
                         embed.set_footer(text=f"公告時間: {issued_time}")
@@ -117,7 +122,8 @@ class HelperCog(app_commands.Group):
                             continue        
                 i += 1
         except Exception as e:
-            print(e)
+            logging.error(e)
+            capture_exception(e)
 
     @app_commands.command(name="announce_update", description="INTERNAL USE ONLY: Announcing the update process")
     async def announce_update(self, interaction: discord.Interaction, version: str):

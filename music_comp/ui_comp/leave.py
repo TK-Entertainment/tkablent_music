@@ -3,6 +3,7 @@ if TYPE_CHECKING:
     from typing import *
 import discord
 import asyncio
+import gc
 
 from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
@@ -24,6 +25,7 @@ class Leave:
         if guild_info.timer_task is not None:
             guild_info.timer_task.cancel()
             guild_info.timer_task = None
+        guild_info.music_suggestion = False
 
         await asyncio.sleep(3)
         if not guild_info.playinfo is None:
@@ -33,21 +35,15 @@ class Leave:
     def reset_value(self, guild):
         guild_info = self.guild_info(guild.id)
 
-        guild_info.auto_stage_available = True
-        guild_info.stage_topic_checked = False
-        guild_info.stage_topic_exist = False
-        guild_info.skip = False
-        guild_info.music_suggestion = False
-        guild_info.processing_msg = None
-        guild_info.suggestions = []
         if self.musicbot._playlist[guild.id]._resuggest_task is not None:
             self.musicbot._playlist[guild.id]._resuggest_task.cancel()
             self.musicbot._playlist[guild.id]._resuggest_task = None
         if self.musicbot._playlist[guild.id]._suggest_search_task is not None:
             self.musicbot._playlist[guild.id]._suggest_search_task.cancel()
             self.musicbot._playlist[guild.id]._suggest_search_task = None
-        guild_info.playinfo_view = None
-        guild_info.playinfo = None
+
+        del guild_info
+        gc.collect()
 
     async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
         self.guild_info(interaction.guild.id).leaveoperation = True

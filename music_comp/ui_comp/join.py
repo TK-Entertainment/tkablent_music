@@ -2,6 +2,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from typing import *
 import discord
+import logging
+from sentry_sdk import capture_exception
 
 from .exception_handler import ExceptionHandler
 
@@ -102,4 +104,6 @@ class Join:
         await self.exception_handler._CommonExceptionHandler(
             interaction, "JOINFAIL", exception
         )
+        logging.error(exception)
+        capture_exception(exception)
         return

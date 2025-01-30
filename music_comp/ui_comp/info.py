@@ -267,6 +267,7 @@ class InfoGenerator:
                     or (len(playlist.order) == 1 and self.guild_info(guild_id).suggestion_processing)
                 )
                 and color_code != "red"
+                and playlist.loop_state == LoopState.NOTHING
             ):
                 if self.guild_info(guild_id).suggestion_failure:
                     queuelist += f"**推薦歌曲載入失敗**"
