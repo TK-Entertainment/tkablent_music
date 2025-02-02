@@ -119,7 +119,7 @@ class CacheWorker(threading.Thread):
             logging.debug("[DEBUG | Cache Module] Writting cache file")
             f.write(json_encode(data))
             nowtime = time.time()
-            logging.debug("[DEBUG | Cache Module] Cache writting elapsed time:", nowtime - beforetime)
+            logging.debug(f"[DEBUG | Cache Module] Cache writting elapsed time: {nowtime - beforetime}")
 
         # self test json file
         try:

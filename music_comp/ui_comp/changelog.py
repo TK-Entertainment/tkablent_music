@@ -40,8 +40,7 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【修復】(Patch 11 .p11) 修復機器人控制介面可能會不穩定的問題", "=> 此版本已修復這個問題"],
-            ["!", "【修復】(Patch 11 .p11) 嘗試性修正機器人會自己罷工的問題", "=> 此問題修復方案仍在觀察中"],
+            ["!", "【改進】(Patch 12 .p12) 改進機器人的穩定性", "=> 做了一些修正來改善機器人的穩定性"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
