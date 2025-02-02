@@ -13,7 +13,7 @@ from msgspec.json import encode as json_encode
 class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
-        self._text_channel: discord.TextChannel = None
+        self._text_channel: int = None
 
         self._database: str = rf"{os.getcwd()}/music_comp/data.json"
         self._task: asyncio.Task = None
@@ -26,13 +26,13 @@ class GuildInfo:
     @property
     def text_channel(self):
         if self._text_channel is None:
-            self._text_channel = discord.Object(self.fetch("text_channel"))
+            self._text_channel = self.fetch("text_channel")
         return self._text_channel
     
     @text_channel.setter
-    def text_channel(self, value: discord.TextChannel):
+    def text_channel(self, value: int):
         self._text_channel = value
-        self.update("text_channel", value.id)
+        self.update("text_channel", value)
 
     @property
     def recently_played(self):

@@ -46,7 +46,7 @@ class PlaylistBase:
         self.order: list[wavelink.Playable] = []  # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0  # use to indicate the times left to play current song
-        self.text_channel: discord.TextChannel = (
+        self.text_channel: int = (
             None  # where to show information to user
         )
         self._resuggest_task: asyncio.Task = None
