@@ -6,7 +6,7 @@ import wavelink
 import uvloop
 import sentry_sdk
 from sentry_sdk import capture_exception
-import logging
+import logging, logging.handlers
 
 print(
 f""" 
@@ -17,34 +17,36 @@ Current Version
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-production = True
 prefix = "/"
 branch = "master"
 
-if production:
-    production_status = "s"  # ce for cutting edge, s for stable
-    test_subject = "wl3.0_test"
-    bot_version = "m.20240318.5.p11{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
-    print(os.getenv("SENTRY_DSN"))
-    sentry_sdk.init(
-        dsn=os.getenv("SENTRY_DSN"),
-        traces_sample_rate=1.0,
-        _experiments={
-            "continuous_profiling_auto_start": True,
-        },
-    )
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s : [%(levelname)s] %(message)s"
-    )
+production_status = "s"  # ce for cutting edge, s for stable
+test_subject = "wl3.0_test"
+bot_version = "m.20240318.5.p12{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 
-    stream_handler = logging.StreamHandler()
-    stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(formatter)
-    logger.addHandler(stream_handler)
-else:
-    bot_version = f"LOCAL DEVELOPMENT / {branch} Branch\nMusic Function"
+sentry_sdk.init(
+    dsn=os.getenv("SENTRY_DSN"),
+    traces_sample_rate=1.0,
+    _experiments={
+        "continuous_profiling_auto_start": True,
+    },
+)
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s : [%(levelname)s] %(message)s"
+)
+
+file_handler = logging.FileHandler(filename="bot.log", encoding="utf-8", mode="w")
+file_handler.setFormatter(formatter)
+file_handler.setLevel(logging.DEBUG)
+
+stream_handler = logging.StreamHandler()
+stream_handler.setFormatter(formatter)
+stream_handler.setLevel(logging.WARNING)
+
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
