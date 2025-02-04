@@ -3,7 +3,7 @@ if TYPE_CHECKING:
     from typing import *
 import discord
 from discord.ext import commands
-from ..ui import rescue_emoji, end_emoji
+from ..emoji import Emoji
 import copy
 
 
@@ -12,7 +12,7 @@ class Changelogs:
         from ..ui import musicbot, bot_version, embed_opt
         embed_opt_raw = copy.deepcopy(embed_opt)
         embed_opt_raw["footer"]["text"] = (
-            embed_opt_raw["footer"]["text"] + "\n播放伺服器由 404 Network Information Co. 提供支援"
+            embed_opt_raw["footer"]["text"] + "\n播放伺服器由 Simple Information, Inc. 提供支援"
         )
         self.embed_opt = embed_opt_raw
 
@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = ""
+        self.picture = "https://media.discordapp.net/attachments/1010571183768473630/1336351732137201774/CleanShot_2025-02-04_at_23.00.332x.png?ex=67a37e09&is=67a22c89&hm=f63232ea725473ae019bc4b2de37dfbab25f3fa78cd81f17c94761971b82555b&=&format=webp&quality=lossless&width=1304&height=1096"
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
@@ -40,11 +40,10 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【改進】針對一些嚴重影響播放的問題進行穩定性改進", "=> 此版本已修復此問題"],
-            ["!", "【修復】嘗試改進快速搜尋推薦的速度", "=> 此版本嘗試改善此問題導致的部分群組無法使用的問題"],
-            ["(!)", "【緊急修復】嘗試修復因近期 API 限制影響，造成機器人當機的問題", "=> 此版本嘗試修復此問題，若仍舊發生請至支援群組回報"],
-            ["(!)", "【緊急修復】修復因近期 API 限制影響，有部分伺服器無法使用推薦候選功能", "=> 此版本已修復此問題，但可能造成部分歌曲不會列入選項內"],
-            ["(!)", "【緊急修復】修復上個版本後，快速搜尋功能失效的問題", "=> 此版本已修復此問題"],
+            ["+", "【新增】群組最愛功能來啦！", "=> 發現多一個按鈕了嗎？沒錯啦，你現在如果聽到一首喜歡的歌，您可以將其加入到最愛名單內！\n=> 你可以在 **/play** 選單中檢視你新增到最愛名單的內容，也可以一次播放名單內的所有歌曲！"],
+            ["!", "【修復】修復 BiliBili 音源在待播清單內顯示異常的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】嘗試修復播放介面更新錯誤的問題", "=> 此修復仍在觀察效果"],
+            ["!", "【改進】改進機器人在部分情況下的穩定度", "=> 此修復仍在觀察效果"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
@@ -60,7 +59,7 @@ class Changelogs:
             def __init__(self):
                 super().__init__(timeout=None)
                 self.groupbutton = discord.ui.Button(
-                    emoji=rescue_emoji,
+                    emoji=Emoji.rescue_emoji,
                     style=discord.ButtonStyle.link,
                     url="https://discord.gg/9qrpGh4e7V",
                     label="支援群組",
@@ -76,7 +75,7 @@ class Changelogs:
                 self.add_item(self.groupbutton)
 
             @discord.ui.button(
-                emoji=end_emoji, style=discord.ButtonStyle.danger
+                emoji=Emoji.end_emoji, style=discord.ButtonStyle.danger
             )
             async def end(
                 self, interaction: discord.Interaction, button: discord.ui.Button

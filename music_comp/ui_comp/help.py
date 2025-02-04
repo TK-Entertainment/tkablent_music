@@ -4,7 +4,7 @@ if TYPE_CHECKING:
 import discord
 from discord.ext import commands
 
-from ..ui import rescue_emoji
+from ..emoji import Emoji
 
 class Help:
     def __init__(self):
@@ -86,7 +86,7 @@ class Help:
                 value="切換單曲循環開關 (輸入次數則可指定單曲播放幾次)\n**【！】若遇到錯誤 LOOPFAIL_SIG**\n*可能因指定的重複次數無效 (小於0一類的) 或目前沒在播放歌曲導致*",
                 inline=False,
             )
-            embed.add_field(name="/wholeloop", value="切換全待播清單循環開關", inline=False)
+            embed.add_field(name="/queueloop", value="切換全待播清單循環開關", inline=False)
         return embed
 
     def _HelpEmbedQueue(self) -> discord.Embed:
@@ -129,7 +129,7 @@ class Help:
                 super().__init__(timeout=timeout)
                 self.last: discord.ui.Button = self.children[0]
                 Button = discord.ui.Button(
-                    emoji=rescue_emoji,
+                    emoji=Emoji.rescue_emoji,
                     style=discord.ButtonStyle.link,
                     url="https://discord.gg/9qrpGh4e7V",
                     label="支援群組",

@@ -8,8 +8,8 @@ import copy
 
 import wavelink
 from ..playlist import LoopState
-from ..ui import LeaveType, StopType
-from ..ui import caution_emoji, spotify_emoji, skip_emoji, search_emoji, repeat_emoji
+from ..enums import LeaveType, StopType
+from ..emoji import Emoji
 
 
 class InfoGenerator:
@@ -267,6 +267,7 @@ class InfoGenerator:
                     or (len(playlist.order) == 1 and self.guild_info(guild_id).suggestion_processing)
                 )
                 and color_code != "red"
+                and playlist.loop_state == LoopState.NOTHING
             ):
                 if self.guild_info(guild_id).suggestion_failure:
                     queuelist += f"**推薦歌曲載入失敗**"
@@ -289,7 +290,10 @@ class InfoGenerator:
 
             # Upcoming song
             elif len(playlist.order) - offset > 1 and color_code != "red":
-                queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
+                if (song.source == "http"):
+                    queuelist += f"**>> {playlist[1+offset].extras.title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
+                else:
+                    queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
                 if len(playlist.order) > 2:
                     queuelist += f"*...還有 {len(playlist.order)-2-offset} 首歌*"
 
@@ -321,7 +325,7 @@ class InfoGenerator:
             ):  # color code refer to behaviour
                 # red stands for delete information, green stands for add to queue notice
                 embed.add_field(
-                    name=f"{caution_emoji} | 自動歌曲推薦已暫時停用",
+                    name=f"{Emoji.caution_emoji} | 自動歌曲推薦已暫時停用",
                     value=f"此歌曲暫時不支援自動歌曲推薦功能\n請播放其他歌曲來使用此功能",
                     inline=False,
                 )
@@ -338,7 +342,7 @@ class InfoGenerator:
             )
 
         embed_opt["footer"]["text"] = (
-            embed_opt["footer"]["text"] + f"\n播放伺服器由 404 Network Information Co. 提供支援{footer_notice}"
+            embed_opt["footer"]["text"] + f"\n播放伺服器由 Simple Information, Inc. 提供支援{footer_notice}"
         )
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **embed_opt))
@@ -351,11 +355,11 @@ class InfoGenerator:
     ):
         # Generate Embed Body
         if isinstance(playlist, list) and not isinstance(playlist[0], wavelink.Playlist):
-            title = f"{search_emoji} | 選取的搜尋歌曲"
+            title = f"{Emoji.search_emoji} | 選取的搜尋歌曲"
             url = None
         elif isinstance(playlist[0], wavelink.Playlist):
             if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
-                title = f"{spotify_emoji} | {playlist[0].name}"
+                title = f"{Emoji.spotify_emoji} | {playlist[0].name}"
                 url = playlist[0].url
             else:
                 title = f":newspaper: | 音樂播放清單"
@@ -380,7 +384,10 @@ class InfoGenerator:
             tracklist = playlist[0].tracks
 
         for i, track in enumerate(tracklist):
-            pllist += f"{i+1}. {track.title}\n"
+            if (track.source == "http"):
+                pllist += f"{i+1}. {track.extras.title}\n"
+            else:
+                pllist += f"{i+1}. {track.title}\n"
             if i == 1:
                 break
 
@@ -391,7 +398,9 @@ class InfoGenerator:
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
         
-        if (playlist[0].uri is not None) and ("spotify" in playlist[0].uri):
+        url = playlist[0].url if isinstance(playlist[0], wavelink.Playlist) else playlist[0].uri
+
+        if (url is not None) and ("spotify" in url):
             embed.set_thumbnail(url=playlist[0].artwork)
 
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))
@@ -408,7 +417,7 @@ class InfoGenerator:
                 self.guild_info(guild_id).playinfo = None
                 self.guild_info(guild_id).playinfo_view = None
         else:
-            self.guild_info(guild_id).playinfo_view.skip.emoji = skip_emoji
+            self.guild_info(guild_id).playinfo_view.skip.emoji = Emoji.skip_emoji
             if len(self.musicbot._playlist[guild_id].order) == 1:
                 self.guild_info(
                     guild_id
@@ -438,7 +447,7 @@ class InfoGenerator:
                 # Modify loop button to non-loop state
                 self.guild_info(
                     guild_id
-                ).playinfo_view.loop_control.emoji = repeat_emoji
+                ).playinfo_view.loop_control.emoji = Emoji.repeat_emoji
                 self.guild_info(guild_id).playinfo_view.loop_control.label = ""
                 self.guild_info(
                     guild_id

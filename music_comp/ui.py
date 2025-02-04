@@ -3,8 +3,9 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 import datetime
-from enum import Enum, auto
+
 from .utils.storage import GuildUIInfo
+from .emoji import Emoji
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -56,47 +57,12 @@ def _sec_to_hms(seconds, format) -> str:
         elif sec != 0:
             return f"{sec} 秒"
 
-class LeaveType(Enum):
-    ByCommand = auto()
-    ByButton = auto()
-    ByTimeout = auto()
-
-
-class StopType(Enum):
-    ByCommand = auto()
-    ByButton = auto()
-
-
 bot_version: str = None
 musicbot: MusicCog = None
 bot: commands.Bot = None
 embed_opt = None
 _guild_ui_info = dict()
-
-firstpage_emoji = discord.PartialEmoji.from_str("⏪")
-prevpage_emoji = discord.PartialEmoji.from_str("⬅️")
-nextpage_emoji = discord.PartialEmoji.from_str("➡️")
-skip_emoji = lastpage_emoji = discord.PartialEmoji.from_str("⏩")
-pause_emoji = discord.PartialEmoji.from_str("⏸️")
-play_emoji = discord.PartialEmoji.from_str("▶️")
-stop_emoji = discord.PartialEmoji.from_str("⏹️")
-skip_emoji = discord.PartialEmoji.from_str("⏩")
-repeat_emoji = discord.PartialEmoji.from_str("🔁")
-repeat_sing_emoji = discord.PartialEmoji.from_str("🔂")
-shuffle_emoji = discord.PartialEmoji.from_str("🔀")
-bulb_emoji = discord.PartialEmoji.from_str("💡")
-queue_emoji = discord.PartialEmoji.from_str("🗒️")
-leave_emoji = discord.PartialEmoji.from_str("📤")
-search_emoji = discord.PartialEmoji.from_str("🔎")
-end_emoji = discord.PartialEmoji.from_str("❎")
-done_emoji = discord.PartialEmoji.from_str("✅")
-loading_emoji = discord.PartialEmoji.from_str("<a:loading:696701361504387212>")
-caution_emoji = discord.PartialEmoji.from_str("⚠️")
-youtube_emoji = discord.PartialEmoji.from_str("<:youtube:1010812724009242745>")
-soundcloud_emoji = discord.PartialEmoji.from_str("<:soundcloud:1010812662155837511>")
-spotify_emoji = discord.PartialEmoji.from_str("<:spotify:1010844746647883828>")
-rescue_emoji = discord.PartialEmoji.from_str("🛟")
-
+groupbutton = None
 
 @staticmethod
 def guild_info(guild_id: int) -> GuildUIInfo:
@@ -104,6 +70,9 @@ def guild_info(guild_id: int) -> GuildUIInfo:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
     return _guild_ui_info[guild_id]
 
+def remove_guild_info(guild_id: int):
+    if _guild_ui_info.get(guild_id) is not None:
+        _guild_ui_info.pop(guild_id)
 
 def auto_stage_available(guild_id: int):
     return guild_info(guild_id).auto_stage_available
@@ -113,13 +82,12 @@ class GroupButton(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
         Button = discord.ui.Button(
-            emoji=rescue_emoji,
+            emoji=Emoji.rescue_emoji,
             style=discord.ButtonStyle.link,
             url="https://discord.gg/9qrpGh4e7V",
             label="支援群組",
         )
         self.add_item(Button)
-
 
 class UI:
     def __init__(self, music_bot: MusicCog, botversion: str):
@@ -128,7 +96,6 @@ class UI:
 
         musicbot = music_bot
         bot = musicbot.bot
-
         groupbutton = GroupButton()
 
         embed_opt = {

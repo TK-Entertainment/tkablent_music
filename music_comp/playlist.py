@@ -2,12 +2,13 @@ import random
 from typing import TYPE_CHECKING, Optional, Union, Any, Coroutine, Dict
 if TYPE_CHECKING:
     from typing import *
-from enum import Enum, auto
 
 import asyncio
 
 import discord
 import wavelink
+
+from .enums import LoopState
 
 INF = int(1e18)
 
@@ -38,13 +39,6 @@ class GuildUIInfo:
         self.previous_titles: list[str]
         self.suggestions: list
 
-class LoopState(Enum):
-    NOTHING = auto()
-    SINGLE = auto()
-    PLAYLIST = auto()
-    SINGLEINF = auto()
-
-
 class PlaylistBase:
     """maintain some info in a playlist for single guild"""
 
@@ -52,7 +46,7 @@ class PlaylistBase:
         self.order: list[wavelink.Playable] = []  # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0  # use to indicate the times left to play current song
-        self.text_channel: discord.TextChannel = (
+        self.text_channel: int = (
             None  # where to show information to user
         )
         self._resuggest_task: asyncio.Task = None

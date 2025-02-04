@@ -4,7 +4,6 @@ if TYPE_CHECKING:
 
 import discord
 import asyncio
-import json
 import os
 import wavelink
 from msgspec.json import decode as json_decode
@@ -14,7 +13,8 @@ from msgspec.json import encode as json_encode
 class GuildInfo:
     def __init__(self, guild_id):
         self.guild_id: int = guild_id
-        self.text_channel: discord.TextChannel = None
+        self._text_channel: int = None
+
         self._database: str = rf"{os.getcwd()}/music_comp/data.json"
         self._task: asyncio.Task = None
         self._multitype_remembered: bool = None
@@ -22,6 +22,18 @@ class GuildInfo:
         self._changelogs_latestversion: str = None
         self._recently_played: list = None
         self._mostly_played: dict = None
+        self._favorite: list = None
+
+    @property
+    def text_channel(self):
+        if self._text_channel is None:
+            self._text_channel = self.fetch("text_channel")
+        return self._text_channel
+    
+    @text_channel.setter
+    def text_channel(self, value: int):
+        self._text_channel = value
+        self.update("text_channel", value)
 
     @property
     def recently_played(self):
@@ -60,8 +72,8 @@ class GuildInfo:
         # Update the recently played list
         if identifier in self._recently_played:
             self._recently_played.remove(identifier)
-        self._recently_played.append(identifier)
-        if len(self._recently_played) > 5:
+        self._recently_played.insert(0, identifier)
+        while len(self._recently_played) > 5:
             self._recently_played.pop()
 
         if song.extras.requester_id is not None:
@@ -101,6 +113,36 @@ class GuildInfo:
     def changelogs_latestversion(self, value: str):
         self._changelogs_latestversion = value
         self.update("changelogs_latestversion", value)
+
+    @property
+    def favorite(self):
+        if self._favorite is None:
+            self._favorite = self.fetch("favorite")
+        return self._favorite
+    
+    def add_favorite(self, song: wavelink.Playable):
+        if song.source == "http":
+            identifier = song.extras.identifier
+        else:
+            identifier = song.identifier
+
+        if self._favorite is None:
+            self._favorite = self.fetch("favorite")
+        if identifier not in self._favorite:
+            self._favorite.append(identifier)
+            self.update("favorite", self._favorite)
+    
+    def remove_favorite(self, song: wavelink.Playable):
+        if song.source == "http":
+            identifier = song.extras.identifier
+        else:
+            identifier = song.identifier
+
+        if self._favorite is None:
+            self._favorite = self.fetch("favorite")
+        if identifier in self._favorite:
+            self._favorite.remove(identifier)
+            self.update("favorite", self._favorite)
 
     def fetch(self, key: str) -> None:
         """fetch from database"""
@@ -161,3 +203,5 @@ class GuildUIInfo:
         self.suggestions_source = None
         self.previous_titles: list[str] = []
         self.suggestions: list = []
+
+        self.timer_task: asyncio.Task = None

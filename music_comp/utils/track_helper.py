@@ -6,31 +6,22 @@ import bilibili_api as bilibili
 from ytmusicapi import YTMusic
 import wavelink
 import discord
+import logging
+from sentry_sdk import capture_exception
 from discord import app_commands
 import validators
 import asyncio
 import time
 import os
 import random
-from enum import Enum, auto
 from difflib import SequenceMatcher
+import queue
 
 from music_comp.ui import UI, _sec_to_hms
 from music_comp.playlist import LoopState, Playlist, PlaylistBase
 from .storage import GuildUIInfo, GuildInfo
 from .cache import CacheWorker
-
-class SpotifySearchType(Enum):
-    TRACK = auto()
-    ALBUM = auto()
-    PLAYLIST = auto()
-
-class SearchType(Enum):
-    SPOTIFY = "spsearch"
-
-    @classmethod
-    def Spotify(cls) -> str:
-        return cls.SPOTIFY.value
+from music_comp.enums import SearchType
 
 class TrackHelper():
     def __init__(self, ui_comp: UI, playlist: Playlist):
@@ -41,10 +32,11 @@ class TrackHelper():
         DEDEUSERID = os.getenv("DEDEUSERID")
 
         self.ui = ui_comp
-        self._cacheworker: CacheWorker = CacheWorker()
-        self._cache: dict = self._cacheworker._cache
+        self._cachequeue = queue.Queue()
+        self._cache_worker: CacheWorker = CacheWorker(self._cachequeue)
+        self._cache: dict = self._cache_worker._cache
         self._playlist = playlist
-        self.ytapi: YTMusic = YTMusic(requests_session=False)
+        self.ytapi: YTMusic = YTMusic(requests_session=False, language="zh_TW")
 
         # Bilibili API init
         self._bilibilic = bilibili.Credential(
@@ -54,11 +46,16 @@ class TrackHelper():
             dedeuserid=DEDEUSERID
         )
 
+        self._cache_worker.start()
+
     def __getitem__(self, guild_id: int=None) -> PlaylistBase:
         return self._playlist[guild_id]
 
-    def check_current_suggest_support(self, guild_id) -> bool:
+    def check_current_suggest_support(self, guild_id) -> Optional[bool]:
         current = self[guild_id].current()
+
+        if current is None:
+            return None
 
         return (
             current.source == "youtube"
@@ -122,17 +119,40 @@ class TrackHelper():
                 title=title, length=length, timestamp=timestamp
             )
         except Exception as e:
+            logging.error(f"Error in search suggestion processing: {e}")
+            capture_exception(e)
             return None
 
-    async def _fetch_fast_suggestion(self, interaction: discord.Interaction, trackid: Union[list, str], tracks: list):
+    async def _fetch_fast_suggestion(self, interaction: discord.Interaction, trackid: Union[list, str], result: list, data: dict):
         try:
-            if isinstance(trackid, str):
-                track = await self.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+            if not isinstance(trackid, str):
+                trackid = trackid[0]
+            
+            if self._cache.get(trackid) is None or (int(time.time()) - self._cache.get(trackid)["timestamp"] >= 2592000):
+                try:
+                    track = await self.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+                except Exception:
+                    return
+                await self._search_suggest_processing(result, track[0], data, with_arrow=True)
             else:
-                track = await self.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
-        except wavelink.exceptions.LavalinkLoadException:
+                result.append(
+                    app_commands.Choice(
+                        name="{}{} | {}".format(">> ", self._cache[trackid]["title"], self._cache[trackid]["length"]),
+                        value=f"sid=>{trackid}",
+                    )
+                ) 
+        except wavelink.exceptions.LavalinkLoadException as e:
+            logging.error(f"Error in fetching fast suggestion: {e}")
+            capture_exception(e)
             return None
-        tracks.extend(track)
+        
+    async def fetch_all_tracks(self, interaction: discord.Interaction, trackid: Union[list, str], result: list):
+        if not isinstance(trackid, str):
+            trackid = trackid[0]
+        try:
+            result.extend(await self.get_track(interaction, f"sid=>{trackid}", quick_search=True))
+        except Exception:
+            return
 
     # Main part for search suggestion system
     async def get_search_suggest(
@@ -141,8 +161,32 @@ class TrackHelper():
         data = {}
         if current == "":
             choicelist = []
+            if len(guild_info.favorite) != 0:
+                choicelist.append(app_commands.Choice(
+                    name="❤️【這群ㄉ最愛】(請點擊前方有 >> 的項目)",
+                    value="",
+                ))
+                choicelist.append(app_commands.Choice(
+                    name=">> 播放全部最愛歌曲",
+                    value="sid=>playallfav",
+                ))
+                tracks = []
+                result = []
+                async with asyncio.TaskGroup() as taskgroup:
+                    for i, trackid in enumerate(guild_info.favorite):
+                        if i > 2:
+                            choicelist.append(app_commands.Choice(
+                                name=">> 列出所有最愛歌曲",
+                                value="sid=>showallfav",
+                            ))
+                            break
+                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, result, data))
+                choicelist.extend(result)
+                choicelist.append(app_commands.Choice(
+                    name="=====================",
+                    value=""))
             choicelist.append(app_commands.Choice(
-                name="💖【這群ㄉ最愛！】(請點擊前方有 >> 的項目)",
+                name="💖【好聽一直聽】(請點擊前方有 >> 的項目)",
                 value="",
             ))
             if len(guild_info.mostly_played) <= 10:
@@ -157,10 +201,7 @@ class TrackHelper():
                     for i, trackid in enumerate(guild_info.mostly_played):
                         if i >= 4:
                             break
-                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, tracks))
-                async with asyncio.TaskGroup() as taskgroup:
-                    for i in range(len(tracks)):
-                        taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
+                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, result, data))
                 choicelist.extend(result)
             
             choicelist.extend([
@@ -181,13 +222,10 @@ class TrackHelper():
                 result = []
                 async with asyncio.TaskGroup() as taskgroup:
                     for trackid in guild_info.recently_played:
-                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, tracks))
-                async with asyncio.TaskGroup() as taskgroup:
-                    for i in range(len(tracks)):
-                        taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data, with_arrow=True))
+                        taskgroup.create_task(self._fetch_fast_suggestion(interaction, trackid, result, data))
                 choicelist.extend(result)
 
-            asyncio.create_task(self._cacheworker.update_cache(data))
+            self._cachequeue.put(data)
 
             return choicelist
         elif validators.url(current):
@@ -205,7 +243,21 @@ class TrackHelper():
                 value=f"{current}",
             )]
         else:
-            tracks = await self.get_track(interaction, current, quick_search=True)
+            try:
+                tracks = await self.get_track(interaction, current, quick_search=True)
+
+                if tracks is None:
+                    return [app_commands.Choice(name="❌ | 沒有找到曲目", value="")]
+            except bilibili.ArgsException:
+                return [app_commands.Choice(name="❌ | Bilibili VID/AID 格式錯誤", value="")]
+            except wavelink.LavalinkLoadException as e:
+                logging.error(f"Error in search suggestion in wavelink: {e}")
+                capture_exception(e)
+                return [app_commands.Choice(name="❌ | 抓取曲目時發生問題", value="")]
+            except Exception as e:
+                logging.error(f"Generic error in search suggestion: {e}")
+                capture_exception(e)
+                return [app_commands.Choice(name="❌ | 抓取曲目時發生問題", value="")]
             result = []
 
             async with asyncio.TaskGroup() as taskgroup:
@@ -219,55 +271,95 @@ class TrackHelper():
                     # EDIT: It's because the shit coding (put asyncio.sleep inside for loop)
                     taskgroup.create_task(self._search_suggest_processing(result, tracks[i], data))
 
-            asyncio.create_task(self._cacheworker.update_cache(data))
+            current_index = 0
+            last_index = 0
 
+            for i, track in enumerate(result):
+                if track.name.startswith("(🕒)") or track.name.startswith("(⭐)"):
+                    continue
+                index = -1
+                if track.value[5:] in guild_info.favorite:
+                    index = 0
+                    result.pop(i)
+                    if len(track.name + "(❤️) ") >= 100:
+                        track.name = "(❤️) " + track.name.split(" | ")[0][:-10] + " ..." + " | " + track.name.split(" | ")[1]
+                    else:
+                        track.name = "(❤️) " + track.name
+                    result.insert(0, track)
+                else:
+                    for j, trackinfo in enumerate(guild_info.mostly_played):
+                        if trackinfo[0] == track.value[5:]:
+                            index = j
+                            break
+                    if index == -1:
+                        continue
+                    result.pop(i)
+                    if len(track.name + "(🕒) ") >= 100:
+                        track.name = "(🕒) " + track.name.split(" | ")[0][:-10] + " ..." + " | " + track.name.split(" | ")[1]
+                    else:
+                        track.name = "(🕒) " + track.name
+                    if index < last_index:
+                        result.insert(0, track)
+                    else:
+                        result.insert(current_index, track)
+                last_index = index
+                current_index += 1
+
+            self._cachequeue.put(data)
             return result
             
 # ================================================================================================= #
 #   Track Fetching System        
 
     # Getting songs via bilibili api
-    async def _get_bilibili_track(self, interaction: discord.Interaction, search: str) -> Union[wavelink.Playable, Exception]:
-        if "BV" in search and "https://www.bilibili.com/" not in search:
-            vid = search
+    async def _get_bilibili_track(self, interaction: discord.Interaction, vid_or_aid: str, quick_search: bool = False) -> Union[wavelink.Playable, wavelink.LavalinkLoadException, None]:
+        logging.info(f"BiliBili Cookie validity: {await self._bilibilic.check_valid()}")
+        
+        if "BV" in vid_or_aid:
+            vid = vid_or_aid
         else:
-            try:
-                int(search)
-                is_aid = True
-            except:
-                is_aid = False
-            if is_aid:
-                vid = bilibili.aid2bvid(search)
-            else:
-                if "b23.tv" in search:
-                    search = bilibili.get_real_url(search, self._bilibilic)
+            vid = bilibili.aid2bvid(int(vid_or_aid))
 
-                url_split = search.split("/")
-                vid = url_split[4]
-
-        v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
-        download_url_data = await v_data.get_download_url(page_index=0)
+        try:
+            logging.debug(f"[Bili] Fetching video data for {vid}")
+            v_data = bilibili.video.Video(bvid=vid, credential=self._bilibilic)
+            logging.debug(f"[Bili] Fetching video data for {vid} done")
+        except bilibili.ArgsException as e:
+            logging.debug(f"Error in fetching bilibili video data: {e}")
+            raise e
+        download_url_data = await v_data.get_download_url(0)
         detector = bilibili.video.VideoDownloadURLDataDetecter(download_url_data)
 
         data = detector.detect_all()
         data.reverse()
-        for t in data:
-            #raw_url = t.url.replace("&", "%26")
-            raw_url = t.url
-            try:
-                trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
-            except Exception as e:
-                raw_url = None
-                continue
-            break
 
-        if raw_url == None:
-            return None
+        raw_url = None
+
+        for t in data:
+            logging.debug(f"[Bili] Detected stream: {t}")
+            #raw_url = t.url.replace("&", "%26")
+            if isinstance(t, bilibili.video.AudioStreamDownloadURL):
+                raw_url = t.url
+                try:
+                    logging.debug(f"[Bili] Fetching track for {vid}")
+                    await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
+                    logging.debug(f"[Bili] Fetching track for {vid} done")
+                except wavelink.LavalinkLoadException as e:
+                    logging.debug(f"Error in fetching track: {e}")
+                    raw_url = None
+                    continue
+                break
+            else:
+                continue
+
+        if raw_url is None:
+            logging.warning(f"No audio stream found for {vid}")
+            raise Exception("No audio stream found")
 
         try:
             trackinfo = await wavelink.Pool.fetch_tracks(raw_url, node=wavelink.Pool.get_node("BilibiliNode"))
-        except Exception as e:
-            return e
+        except wavelink.LavalinkLoadException as e:
+            raise e
 
         track = trackinfo[0]
         vinfo = await v_data.get_info()
@@ -289,14 +381,14 @@ class TrackHelper():
                     url = extract[0]
                 elif choice == "playlist":
                     url = f"https://www.youtube.com/playlist?{extract[1]}"
-                else:
-                    url = raw_url
             else:
                 url = raw_url
+        elif "https://www.bilibili.com/" in raw_url or "https://b23.tv/" in raw_url:
+            url = raw_url.split("/")[4]
         elif "sid=>" in raw_url:
             vid = raw_url.split("=>")[1]
             if vid.startswith("BV") or isinstance(vid, int):
-                url = f"https://www.bilibili.com/video/{vid}"
+                url = vid
             else:
                 url = f"https://www.youtube.com/watch?v={vid}"
         else:
@@ -311,7 +403,7 @@ class TrackHelper():
         search: str,
         choice="videoonly",
         quick_search=False,
-    ) -> list[Union[wavelink.Playable, wavelink.Playlist, None]]:
+    ) -> list[Union[wavelink.Playable, wavelink.Playlist]]:
         if not quick_search:
             await interaction.response.defer(ephemeral=True, thinking=True)
 
@@ -321,26 +413,28 @@ class TrackHelper():
             wavelink.Pool.get_node("SearchNode_2"),
         ]
 
-        if ("bilibili" in search or "b23.tv" in search) and validators.url(search):
-            track = await self._get_bilibili_track(interaction, search)
-            if isinstance(track, Exception):
-                return track
-            elif track is None:
-                return [None]
-            else:
-                tracks.append(track)
+        if (("bilibili" in search or "b23.tv" in search) and validators.url(search)) or (search.startswith("sid=>BV")):
+            url = self._parse_url(search, choice)
+            try:
+                track = await self._get_bilibili_track(interaction, url)
+            except Exception as track_exception:
+                if not quick_search:
+                    raise track_exception
+                return
+            tracks.append(track)
 
         elif (validators.url(search)) or ("sid=>" in search):
             url = self._parse_url(search, choice)
-            if "bilibili" in url:
-                callback = [await self._get_bilibili_track(interaction, url)]
-            else:
-                try:
-                    callback = await wavelink.Playable.search(url, node=random.choice(nodes))
-                except wavelink.exceptions.LavalinkLoadException:
-                    callback = None
+            try:
+                callback = await wavelink.Playable.search(url, node=random.choice(nodes))
+            except wavelink.exceptions.LavalinkLoadException as e:
+                logging.error(f"Error in fetching track: {e}")
+                capture_exception(e)
+                callback = None
             if callback is None:
-                return [None]
+                if not quick_search:
+                    raise Exception("No result found")
+                return
             elif isinstance(callback, list):
                 tracks.extend(callback)
             elif isinstance(callback, wavelink.Playlist):
@@ -355,7 +449,7 @@ class TrackHelper():
                 sources = [
                     wavelink.TrackSource.YouTube,
                     wavelink.TrackSource.YouTubeMusic, 
-                    SearchType.Spotify(),
+                    SearchType.spotify(),
                     wavelink.TrackSource.SoundCloud,
                 ]
 
@@ -369,10 +463,8 @@ class TrackHelper():
                     # Then change to next method to search
                     continue
 
-        if len(tracks) == 0:
-            if not quick_search:
-                await self.ui.Search.SearchFailed(interaction, search)
-            return [None]
+        if len(tracks) == 0 and not quick_search:
+            raise Exception("No result found")
         
         return tracks
 
@@ -434,7 +526,7 @@ class TrackHelper():
             resuggested_required = False
             # check first one first
             if ui_guild_info.suggestions[0].title in ui_guild_info.previous_titles:
-                print(
+                logging.info(
                     f"[{guild.id} | Suggestion] {ui_guild_info.suggestions[0].title} has played before, resuggested"
                 )
                 ui_guild_info.suggestions.pop(0)
@@ -442,12 +534,12 @@ class TrackHelper():
             else:
                 for previous_titles in ui_guild_info.previous_titles:
                     match_ratio = SequenceMatcher(None, ui_guild_info.suggestions[0].title, previous_titles).ratio()
-                    if match_ratio >= 0.87:
-                        print(
+                    if match_ratio >= 0.92:
+                        logging.info(
                             f"[{guild.id} | Suggestion] {ui_guild_info.suggestions[0].title} has played before, resuggested"
                         )
-                        print("[DEBUG ONLY] ", ui_guild_info.previous_titles)
-                        print(f"[DEBUG ONLY] {previous_titles} is detected match with {ui_guild_info.suggestions[0].title} with ratio {match_ratio}")
+                        logging.debug("[DEBUG ONLY] ", ui_guild_info.previous_titles)
+                        logging.debug(f"[DEBUG ONLY] {previous_titles} is detected match with {ui_guild_info.suggestions[0].title} with ratio {match_ratio}")
                         ui_guild_info.suggestions.pop(0)
                         resuggested_required = True
 
@@ -479,7 +571,7 @@ class TrackHelper():
         for i, track in enumerate(ui_guild_info.suggestions):
             resuggested_required = False
             if track.title in ui_guild_info.previous_titles:
-                print(
+                logging.info(
                     f"[{guild.id} | Suggestion] {track.title} has played before, resuggested"
                 )
                 ui_guild_info.suggestions.pop(i)
@@ -487,12 +579,12 @@ class TrackHelper():
             else:
                 for previous_titles in ui_guild_info.previous_titles:
                     match_ratio = SequenceMatcher(None, track.title, previous_titles).ratio()
-                    if match_ratio >= 0.87:
-                        print(
+                    if match_ratio >= 0.92:
+                        logging.info(
                             f"[{guild.id} | Suggestion] {track.title} has played before, resuggested"
                         )
-                        print("[DEBUG ONLY] ", ui_guild_info.previous_titles)
-                        print(f"[DEBUG ONLY] {previous_titles} is detected match with {track.title} with ratio {match_ratio}")
+                        logging.debug("[DEBUG ONLY] ", ui_guild_info.previous_titles)
+                        logging.debug(f"[DEBUG ONLY] {previous_titles} is detected match with {track.title} with ratio {match_ratio}")
                         ui_guild_info.suggestions.pop(i)
                         resuggested_required = True
 
@@ -522,7 +614,7 @@ class TrackHelper():
         suggested_track = None
 
         if len(ui_guild_info.suggestions) == 0:
-            print(f"[{guild.id} | Suggestion] Started to fetch 12 suggestions")
+            logging.info(f"[{guild.id} | Suggestion] Started to fetch 12 suggestions")
 
             tried = 0
 
@@ -544,7 +636,7 @@ class TrackHelper():
                 await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
                 return
 
-            print(f"[{guild.id} | Suggestion] Fetched 12 suggestions\n{suggested_track}")
+            logging.info(f"[{guild.id} | Suggestion] Fetched 12 suggestions\n{suggested_track}")
 
     # Main core of suggestion processing system
     # Which decides whether enable suggestion or not in different cases
@@ -630,8 +722,10 @@ class TrackHelper():
                 
                 if suggested_track is None:
                     ui_guild_info.suggestion_failure = True
-                    await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-                    return
+                    try:
+                        await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+                    finally:
+                        return
 
             if self[guild.id]._resuggest_task is not None:
                 self[guild.id]._resuggest_task.cancel()
@@ -639,7 +733,7 @@ class TrackHelper():
 
             if len(ui_guild_info.previous_titles) > 64:
                 ui_guild_info.previous_titles.pop(0)
-                print(
+                logging.info(
                     f"[{guild.id} | Suggestion] The history storage was full, removed the first item"
                 )
 
@@ -651,11 +745,12 @@ class TrackHelper():
             )
 
             ui_guild_info.previous_titles.append(ui_guild_info.suggestions[0].title)
-            print(
+            logging.info(
                 f"[{guild.id} | Suggestion] Suggested {ui_guild_info.suggestions[0].title} in next song, added to history storage"
             )
             await self._playlist.add_songs(guild.id, [ui_guild_info.suggestions.pop(0)], "NO_ID_AS_BOT_SUGGESTED")
-            ui_guild_info.suggestion_processing = False
+            
             if ui_guild_info.skip:
                 ui_guild_info.skip = False
-            await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+            ui_guild_info.suggestion_processing = False
+           

@@ -6,14 +6,8 @@ import copy
 
 from ..playlist import PlaylistBase
 from .info import InfoGenerator
-from ..ui import (
-    firstpage_emoji,
-    prevpage_emoji,
-    nextpage_emoji,
-    lastpage_emoji,
-    search_emoji,
-    end_emoji,
-)
+from ..emoji import Emoji
+from ..enums import ResultType
 
 import wavelink
 
@@ -35,20 +29,26 @@ class Queue:
         interaction: discord.Interaction,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
         requester: Optional[discord.User],
-        is_search,
+        result_type: Optional[ResultType] = None,
     ) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[interaction.guild.id]
         if len(playlist.order) == 1:
             return
-        if (len(playlist.order) > 1 and is_search) or (
+        if (len(playlist.order) > 1 and (result_type == ResultType.SEARCH or result_type == ResultType.FAVORITE)) or (
             isinstance(trackinfo, list) or isinstance(trackinfo[0], wavelink.Playlist) and (len(trackinfo) > 1)
         ):
-            if is_search:
+            if result_type == ResultType.SEARCH:
                 msg = f"""
             **:white_check_mark: | 搜尋成功**
             以下歌曲已加入待播清單中
+            """
+            elif result_type == ResultType.FAVORITE:
+                msg = f"""
+            **:white_check_mark: | 即將開始播放**
+            所選最愛歌曲已加入待播清單中
+            *部分歌曲可能因暫時無法取得而沒有自動加入*
             """
             else:
                 if isinstance(trackinfo[0], wavelink.Playlist):
@@ -84,7 +84,7 @@ class Queue:
             self.guild_info(interaction.guild.id).playinfo_view is not None):
             self.guild_info(
                 interaction.guild.id
-            ).playinfo_view.skip.emoji = lastpage_emoji
+            ).playinfo_view.skip.emoji = Emoji.lastpage_emoji
             self.guild_info(
                 interaction.guild.id
             ).playinfo_view.skip.disabled = self.guild_info(
@@ -127,6 +127,14 @@ class Queue:
             index = page * 3 + i
             if index == len(playlist.order):
                 break
+
+            if playlist[index].source == "http":
+                title = playlist[index].extras.title
+                author = playlist[index].extras.author
+            else:
+                title = playlist[index].title
+                author = playlist[index].author
+
             length = self._sec_to_hms((playlist[index].length) / 1000, "symbol")
             if playlist[index].extras.suggested:
                 requester = "💡推薦歌曲"
@@ -137,12 +145,12 @@ class Queue:
             embed.add_field(
                 name="{}{}\n{}{}".format(
                     index_text,
-                    playlist[index].title,
+                    title,
                     "🔴 直播 | " if playlist[index].is_stream else "",
                     requester,
                 ),
                 value="作者: {}{}{}".format(
-                    playlist[index].author,
+                    author,
                     " / 歌曲時長: " if not playlist[index].is_stream else "",
                     length if not playlist[index].is_stream else "",
                 ),
@@ -269,7 +277,7 @@ class Queue:
                     ) = discord.ButtonStyle.blurple
 
             @discord.ui.button(
-                emoji=firstpage_emoji, style=discord.ButtonStyle.gray, disabled=True
+                emoji=Emoji.firstpage_emoji, style=discord.ButtonStyle.gray, disabled=True
             )
             async def firstpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -280,7 +288,7 @@ class Queue:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(
-                emoji=prevpage_emoji, style=discord.ButtonStyle.gray, disabled=True
+                emoji=Emoji.prevpage_emoji, style=discord.ButtonStyle.gray, disabled=True
             )
             async def prevpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -292,7 +300,7 @@ class Queue:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(emoji=nextpage_emoji, style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=Emoji.nextpage_emoji, style=discord.ButtonStyle.blurple)
             async def nextpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
@@ -303,7 +311,7 @@ class Queue:
                 embed = self.QueueEmbed(playlist, self.page, self.operation)
                 await interaction.response.edit_message(embed=embed, view=view)
 
-            @discord.ui.button(emoji=lastpage_emoji, style=discord.ButtonStyle.blurple)
+            @discord.ui.button(emoji=Emoji.lastpage_emoji, style=discord.ButtonStyle.blurple)
             async def lastpage(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
@@ -313,7 +321,7 @@ class Queue:
                 await interaction.response.edit_message(embed=embed, view=view)
 
             @discord.ui.button(
-                emoji=search_emoji, label="搜尋/新增歌曲", style=discord.ButtonStyle.green
+                emoji=Emoji.search_emoji, label="搜尋/新增歌曲", style=discord.ButtonStyle.green
             )
             async def new_song(
                 self, interaction: discord.Interaction, button: discord.ui.Button
@@ -322,7 +330,7 @@ class Queue:
                     self.NewSongModal(interaction.user)
                 )
 
-            @discord.ui.button(emoji=end_emoji, style=discord.ButtonStyle.danger)
+            @discord.ui.button(emoji=Emoji.end_emoji, style=discord.ButtonStyle.danger)
             async def done(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):

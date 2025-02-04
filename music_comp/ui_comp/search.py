@@ -1,17 +1,12 @@
 from .exception_handler import ExceptionHandler
 import discord
 
-import wavelink
-from enum import Enum
+import time
 from ..utils.storage import GuildInfo
 from ..utils.track_helper import TrackHelper
-from ..ui import search_emoji
+from ..enums import ButtonType
+from ..emoji import Emoji
 from .queue import Queue
-
-class ButtonType(Enum):
-    RECOMMEND = 1
-    HISTORY = 2
-    OTHER = 3
 
 class Search:
     def __init__(self, exception_handler, queue):
@@ -63,7 +58,7 @@ class Search:
                 else:
                     super().__init__(
                         label="其他歌曲",
-                        emoji=search_emoji,
+                        emoji=Emoji.search_emoji,
                         style=style,
                         row=row
                     )
@@ -88,32 +83,60 @@ class Search:
             description="您可以選擇以下的推薦/曾點播過的歌曲\n或點擊「其他歌曲」來點播其他的歌曲"
         )
         view = discord.ui.View()
-        embed.add_field(
-            name=f"💖【這群ㄉ最愛！】",
-            value="❌ | 目前此項資料不足，暫時不可用。" if len(guild_info.mostly_played) <= 10 else "===========",
-            inline=False
-        )
         i = 1
         if len(guild_info.mostly_played) > 10:
-            for k, trackid in enumerate(guild_info.mostly_played):
-                track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
-                embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
-                view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.RECOMMEND, musicbot))
+            mostly_played = ""
+            k = 0
+            for trackid in guild_info.mostly_played:
+                if musicbot.track_helper._cache.get(trackid[0]) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid[0])["timestamp"] >= 2592000):
+                    track = await track_helper.get_track(interaction, f"sid=>{trackid[0]}", quick_search=True)
+                    if track[0] is None: continue
+                    title = track[0].title
+                    identifier = track[0].identifier
+                else:
+                    title = musicbot.track_helper._cache[trackid[0]]["title"]
+                    identifier = trackid[0]
+                mostly_played += f"**【{i}】** {title}\n"
+                #embed.add_field(name=f"【{i}】", value=f"{title}", inline=True)
+                view.add_item(MusicChooseButton(identifier, i, ButtonType.RECOMMEND, musicbot))
                 i += 1
-                if k == 2: break
+                k += 1
+                if k == 4: break
+            
+            if mostly_played == "": mostly_played = "❌ | 目前無可用推薦項目 (*°∀°)"
+            
+        embed.add_field(
+            name=f"💖【這群ㄉ最愛！】",
+            value="❌ | 目前此項資料不足，暫時不可用。" if len(guild_info.mostly_played) <= 10 else mostly_played,
+            inline=False
+        )
+
+        if len(guild_info.recently_played) != 0:
+            recently_played = ""
+            k = 0
+            for trackid in guild_info.recently_played:
+                if musicbot.track_helper._cache.get(trackid) is None or (int(time.time()) - musicbot.track_helper._cache.get(trackid)["timestamp"] >= 2592000):
+                    track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
+                    if track[0] is None: continue
+                    title = track[0].title
+                    identifier = track[0].identifier
+                else:
+                    title = musicbot.track_helper._cache[trackid]["title"]
+                    identifier = trackid
+                
+                recently_played += f"**【{i}】** {title}\n"
+                #embed.add_field(name=f"【{i}】", value=f"{title}", inline=True)
+                view.add_item(MusicChooseButton(identifier, i, ButtonType.HISTORY, musicbot))
+                i += 1
+                k += 1
+                if k == 4: break  
+            if recently_played == "": recently_played = "❌ | 目前無可用推薦項目 (*°∀°)"
 
         embed.add_field(
             name=f"🕒【最近播放】", 
-            value="❌ | 最近這個群組沒放過啥歌 (*°∀°)" if len(guild_info.recently_played) == 0 else "===========",
+            value="❌ | 最近這個群組沒放過啥歌 (*°∀°)" if len(guild_info.recently_played) == 0 else recently_played,
             inline=False
         )
-        if len(guild_info.recently_played) != 0:
-            for k, trackid in enumerate(guild_info.recently_played):
-                track = await track_helper.get_track(interaction, f"sid=>{trackid}", quick_search=True)
-                embed.add_field(name=f"【{i}】", value=f"{track[0].title}", inline=True)
-                view.add_item(MusicChooseButton(track[0].identifier, i, ButtonType.HISTORY, musicbot))
-                i += 1
-                if k == 2: break    
 
         view.add_item(MusicChooseButton(0, i, ButtonType.OTHER, musicbot))
         await interaction.followup.send(embed=embed, view=view)
