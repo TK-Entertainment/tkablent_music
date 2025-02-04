@@ -7,6 +7,7 @@ import copy
 from ..playlist import PlaylistBase
 from .info import InfoGenerator
 from ..emoji import Emoji
+from ..enums import ResultType
 
 import wavelink
 
@@ -28,20 +29,26 @@ class Queue:
         interaction: discord.Interaction,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
         requester: Optional[discord.User],
-        is_search,
+        result_type: Optional[ResultType] = None,
     ) -> None:
         # If queue has more than 2 songs, then show message when
         # user use play command
         playlist: PlaylistBase = self.musicbot._playlist[interaction.guild.id]
         if len(playlist.order) == 1:
             return
-        if (len(playlist.order) > 1 and is_search) or (
+        if (len(playlist.order) > 1 and (result_type == ResultType.SEARCH or result_type == ResultType.FAVORITE)) or (
             isinstance(trackinfo, list) or isinstance(trackinfo[0], wavelink.Playlist) and (len(trackinfo) > 1)
         ):
-            if is_search:
+            if result_type == ResultType.SEARCH:
                 msg = f"""
             **:white_check_mark: | 搜尋成功**
             以下歌曲已加入待播清單中
+            """
+            elif result_type == ResultType.FAVORITE:
+                msg = f"""
+            **:white_check_mark: | 即將開始播放**
+            所選最愛歌曲已加入待播清單中
+            *部分歌曲可能因暫時無法取得而沒有自動加入*
             """
             else:
                 if isinstance(trackinfo[0], wavelink.Playlist):
@@ -120,6 +127,14 @@ class Queue:
             index = page * 3 + i
             if index == len(playlist.order):
                 break
+
+            if playlist[index].source == "http":
+                title = playlist[index].extras.title
+                author = playlist[index].extras.author
+            else:
+                title = playlist[index].title
+                author = playlist[index].author
+
             length = self._sec_to_hms((playlist[index].length) / 1000, "symbol")
             if playlist[index].extras.suggested:
                 requester = "💡推薦歌曲"
@@ -130,12 +145,12 @@ class Queue:
             embed.add_field(
                 name="{}{}\n{}{}".format(
                     index_text,
-                    playlist[index].title,
+                    title,
                     "🔴 直播 | " if playlist[index].is_stream else "",
                     requester,
                 ),
                 value="作者: {}{}{}".format(
-                    playlist[index].author,
+                    author,
                     " / 歌曲時長: " if not playlist[index].is_stream else "",
                     length if not playlist[index].is_stream else "",
                 ),
