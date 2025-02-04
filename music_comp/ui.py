@@ -70,6 +70,9 @@ def guild_info(guild_id: int) -> GuildUIInfo:
         _guild_ui_info[guild_id] = GuildUIInfo(guild_id)
     return _guild_ui_info[guild_id]
 
+def remove_guild_info(guild_id: int):
+    if _guild_ui_info.get(guild_id) is not None:
+        _guild_ui_info.pop(guild_id)
 
 def auto_stage_available(guild_id: int):
     return guild_info(guild_id).auto_stage_available

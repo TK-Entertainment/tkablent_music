@@ -9,12 +9,12 @@ from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
 from ..enums import LeaveType
 
-
 class Leave:
     def __init__(self, exception_handler, info_generator):
-        from ..ui import guild_info, bot, musicbot
+        from ..ui import guild_info, bot, musicbot, remove_guild_info
 
         self.guild_info = guild_info
+        self.remove_guild_info = remove_guild_info
         self.exception_handler: ExceptionHandler = exception_handler
         self.info_generator: InfoGenerator = info_generator
         self.bot = bot
@@ -33,8 +33,6 @@ class Leave:
         self.reset_value(guild)
 
     def reset_value(self, guild):
-        guild_info = self.guild_info(guild.id)
-
         if self.musicbot._playlist[guild.id]._resuggest_task is not None:
             self.musicbot._playlist[guild.id]._resuggest_task.cancel()
             self.musicbot._playlist[guild.id]._resuggest_task = None
@@ -42,7 +40,7 @@ class Leave:
             self.musicbot._playlist[guild.id]._suggest_search_task.cancel()
             self.musicbot._playlist[guild.id]._suggest_search_task = None
 
-        del guild_info
+        self.remove_guild_info(guild.id)
         gc.collect()
 
     async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
