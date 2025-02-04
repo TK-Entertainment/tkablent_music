@@ -1,5 +1,9 @@
 from enum import Enum, auto
 
+class ResultType(Enum):
+    SEARCH = auto()
+    FAVORITE = auto()
+
 class SpotifySearchType(Enum):
     TRACK = auto()
     ALBUM = auto()

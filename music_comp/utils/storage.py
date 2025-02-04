@@ -22,6 +22,7 @@ class GuildInfo:
         self._changelogs_latestversion: str = None
         self._recently_played: list = None
         self._mostly_played: dict = None
+        self._favorite: list = None
 
     @property
     def text_channel(self):
@@ -112,6 +113,36 @@ class GuildInfo:
     def changelogs_latestversion(self, value: str):
         self._changelogs_latestversion = value
         self.update("changelogs_latestversion", value)
+
+    @property
+    def favorite(self):
+        if self._favorite is None:
+            self._favorite = self.fetch("favorite")
+        return self._favorite
+    
+    def add_favorite(self, song: wavelink.Playable):
+        if song.source == "http":
+            identifier = song.extras.identifier
+        else:
+            identifier = song.identifier
+
+        if self._favorite is None:
+            self._favorite = self.fetch("favorite")
+        if identifier not in self._favorite:
+            self._favorite.append(identifier)
+            self.update("favorite", self._favorite)
+    
+    def remove_favorite(self, song: wavelink.Playable):
+        if song.source == "http":
+            identifier = song.extras.identifier
+        else:
+            identifier = song.identifier
+
+        if self._favorite is None:
+            self._favorite = self.fetch("favorite")
+        if identifier in self._favorite:
+            self._favorite.remove(identifier)
+            self.update("favorite", self._favorite)
 
     def fetch(self, key: str) -> None:
         """fetch from database"""

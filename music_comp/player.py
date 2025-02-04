@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union, Optional
 if TYPE_CHECKING:
     from typing import *
 import asyncio, os
@@ -15,6 +15,7 @@ import wavelink
 from .playlist import Playlist, LoopState
 from .utils.storage import GuildInfo
 from .emoji import Emoji
+from .enums import ResultType
 
 INF = int(1e18)
 
@@ -527,13 +528,10 @@ class MusicCog(Player, commands.Cog):
         self,
         interaction: discord.Interaction,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
+        result_type: Optional[ResultType] = None,
     ):
         # Call search function
         try:
-            is_search = isinstance(trackinfo, list) and (
-                not isinstance(trackinfo[0], wavelink.Playlist) and (
-                len(trackinfo) > 1)
-            )
             await self._search(interaction.guild, trackinfo, requester=interaction.user)
         except Exception as e:
             # If search failed, sent to handler
@@ -541,13 +539,14 @@ class MusicCog(Player, commands.Cog):
             return
         # If queue has more than 1 songs, then show the UI
         await self.ui.Queue.Embed_AddedToQueue(
-            interaction, trackinfo, requester=interaction.user, is_search=is_search
+            interaction, trackinfo, requester=interaction.user, result_type=result_type
         )
 
     async def play(
         self,
         interaction: discord.Interaction,
         trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
+        result_type: Optional[ResultType] = None,
     ):
         # Try to make bot join author's channel
         voice_client: wavelink.Player = interaction.guild.voice_client
@@ -563,7 +562,7 @@ class MusicCog(Player, commands.Cog):
                 return
 
         # Start search process
-        await self.process(interaction, trackinfo)
+        await self.process(interaction, trackinfo, result_type)
 
         await self._play(interaction.guild, interaction.channel)
         if not interaction.response.is_done():
@@ -583,7 +582,22 @@ class MusicCog(Player, commands.Cog):
     async def _i_play(self, interaction: discord.Interaction, search: str):
         await self.ui.Changelogs.SendChangelogs(interaction)
         if "sid=>" in search:
-            tracks = await self.track_helper.get_track(interaction, search)
+            if search.split("sid=>")[1] == "playallfav" or search.split("sid=>")[1] == "showallfav":
+                await interaction.response.defer(thinking=True, ephemeral=True)
+                result = []
+                async with asyncio.TaskGroup() as taskgroup:
+                    for trackid in self._guilds_info[interaction.guild.id].favorite:
+                        taskgroup.create_task(self.track_helper.fetch_all_tracks(interaction, trackid, result))
+                if search.split("sid=>")[1] == "showallfav":
+                    await self.ui.PlayerControl.ResultSelection(interaction, ResultType.FAVORITE, result)
+                else:
+                    await self.play(interaction, result, ResultType.FAVORITE)
+                return
+            try:
+                tracks = await self.track_helper.get_track(interaction, search)
+            except Exception as e:
+                await self.ui.Search.SearchFailed(interaction, e)
+                return
             await self.play(interaction, tracks)
         elif validators.url(search):
             if (
@@ -599,13 +613,19 @@ class MusicCog(Player, commands.Cog):
                     await self.ui.PlayerControl.MultiTypeNotify(interaction, search)
                     return
             else:
-                tracks = await self.track_helper.get_track(interaction, search)
-                if isinstance(tracks, Exception) or tracks is [None] or tracks is None:
+                try:
+                    tracks = await self.track_helper.get_track(interaction, search)
+                except Exception as e:
                     await self.ui.Search.SearchFailed(interaction, search)
+                    return
             await self.play(interaction, tracks)
         else:
-            tracks = await self.track_helper.get_track(interaction, search)
-            await self.ui.PlayerControl.SearchResultSelection(interaction, tracks)
+            try:
+                tracks = await self.track_helper.get_track(interaction, search)
+            except Exception as e:
+                await self.ui.Search.SearchFailed(interaction, e)
+                return
+            await self.ui.PlayerControl.ResultSelection(interaction, ResultType.SEARCH, tracks)
 
     ##############################
 
@@ -646,6 +666,7 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.PlayerControl.PlayingMsg(self.bot.get_channel(self[guild.id].text_channel))
             else:
                 await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+            
             self[guild.id].song_played(payload.track)
             
             if self.ui_guild_info(guild.id).lastskip:
@@ -692,20 +713,6 @@ class MusicCog(Player, commands.Cog):
                 pass
 
             self.bot.loop.create_task(self._refresh_after_suggested(guild))
-
-    # @commands.Cog.listener()
-    # async def on_wavelink_node_disconnected(self, payload: wavelink.NodeDisconnectedEventPayload) -> None:
-    #     node: wavelink.Node = payload.node
-    #     new_node: wavelink.Node = wavelink.Pool.get_node()  # You can get a specific node if you want...
-    #     if not new_node:
-    #         return
-        
-    #     players: dict[int, wavelink.Player] = node.players
-    #     for guild_id, player in players.items():
-    #         try:
-    #             await player.switch_node(new_node)
-    #         except RuntimeError:
-    #             await player.disconnect()
 
     # Error handler
     @commands.Cog.listener()

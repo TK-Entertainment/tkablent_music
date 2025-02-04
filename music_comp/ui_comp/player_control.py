@@ -16,8 +16,7 @@ from .leave import Leave
 from .search import Search
 from ..ui import _sec_to_hms
 from ..emoji import Emoji
-from ..enums import LeaveType, StopType
-
+from ..enums import LeaveType, StopType, ResultType
 
 class PlayerControl:
     def __init__(self, exception_handler, info_generator, stage, queue, leave, search):
@@ -59,9 +58,10 @@ class PlayerControl:
     ############################################################
     # Play #####################################################
 
-    async def SearchResultSelection(
+    async def ResultSelection(
         self,
         interaction: discord.Interaction,
+        type: ResultType,
         result: list[wavelink.Playable],
     ) -> None:
         class SelectUI(discord.ui.Select):
@@ -85,28 +85,33 @@ class PlayerControl:
 
                     if i > 24:
                         break
-
-                    if cache.get(result[currentindex].identifier):
-                        title = cache[result[currentindex].identifier]["title"]
-                        length = cache[result[currentindex].identifier]["length"]
+                    
+                    if result[currentindex].source == "http":
+                        identifier = result[currentindex].extras.identifier
+                        title = result[currentindex].extras.title
+                        author = result[currentindex].extras.author
                     else:
-                        if len(result[currentindex].title) > 100:
+                        identifier = result[currentindex].identifier
+                        title = result[currentindex].title
+                        author = result[currentindex].author
+
+                    if cache.get(identifier):
+                        title = cache[identifier]["title"]
+                        length = cache[identifier]["length"]
+                    else:
+                        if len(title) > 100:
                             title = (
-                                result[currentindex].title[:95] + "..."
+                                title[:95] + "..."
                             )
                         else:
-                            title = result[currentindex].title
+                            title = title
 
-                        length = _sec_to_hms(
-                            seconds=(result[currentindex].length) / 1000, format="symbol"
-                        )
+                        length = _sec_to_hms(seconds=(result[currentindex].length) / 1000, format="symbol")
 
-                    if len(result[currentindex].author) > 85:
-                        author = (
-                            result[currentindex].author[:70] + "..."
-                        )
+                    if len(author) > 85:
+                        author = author[:70] + "..."
                     else:
-                        author = result[currentindex].author
+                        author = author
                         
                     self.add_option(
                         label=title,
@@ -124,10 +129,10 @@ class PlayerControl:
                     songlist = []
                     for i in self.values:
                         songlist.append(result[int(i)])
-                    await self.musicbot.play(interaction, songlist)
+                    await self.musicbot.play(interaction, songlist, ResultType.FAVORITE)
                 else:
                     option_index = int(self.values[0])
-                    await self.musicbot.play(interaction, result[option_index])
+                    await self.musicbot.play(interaction, result[option_index], ResultType.FAVORITE)
 
         class SelectView(discord.ui.View):
             guild_info = self.guild_info
@@ -145,8 +150,15 @@ class PlayerControl:
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
                 self.page -= 1
-                content = f"""
+                if type == ResultType.SEARCH:
+                    content = f"""
         **:mag_right: | 搜尋結果**
+        請選擇一個您欲播放的歌曲：
+        第 {self.page} 頁 / 共 {(len(result) // 24) + 1} 頁
+        """
+                else:
+                    content = f"""
+        **:heart: | 最愛歌曲列表**
         請選擇一個您欲播放的歌曲：
         第 {self.page} 頁 / 共 {(len(result) // 24) + 1} 頁
         """
@@ -174,8 +186,15 @@ class PlayerControl:
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
                 self.page += 1
-                content = f"""
+                if type == ResultType.SEARCH:
+                    content = f"""
         **:mag_right: | 搜尋結果**
+        請選擇一個您欲播放的歌曲：
+        第 {self.page} 頁 / 共 {(len(result) // 24) + 1} 頁
+        """
+                else:
+                    content = f"""
+        **:heart: | 最愛歌曲列表**
         請選擇一個您欲播放的歌曲：
         第 {self.page} 頁 / 共 {(len(result) // 24) + 1} 頁
         """
@@ -220,8 +239,15 @@ class PlayerControl:
             view.prevpage.style = discord.ButtonStyle.gray
             pagetext = f"第 {view.page} 頁 / 共 {(len(result) // 24) + 1} 頁"
 
-        content = f"""
+        if type == ResultType.SEARCH:
+            content = f"""
         **:mag_right: | 搜尋結果**
+        請選擇一個您欲播放的歌曲：
+        {pagetext}
+        """
+        else:
+            content = f"""
+        **:heart: | 最愛歌曲列表**
         請選擇一個您欲播放的歌曲：
         {pagetext}
         """
@@ -507,7 +533,7 @@ class PlayerControl:
 
             async def suggestion_control(self, interaction, button):
                 if self.guild_info(channel.guild.id).music_suggestion:
-                    button.label = "⬜ 推薦音樂"
+                    button.label = "⬜"
                     button.style = discord.ButtonStyle.danger
                     logging.info(f"[Suggestion] {channel.guild.id} disabled auto suggestion")
                     self.guild_info(channel.guild.id).music_suggestion = False
@@ -526,7 +552,7 @@ class PlayerControl:
                             channel.guild.id
                         ).playinfo_view.skip.disabled = True
                 else:
-                    button.label = "✅ 推薦音樂"
+                    button.label = "✅"
                     button.style = discord.ButtonStyle.success
                     logging.info(f"[Suggestion] {channel.guild.id} enabled auto suggestion")
                     self.guild_info(channel.guild.id).music_suggestion = True
@@ -617,13 +643,18 @@ class PlayerControl:
                 await self.musicbot._skip(channel.guild)
 
                 if len(playlist.order) > 1:
+                    nextsong = playlist.order[1]
                     embed = self.info_generator._SongInfo(
                         guild_id=channel.guild.id, index=1
                     )
                 else:
+                    nextsong = playlist.current()
                     embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
 
-                await interaction.response.edit_message(embed=embed)
+                self.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
+                self.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
+
+                await interaction.response.edit_message(embed=embed, view=self)
                 await self.toggle(interaction, button, "done")
 
                 if self.guild_info(channel.guild.id).music_suggestion:
@@ -755,9 +786,43 @@ class PlayerControl:
                     await msg.edit(view=view)
 
             @discord.ui.button(
-                label="⬜ 推薦音樂"
+                style=discord.ButtonStyle.success 
+                if playlist.current().identifier in self.musicbot[channel.guild.id].favorite or (playlist.current().source == "http" and playlist.current().extras.identifier in self.musicbot[channel.guild.id].favorite)
+                else discord.ButtonStyle.danger,
+                emoji=Emoji.star_bright
+                if playlist.current().identifier in self.musicbot[channel.guild.id].favorite or (playlist.current().source == "http" and playlist.current().extras.identifier in self.musicbot[channel.guild.id].favorite)
+                else Emoji.star_no_bright,
+            )
+            async def favorite(
+                self, interaction: discord.Interaction, button: discord.ui.Button
+            ):
+                await self.toggle(interaction, button, "toggle")
+                
+                if playlist.current().source == "http":
+                    identifier = playlist.current().extras.identifier
+                else:
+                    identifier = playlist.current().identifier
+
+                if identifier in self.musicbot[channel.guild.id].favorite:
+                    self.musicbot[channel.guild.id].remove_favorite(playlist.current())
+                else:
+                    self.musicbot[channel.guild.id].add_favorite(playlist.current())
+
+                self.favorite.style = discord.ButtonStyle.success \
+                if identifier in self.musicbot[channel.guild.id].favorite \
+                else discord.ButtonStyle.danger
+
+                self.favorite.emoji = Emoji.star_bright \
+                if identifier in self.musicbot[channel.guild.id].favorite \
+                else Emoji.star_no_bright
+
+                await interaction.response.edit_message(view=view)
+                await self.toggle(interaction, button, "done")
+
+            @discord.ui.button(
+                label="⬜"
                 if not self.guild_info(channel.guild.id).music_suggestion
-                else "✅ 推薦音樂",
+                else "✅",
                 style=discord.ButtonStyle.gray
                 if not self.musicbot.track_helper.check_current_suggest_support(
                     channel.guild.id
@@ -825,19 +890,17 @@ class PlayerControl:
         view = PlaybackControl()
 
         if self.guild_info(channel.guild.id).skip:
+            nextsong = self.musicbot._playlist[channel.guild.id].order[1] if len(self.musicbot._playlist[channel.guild.id].order) > 1 else None
             self.guild_info(channel.guild.id).skip = False
             self.guild_info(channel.guild.id).lastskip = True
             view.skip.emoji = Emoji.loading_emoji
             view.skip.disabled = True
             view.skip.style = discord.ButtonStyle.gray
+            if nextsong is not None:
+                view.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
+                view.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
 
         if self.guild_info(channel.guild.id).playinfo is None:
-
-            view.skip.emoji = Emoji.loading_emoji
-            view.skip.disabled = True
-            view.skip.style = discord.ButtonStyle.gray
-            self.bot.loop.create_task(view.restore_skip())
-
             self.guild_info(channel.guild.id).playinfo_view = view
             if isinstance(channel, discord.Interaction):
                 self.guild_info(channel.guild.id).playinfo = await channel.channel.send(
@@ -851,15 +914,13 @@ class PlayerControl:
             try:
                 await self.guild_info(channel.guild.id).playinfo.edit(embed=embed, view=view)
             except:
-                view.skip.emoji = Emoji.loading_emoji
-                view.skip.disabled = True
-                view.skip.style = discord.ButtonStyle.gray
-                self.bot.loop.create_task(view.restore_skip())
-
                 self.guild_info(channel.guild.id).playinfo = await channel.send(
                     embed=embed, view=view)
             finally:
                 self.guild_info(channel.guild.id).playinfo_view = view
+
+        self.bot.loop.create_task(view.restore_skip())
+
         try:
             await self.stage._UpdateStageTopic(channel.guild.id)
         except:

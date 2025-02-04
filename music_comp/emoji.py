@@ -25,3 +25,5 @@ class Emoji:
     spotify_emoji = discord.PartialEmoji.from_str("<:spotify:1010844746647883828>")
     rescue_emoji = discord.PartialEmoji.from_str("🛟")
     document_emoji = discord.PartialEmoji.from_str("📝")
+    star_no_bright = discord.PartialEmoji.from_str("🖤")
+    star_bright = discord.PartialEmoji.from_str("❤️")
