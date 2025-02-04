@@ -6,7 +6,8 @@ import wavelink
 import uvloop
 import sentry_sdk
 from sentry_sdk import capture_exception
-import logging, logging.handlers
+import logging
+from logging.handlers import RotatingFileHandler
 
 print(
 f""" 
@@ -22,7 +23,7 @@ branch = "master"
 
 production_status = "s"  # ce for cutting edge, s for stable
 test_subject = "wl3.0_test"
-bot_version = "m.20240318.5.p12{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+bot_version = "m.20240318.6{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
@@ -37,7 +38,7 @@ formatter = logging.Formatter(
     "%(asctime)s - %(name)s : [%(levelname)s] %(message)s"
 )
 
-file_handler = logging.FileHandler(filename="bot.log", encoding="utf-8", mode="w")
+file_handler = RotatingFileHandler(filename="bot.log", encoding="utf-8", maxBytes=1048576, backupCount=5, mode="w")
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 

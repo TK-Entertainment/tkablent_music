@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = ""
+        self.picture = "https://media.discordapp.net/attachments/1010571183768473630/1336351732137201774/CleanShot_2025-02-04_at_23.00.332x.png?ex=67a37e09&is=67a22c89&hm=f63232ea725473ae019bc4b2de37dfbab25f3fa78cd81f17c94761971b82555b&=&format=webp&quality=lossless&width=1304&height=1096"
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
@@ -40,7 +40,10 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["!", "【改進】(Patch 12 .p12) 改進機器人的穩定性", "=> 做了一些修正來改善機器人的穩定性"],
+            ["+", "【新增】群組最愛功能來啦！", "=> 發現多一個按鈕了嗎？沒錯啦，你現在如果聽到一首喜歡的歌，您可以將其加入到最愛名單內！\n=> 你可以在 **/play** 選單中檢視你新增到最愛名單的內容，也可以一次播放名單內的所有歌曲！"],
+            ["!", "【修復】修復 BiliBili 音源在待播清單內顯示異常的問題", "=> 此版本已修復這個問題"],
+            ["!", "【修復】嘗試修復播放介面更新錯誤的問題", "=> 此修復仍在觀察效果"],
+            ["!", "【改進】改進機器人在部分情況下的穩定度", "=> 此修復仍在觀察效果"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
