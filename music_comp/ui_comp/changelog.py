@@ -31,7 +31,7 @@ class Changelogs:
 
         # Define if this version is inherit from specfic test version
         self.inherit_from_version = ""
-        self.picture = "https://media.discordapp.net/attachments/1010571183768473630/1336351732137201774/CleanShot_2025-02-04_at_23.00.332x.png?ex=67a37e09&is=67a22c89&hm=f63232ea725473ae019bc4b2de37dfbab25f3fa78cd81f17c94761971b82555b&=&format=webp&quality=lossless&width=1304&height=1096"
+        self.picture = ""
         self.emergency_build = False
 
         self.github_link = "https://github.com/TK-Entertainment/tkablent_music/releases/tag/m.20240318-s"
