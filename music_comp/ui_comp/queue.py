@@ -342,7 +342,7 @@ class Queue:
                 if self.operation == "button":
                     try:
                         await interaction.edit_original_response(
-                            content="時限已到，請按「關閉這些訊息」來刪掉此訊息", view=None, embed=None
+                            content="時限已到，請按「刪除這些訊息」來刪掉此訊息", view=None, embed=None
                         )
                     except:
                         pass
