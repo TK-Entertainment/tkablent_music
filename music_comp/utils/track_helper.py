@@ -133,7 +133,8 @@ class TrackHelper():
                     track = await self.get_track(interaction, f"sid=>{trackid}", quick_search=True)
                 except Exception:
                     return
-                await self._search_suggest_processing(result, track[0], data, with_arrow=True)
+                if track is not None:
+                    await self._search_suggest_processing(result, track[0], data, with_arrow=True)
             else:
                 result.append(
                     app_commands.Choice(
