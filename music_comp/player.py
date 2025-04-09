@@ -18,6 +18,23 @@ from .emoji import Emoji
 from .enums import ResultType
 
 INF = int(1e18)
+DEFAULT_FILTERS: wavelink.Filters = wavelink.Filters()
+DEFAULT_FILTERS.equalizer.set(bands=[
+    {"band": 0, "gain": 0.05},
+    {"band": 1, "gain": 0.02},
+    {"band": 2, "gain": -0.01},
+    {"band": 3, "gain": -0.03},
+    {"band": 4, "gain": -0.08},
+    {"band": 5, "gain": -0.07},
+    {"band": 6, "gain": -0.05},
+    {"band": 7, "gain": 0.02},
+    {"band": 8, "gain": 0.05},
+    {"band": 12, "gain": 0.06},
+    {"band": 14, "gain": 0.04},
+    {"band": 15, "gain": 0.07},
+])
+DEFAULT_FILTERS.volume = 0.82
+# DEFAULT_FILTERS.karaoke.set(level=0.92, mono_level=0, filter_band=170, filter_width=90)
 
 class Player:
     def __init__(self, bot: commands.Bot):
@@ -172,7 +189,7 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
 
         if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
-            await voice_client.play(self._playlist[guild.id].current())
+            await voice_client.play(self._playlist[guild.id].current(), filters=DEFAULT_FILTERS)
 
     ########
     # Misc #
@@ -706,7 +723,7 @@ class MusicCog(Player, commands.Cog):
 
             song = self._playlist[guild.id].current()
             try:
-                await player.play(song)
+                await player.play(song, filters=DEFAULT_FILTERS)
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self.bot.get_channel(self[guild.id].text_channel), e)

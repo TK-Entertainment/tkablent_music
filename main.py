@@ -21,9 +21,9 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 prefix = "/"
 branch = "master"
 
-production_status = "s"  # ce for cutting edge, s for stable
-test_subject = "wl3.0_test"
-bot_version = "m.20240318.6{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+production_status = "ce"  # ce for cutting edge, s for stable
+test_subject = "snd-adj_test"
+bot_version = "m.20250409{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
