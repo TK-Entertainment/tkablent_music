@@ -36,7 +36,7 @@ class Search:
             queue = self.queue
 
             def __init__(self, trackid: str, number: int, musictype: ButtonType, musicbot):
-                grid = ["", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣"]
+                grid = ["", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"]
 
                 match musictype:
                     case ButtonType.RECOMMEND:
@@ -45,23 +45,31 @@ class Search:
                     case ButtonType.HISTORY:
                         style = discord.ButtonStyle.gray
                         row = 2
-                    case ButtonType.OTHER:
+                    case ButtonType.OTHER | ButtonType.FAVORITE:
                         style = discord.ButtonStyle.green
                         row = 3
                 
-                if musictype != ButtonType.OTHER:
+                if musictype != ButtonType.OTHER and musictype != ButtonType.FAVORITE:
                     super().__init__(
                         emoji=grid[number],
                         style=style,
                         row=row
                     )
                 else:
-                    super().__init__(
-                        label="其他歌曲",
-                        emoji=Emoji.search_emoji,
-                        style=style,
-                        row=row
-                    )
+                    if musictype == ButtonType.FAVORITE:
+                        super().__init__(
+                            label="列出最愛",
+                            emoji=Emoji.star_bright,
+                            style=style,
+                            row=row
+                        )
+                    else:
+                        super().__init__(
+                            label="其他歌曲",
+                            emoji=Emoji.search_emoji,
+                            style=style,
+                            row=row
+                        )
 
                 self.trackid = trackid
                 self.musictype = musictype
@@ -69,9 +77,14 @@ class Search:
 
             async def callback(self, interaction: discord.Interaction):
                 if self.musictype != ButtonType.OTHER:
-                    await self.musicbot._i_play.callback(
-                        self.musicbot, interaction, f"sid=>{self.trackid}"
-                    )
+                    if self.musictype == ButtonType.FAVORITE:
+                        await self.musicbot._i_play.callback(
+                            self.musicbot, interaction, f"sid=>showallfav"
+                        )
+                    else:
+                        await self.musicbot._i_play.callback(
+                            self.musicbot, interaction, f"sid=>{self.trackid}"
+                        )
                 else:
                     await interaction.response.send_modal(
                         self.queue.new_song_modal_helper()(interaction.user)
@@ -80,7 +93,7 @@ class Search:
         await interaction.response.defer(ephemeral=True, thinking=True)
         embed = discord.Embed(
             title="🎶 | 點播新歌曲",
-            description="您可以選擇以下的推薦/曾點播過的歌曲\n或點擊「其他歌曲」來點播其他的歌曲"
+            description="您可以選擇以下的推薦/曾點播過的歌曲\n或點擊「其他歌曲」來點播其他的歌曲\n亦或是點擊「列出最愛」來列出最愛的歌曲",
         )
         view = discord.ui.View()
         i = 1
@@ -106,7 +119,7 @@ class Search:
             if mostly_played == "": mostly_played = "❌ | 目前無可用推薦項目 (*°∀°)"
             
         embed.add_field(
-            name=f"💖【這群ㄉ最愛！】",
+            name=f"💖【好聽一直聽】",
             value="❌ | 目前此項資料不足，暫時不可用。" if len(guild_info.mostly_played) <= 10 else mostly_played,
             inline=False
         )
@@ -139,6 +152,7 @@ class Search:
         )
 
         view.add_item(MusicChooseButton(0, i, ButtonType.OTHER, musicbot))
+        view.add_item(MusicChooseButton(0, i+1, ButtonType.FAVORITE, musicbot))
         await interaction.followup.send(embed=embed, view=view)
 
     async def SearchFailed(self, interaction: discord.Interaction, url) -> None:

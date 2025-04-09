@@ -252,12 +252,6 @@ class InfoGenerator:
 
             queuelist: str = ""
 
-            if self.guild_info(guild_id).skip:
-            # If song is skipped, update songinfo for next song state
-                offset = 1
-            else:
-                offset = 0
-
             # Upcoming song (via Suggestion)
             # playlist[].extras.suggested: bool (self defined)
             if (
@@ -289,16 +283,16 @@ class InfoGenerator:
                 embed.add_field(name="即將播放", value="*無下一首，將重複播放此歌曲*", inline=False)
 
             # Upcoming song
-            elif len(playlist.order) - offset > 1 and color_code != "red":
-                if (song.source == "http"):
-                    queuelist += f"**>> {playlist[1+offset].extras.title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
+            elif len(playlist.order) > 1 and color_code != "red":
+                if (playlist[1].source == "http"):
+                    queuelist += f"**>> {playlist[1].extras.title}**\n*by {playlist[1].extras.requester_name}*\n"
                 else:
-                    queuelist += f"**>> {playlist[1+offset].title}**\n*by {playlist[1+offset].extras.requester_name}*\n"
+                    queuelist += f"**>> {playlist[1].title}**\n*by {playlist[1].extras.requester_name}*\n"
                 if len(playlist.order) > 2:
-                    queuelist += f"*...還有 {len(playlist.order)-2-offset} 首歌*"
+                    queuelist += f"*...還有 {len(playlist.order)-2} 首歌*"
 
                 embed.add_field(
-                    name=f"即將播放 | {len(playlist.order)-1-offset} 首歌待播中",
+                    name=f"即將播放 | {len(playlist.order)-1} 首歌待播中",
                     value=queuelist,
                     inline=False,
                 )
@@ -468,6 +462,10 @@ class InfoGenerator:
                     self.guild_info(
                         guild_id
                     ).playinfo_view.suggest.style = discord.ButtonStyle.danger
+    
+            nextsong = self.musicbot._playlist[guild_id].current()
+            self.guild_info(guild_id).playinfo_view.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[guild_id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[guild_id].favorite) else discord.ButtonStyle.danger
+            self.guild_info(guild_id).playinfo_view.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[guild_id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[guild_id].favorite) else Emoji.star_no_bright
 
             try:
                 await self.guild_info(guild_id).playinfo.edit(

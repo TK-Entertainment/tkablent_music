@@ -35,3 +35,4 @@ class ButtonType(Enum):
     RECOMMEND = 1
     HISTORY = 2
     OTHER = 3
+    FAVORITE = 4
