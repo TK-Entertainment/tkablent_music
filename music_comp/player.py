@@ -21,19 +21,19 @@ INF = int(1e18)
 DEFAULT_FILTERS: wavelink.Filters = wavelink.Filters()
 DEFAULT_FILTERS.equalizer.set(bands=[
     {"band": 0, "gain": 0.05},
-    {"band": 1, "gain": 0.02},
-    {"band": 2, "gain": -0.01},
-    {"band": 3, "gain": -0.03},
-    {"band": 4, "gain": -0.08},
-    {"band": 5, "gain": -0.07},
-    {"band": 6, "gain": -0.05},
-    {"band": 7, "gain": 0.02},
-    {"band": 8, "gain": 0.05},
-    {"band": 12, "gain": 0.06},
+    {"band": 1, "gain": 0.03},
+    {"band": 2, "gain": -0.025},
+    {"band": 3, "gain": -0.116},
+    {"band": 4, "gain": -0.152},
+    {"band": 5, "gain": -0.123},
+    {"band": 6, "gain": 0.025},
+    {"band": 7, "gain": 0.025},
+    {"band": 8, "gain": 0.04},
+    {"band": 12, "gain": 0.03},
     {"band": 14, "gain": 0.04},
-    {"band": 15, "gain": 0.07},
+    {"band": 15, "gain": 0.04},
 ])
-DEFAULT_FILTERS.volume = 0.82
+DEFAULT_FILTERS.volume = 0.875
 # DEFAULT_FILTERS.karaoke.set(level=0.92, mono_level=0, filter_band=170, filter_width=90)
 
 class Player:
