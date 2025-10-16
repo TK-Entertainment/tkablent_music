@@ -40,7 +40,7 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["+", "【測試項目】已為機器人套用新的音訊調整設定", "=> 因目前正式版目前有 Bass 會炸的問題，某些程度上影響了聽音樂的體驗\n=> 因此我們這次在測試版中套用新的音訊調整設定，希望能改善這個問題\n=> 但因目前的設定是以我自己耳朵聽感調整，希望各位使用者能協助我們觀察效果，並提供回饋！\n=> 個人測試環境: WF-1000XM5 (via AAC) / Discord 音量: 150% / 頻道 Bitrate: 96kbps"],
+            ["+", "(Patch 3 .p3) 已修復推薦列表無法正常顯示的問題", "=> 此版本已修復此問題"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:

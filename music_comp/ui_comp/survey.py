@@ -12,13 +12,13 @@ class Survey:
     def __init__(self):
         from ..ui import musicbot, auto_stage_available, guild_info
 
-        self.enabled = True
+        self.enabled = False
 
         if self.enabled:
-            self.survey_displayname = "TKablent snd-adj_test 音效調整測試計劃"
+            self.survey_displayname = "TKablent 音效調整測試計劃"
             self.survey_description = "感謝貴伺服器使用 TKablent\n我們想要透過此問卷來知道使用者們**對於目前版本的調整意見**"
 
-            self._survey_filename = "20250409_sndtest"
+            self._survey_filename = "20250516_sndtest"
 
             self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_filename}_survey.json"
             self._survey_thread = 1359472074460102677

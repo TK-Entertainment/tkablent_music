@@ -21,9 +21,9 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 prefix = "/"
 branch = "master"
 
-production_status = "ce"  # ce for cutting edge, s for stable
+production_status = "s"  # ce for cutting edge, s for stable
 test_subject = "snd-adj_test"
-bot_version = "m.20250410{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+bot_version = "m.20240318.6.p3{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
@@ -33,21 +33,12 @@ sentry_sdk.init(
     },
 )
 logger = logging.getLogger()
-logger.setLevel(logging.DEBUG)
-formatter = logging.Formatter(
-    "%(asctime)s - %(name)s : [%(levelname)s] %(message)s"
-)
+logger.setLevel(logging.INFO)
 
 file_handler = RotatingFileHandler(filename="bot.log", encoding="utf-8", maxBytes=1048576, backupCount=5, mode="w")
-file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(formatter)
-stream_handler.setLevel(logging.WARNING)
-
 logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
 
 dotenv.load_dotenv()
 TOKEN = os.getenv("TOKEN")
@@ -59,6 +50,8 @@ intents.message_content = False
 bot = commands.AutoShardedBot(
     command_prefix=prefix, intents=intents, help_command=None, status=discord.Status.dnd, activity=discord.Game("正在開機，請稍候再輸入指令"), shard_count=(GUILD_COUNT // 150) + 1
 )
+
+discord.utils.setup_logging(level=logging.INFO)
 
 from music_comp import *
 
