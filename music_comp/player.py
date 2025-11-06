@@ -18,6 +18,23 @@ from .emoji import Emoji
 from .enums import ResultType
 
 INF = int(1e18)
+DEFAULT_FILTERS: wavelink.Filters = wavelink.Filters()
+DEFAULT_FILTERS.equalizer.set(bands=[
+    {"band": 0, "gain": 0.06},
+    {"band": 1, "gain": 0.04},
+    {"band": 2, "gain": 0.01},
+    {"band": 3, "gain": 0.03},
+    {"band": 4, "gain": 0.06},
+    {"band": 5, "gain": 0.04},
+    {"band": 6, "gain": 0.03},
+    {"band": 7, "gain": 0.01},
+    {"band": 8, "gain": 0.04},
+    {"band": 12, "gain": 0.03},
+    {"band": 14, "gain": 0.04},
+    {"band": 15, "gain": 0.04},
+])
+DEFAULT_FILTERS.volume = 0.78
+# DEFAULT_FILTERS.karaoke.set(level=0.92, mono_level=0, filter_band=170, filter_width=90)
 
 class Player:
     def __init__(self, bot: commands.Bot):
@@ -172,7 +189,7 @@ class Player:
         voice_client: wavelink.Player = guild.voice_client
 
         if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
-            await voice_client.play(self._playlist[guild.id].current())
+            await voice_client.play(self._playlist[guild.id].current(), filters=DEFAULT_FILTERS)
 
     ########
     # Misc #
@@ -206,17 +223,21 @@ class MusicCog(Player, commands.Cog):
         self._sec_to_hms = _sec_to_hms
         self.track_helper = TrackHelper(self.ui, self._playlist)
 
+        self.bot.loop.create_task(self._refresh_sessdata())
+
         from .ui import groupbutton
         self.groupbutton = groupbutton
 
     ############
-    # sessdata refresh (currently not working)
+    # sessdata refresh
     ############
     async def _refresh_sessdata(self):
         while True:
+            logging.info("[DEBUG | MusicCog] Refreshing sessdata")
             need_refresh = await self.track_helper._bilibilic.check_refresh()
             if need_refresh:
                 await self.track_helper._bilibilic.refresh()
+                logging.info("[DEBUG | MusicCog] Sessdata refreshed")
                 dotenv.set_key(
                     dotenv_path=rf"{os.getcwd()}/.env",
                     key_to_set="SESSDATA",
@@ -232,7 +253,17 @@ class MusicCog(Player, commands.Cog):
                     key_to_set="BUVID3",
                     value_to_set=self.track_helper._bilibilic.buvid3,
                 )
-            await asyncio.sleep(120)
+                dotenv.set_key(
+                    dotenv_path=rf"{os.getcwd()}/.env",
+                    key_to_set="DEDEUSERID",
+                    value_to_set=self.track_helper._bilibilic.dedeuserid,
+                )
+                dotenv.set_key(
+                    dotenv_path=rf"{os.getcwd()}/.env",
+                    key_to_set="AC_TIME_VALUE",
+                    value_to_set=self.track_helper._bilibilic.ac_time_value,
+                )
+            await asyncio.sleep(3000)
 
     @app_commands.command(name="help", description="❓ | 不知道怎麼使用我嗎？來這裡就對了~")
     async def help(self, interaction: discord.Interaction):
@@ -706,7 +737,7 @@ class MusicCog(Player, commands.Cog):
 
             song = self._playlist[guild.id].current()
             try:
-                await player.play(song)
+                await player.play(song, filters=DEFAULT_FILTERS)
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self.bot.get_channel(self[guild.id].text_channel), e)

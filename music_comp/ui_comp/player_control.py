@@ -219,13 +219,13 @@ class PlayerControl:
             async def done(
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
-                await interaction.response.edit_message(content="點按「關閉這些訊息」來關閉此訊息")
+                await interaction.response.edit_message(content="點按「刪除這些訊息」來關閉此訊息")
                 self.stop()
 
             async def on_timeout(self):
                 self.clear_items()
                 try:
-                    await msg.edit(content="時限已到，請按「關閉這些訊息」來刪掉此訊息", view=self)
+                    await msg.edit(content="時限已到，請按「刪除這些訊息」來刪掉此訊息", view=self)
                 except:
                     pass
 
@@ -343,7 +343,7 @@ class PlayerControl:
 
             async def on_timeout(self):
                 self.clear_items()
-                await msg.edit(content="時限已到，請按「關閉這些訊息」來刪掉此訊息", view=self)
+                await msg.edit(content="時限已到，請按「刪除這些訊息」來刪掉此訊息", view=self)
 
         view = MultiType()
         await interaction.response.send_message(content, view=view, ephemeral=True)
@@ -439,7 +439,7 @@ class PlayerControl:
                 ):
                     self.musicbot[interaction.guild.id].multitype_remembered = False
                 self.clear_items()
-                await msg.edit(content="時限已到，請按「關閉這些訊息」來刪掉此訊息", view=self)
+                await msg.edit(content="時限已到，請按「刪除這些訊息」來刪掉此訊息", view=self)
 
         view = MultiType()
         await interaction.response.send_message(content, view=view, ephemeral=True)
@@ -644,12 +644,10 @@ class PlayerControl:
 
                 if len(playlist.order) > 1:
                     nextsong = playlist.order[1]
-                    embed = self.info_generator._SongInfo(
-                        guild_id=channel.guild.id, index=1
-                    )
                 else:
                     nextsong = playlist.current()
-                    embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
+                
+                embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
 
                 self.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
                 self.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
@@ -664,6 +662,9 @@ class PlayerControl:
                             break
                 else:
                     await asyncio.sleep(1)
+
+                if self.guild_info(channel.guild.id).skip:
+                    self.guild_info(channel.guild.id).skip = False
 
                 if self.guild_info(channel.guild.id).playinfo is not None:
                     await self.info_generator._UpdateSongInfo(interaction.guild.id)

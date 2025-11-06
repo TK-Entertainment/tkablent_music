@@ -192,7 +192,7 @@ class Help:
 
             async def on_timeout(self):
                 self.clear_items()
-                await msg.edit(content="時限已到，請按「關閉這些訊息」來刪掉此訊息", view=None)
+                await msg.edit(content="時限已到，請按「刪除這些訊息」來刪掉此訊息", view=None)
 
         embed = self._HelpEmbedBasic()
         embed = discord.Embed.from_dict(dict(**embed.to_dict(), **self.embed_opt))

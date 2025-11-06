@@ -1,8 +1,8 @@
 requests
-discord
+discord.py
 python_dotenv
 validators
 msgspec
 ytmusicapi
-git+https://github.com/PythonistaGuild/Wavelink.git@main
+git+https://github.com/haruyq/Wavelink.git
 bilibili-api-python

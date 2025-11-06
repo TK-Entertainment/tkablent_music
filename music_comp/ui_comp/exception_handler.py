@@ -59,13 +59,16 @@ class ExceptionHandler:
         有可能該音樂為會員影片、為私人影片或不存在
         或為機器人不支援的平台
 
+        若您所選播的是 BiliBili 音樂
+        您可以再次嘗試點播，多次嘗試後應能正常點播
+
         *此錯誤不會影響到播放，僅為提醒訊息*"""
 
         done_content = part_content
 
         content = f"""
-            {part_content}
-            *若您覺得有Bug或錯誤，請到我們的群組來回報錯誤*
+        {part_content}
+        *若您覺得有Bug或錯誤，請到我們的群組來回報錯誤*
         """
 
         await self._BugReportingMsg(

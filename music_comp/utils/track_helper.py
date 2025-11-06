@@ -30,6 +30,7 @@ class TrackHelper():
         BILI_JCT = os.getenv("BILI_JCT")
         BUVID3 = os.getenv("BUVID3")
         DEDEUSERID = os.getenv("DEDEUSERID")
+        AC_TIME_VALUE = os.getenv("AC_TIME_VALUE")
 
         self.ui = ui_comp
         self._cachequeue = queue.Queue()
@@ -43,7 +44,8 @@ class TrackHelper():
             sessdata=SESSDATA,
             bili_jct=BILI_JCT,
             buvid3=BUVID3,
-            dedeuserid=DEDEUSERID
+            dedeuserid=DEDEUSERID,
+            ac_time_value=AC_TIME_VALUE
         )
 
         self._cache_worker.start()
@@ -133,7 +135,8 @@ class TrackHelper():
                     track = await self.get_track(interaction, f"sid=>{trackid}", quick_search=True)
                 except Exception:
                     return
-                await self._search_suggest_processing(result, track[0], data, with_arrow=True)
+                if track is not None:
+                    await self._search_suggest_processing(result, track[0], data, with_arrow=True)
             else:
                 result.append(
                     app_commands.Choice(

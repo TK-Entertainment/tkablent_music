@@ -15,13 +15,13 @@ class Survey:
         self.enabled = False
 
         if self.enabled:
-            self.survey_displayname = "TKablent 2024 年度 8 月使用者意見調查"
-            self.survey_description = "感謝貴伺服器使用 TKablent\n我們想要透過此問卷來知道使用者們**想要的功能、改進**\n及您對於我們機器人的體驗評價"
+            self.survey_displayname = "TKablent 音效調整測試計劃"
+            self.survey_description = "感謝貴伺服器使用 TKablent\n我們想要透過此問卷來知道使用者們**對於目前版本的調整意見**"
 
-            self._survey_filename = "202408_usual"
+            self._survey_filename = "20250516_sndtest"
 
             self._file_name = rf"{os.getcwd()}/music_comp/surveys/{self._survey_filename}_survey.json"
-            self._survey_thread = 1276827797402292254
+            self._survey_thread = 1359472074460102677
 
             self._bot: commands.Bot = musicbot.bot
             self._musicbot = musicbot
@@ -64,7 +64,8 @@ class Survey:
             def __init__(self):
                 self.stars = discord.ui.TextInput(
                     custom_id="stars",
-                    label="請您填寫對於此段時間機器人的體驗評價 (請填入數字，必填)",
+                    # label="請您填寫對於此段時間機器人的體驗評價 (請填入數字，必填)",
+                    label="請您填寫對於目前音效調整的意見 (請填入數字，必填)",
                     placeholder=f"可填入 1(最差) ~ 10(最佳)",
                     style=discord.TextStyle.short,
                     min_length=1,
@@ -73,14 +74,16 @@ class Survey:
 
                 self.suggestions = discord.ui.TextInput(
                     custom_id="suggestions",
-                    label="有什麼想要給我們的建議嗎？(選填)",
-                    placeholder="可填入想要增加的新功能 (不限於音樂類功能)、需要改進的地方等等",
+                    label="如果可以的話，可以具體跟我們分享您認為調整的方向或感受(選填)",
+                    placeholder="例如：Bass 太炸，可以再調整",
+                    # label="有什麼想要給我們的建議嗎？(選填)",
+                    # placeholder="可填入想要增加的新功能 (不限於音樂類功能)、需要改進的地方等等",
                     style=discord.TextStyle.paragraph,
                     required=False,
                 )
 
-                super().__init__(title="📝 | 使用者使用體驗調查", timeout=120)
-
+                # super().__init__(title="📝 | 使用者使用體驗調查", timeout=120)
+                super().__init__(title="📝 | 音效調整測試計劃", timeout=120)
                 self.add_item(self.stars)
                 self.add_item(self.suggestions)
 
@@ -114,7 +117,8 @@ class Survey:
                     description=f"已收到問卷，問卷名稱: **{self.survey_filename}**",
                     color=0x00FF00,
                 )
-                embed.add_field(name="評分", value=self.stars.value, inline=False)
+                # embed.add_field(name="評分", value=self.stars.value, inline=False)
+                embed.add_field(name="音效調整評分", value=self.suggestions.value, inline=False)
                 if not ((self.suggestions.value == "") or (len(self.suggestions.value) == 0)):
                     embed.add_field(name="建議", value=self.suggestions.value, inline=False)
                 embed.set_author(name=user_name, icon_url=interaction.user.avatar)
