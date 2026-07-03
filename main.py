@@ -2,7 +2,7 @@ import os, dotenv, sys, asyncio
 
 import discord
 from discord.ext import commands
-import wavelink
+import sonolink
 import uvloop
 import sentry_sdk
 from sentry_sdk import capture_exception
@@ -23,7 +23,7 @@ branch = "master"
 
 production_status = "s"  # ce for cutting edge, s for stable
 test_subject = "snd-adj_test"
-bot_version = "m.20240318.6.p3{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
+bot_version = "m.20260703{}-{}".format(f".{test_subject}" if production_status != "s" else "", production_status)
 
 sentry_sdk.init(
     dsn=os.getenv("SENTRY_DSN"),
@@ -126,12 +126,12 @@ async def on_ready():
 
 
 @bot.event
-async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
+async def on_sonolink_node_ready(event: sonolink.gateway.ReadyEvent):
     logging.info(
         f"""
-        Wavelink 音樂處理伺服器已準備完畢
+        Sonolink 音樂處理伺服器已準備完畢
 
-        伺服器名稱: {payload.node.identifier}
+        伺服器名稱: {event.node.id}
     """
     )
 

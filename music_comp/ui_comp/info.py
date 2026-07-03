@@ -6,7 +6,7 @@ import random
 import datetime
 import copy
 
-import wavelink
+import sonolink
 from ..playlist import LoopState
 from ..enums import LeaveType, StopType
 from ..emoji import Emoji
@@ -106,7 +106,7 @@ class InfoGenerator:
             if color_code == "red":
                 song = removed
             else:
-                song: wavelink.Playable = playlist[index]
+                song: sonolink.models.Playable = playlist[index]
 
             # Embed side color decision
             if holiday == "xmas" or holiday == "xmaseve":
@@ -144,7 +144,7 @@ class InfoGenerator:
                 stateicon = ""
 
             # Generate Embed Body
-            voice_client: wavelink.Player = self.bot.get_guild(guild_id).voice_client
+            voice_client: sonolink.Player = self.bot.get_guild(guild_id).voice_client
             if color_code != "red" and color_code != "green":
                 if (
                     len(voice_client.channel.members) == 1
@@ -167,7 +167,7 @@ class InfoGenerator:
                 playing_state = ""
                 notice = ""
 
-            if song.source == "http":
+            if song.source_name == "http":
                 title = song.extras.title
                 author = song.extras.author
                 length = song.extras.duration
@@ -177,7 +177,7 @@ class InfoGenerator:
                 length = song.length
 
             # Generate Time Field
-            if not song.source == "spotify" and song.is_stream:
+            if not song.source_name == "spotify" and song.is_stream:
                 embed = discord.Embed(
                     title=f"{title}",
                     description=f"**{author}**\n*🔴 直播*{notice}",
@@ -221,7 +221,7 @@ class InfoGenerator:
                     )
             
             # Generate stream notice
-            if not song.source == "spotify" and song.is_stream:
+            if not song.source_name == "spotify" and song.is_stream:
                 if color_code == None:
                     embed.add_field(
                         name="結束播放",
@@ -284,7 +284,7 @@ class InfoGenerator:
 
             # Upcoming song
             elif len(playlist.order) > 1 and color_code != "red":
-                if (playlist[1].source == "http"):
+                if (playlist[1].source_name == "http"):
                     queuelist += f"**>> {playlist[1].extras.title}**\n*by {playlist[1].extras.requester_name}*\n"
                 else:
                     queuelist += f"**>> {playlist[1].title}**\n*by {playlist[1].extras.requester_name}*\n"
@@ -298,7 +298,7 @@ class InfoGenerator:
                 )
 
             # If song is from Spotify, show album picture
-            if song.source == "spotify" and (color != "green" or color != "red"):
+            if song.source_name == "spotify" and (color != "green" or color != "red"):
                 embed.set_thumbnail(url=song.artwork)
 
             # Generate Survey Notice
@@ -325,7 +325,7 @@ class InfoGenerator:
                 )
 
             # Bilibili Info Notice
-            if (song.source == "http"):
+            if (song.source_name == "http"):
                 embed_opt["footer"]["text"] = (
                     "【!】bilibili 曲目 | 不保證穩定\n" + embed_opt["footer"]["text"]
             )
@@ -344,14 +344,14 @@ class InfoGenerator:
 
     def _PlaylistInfo(
         self,
-        playlist: Union[list[wavelink.Playable], list[wavelink.Playlist]],
+        playlist: Union[list[sonolink.models.Playable], list[sonolink.models.Playlist]],
         requester: discord.User,
     ):
         # Generate Embed Body
-        if isinstance(playlist, list) and not isinstance(playlist[0], wavelink.Playlist):
+        if isinstance(playlist, list) and not isinstance(playlist[0], sonolink.models.Playlist):
             title = f"{Emoji.search_emoji} | 選取的搜尋歌曲"
             url = None
-        elif isinstance(playlist[0], wavelink.Playlist):
+        elif isinstance(playlist[0], sonolink.models.Playlist):
             if (playlist[0].url is not None) and ("spotify" in playlist[0].url):
                 title = f"{Emoji.spotify_emoji} | {playlist[0].name}"
                 url = playlist[0].url
@@ -372,13 +372,13 @@ class InfoGenerator:
             )
 
         pllist: str = ""
-        if isinstance(playlist, list) and not isinstance(playlist[0], wavelink.Playlist):
+        if isinstance(playlist, list) and not isinstance(playlist[0], sonolink.models.Playlist):
             tracklist = playlist
         else:
             tracklist = playlist[0].tracks
 
         for i, track in enumerate(tracklist):
-            if (track.source == "http"):
+            if (track.source_name == "http"):
                 pllist += f"{i+1}. {track.extras.title}\n"
             else:
                 pllist += f"{i+1}. {track.title}\n"
@@ -392,7 +392,7 @@ class InfoGenerator:
             name=f"歌曲清單 | 已新增 {len(tracklist)} 首歌", value=pllist, inline=False
         )
         
-        url = playlist[0].url if isinstance(playlist[0], wavelink.Playlist) else playlist[0].uri
+        url = playlist[0].url if isinstance(playlist[0], sonolink.models.Playlist) else playlist[0].uri
 
         if (url is not None) and ("spotify" in url):
             embed.set_thumbnail(url=playlist[0].artwork)
@@ -464,8 +464,8 @@ class InfoGenerator:
                     ).playinfo_view.suggest.style = discord.ButtonStyle.danger
     
             nextsong = self.musicbot._playlist[guild_id].current()
-            self.guild_info(guild_id).playinfo_view.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[guild_id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[guild_id].favorite) else discord.ButtonStyle.danger
-            self.guild_info(guild_id).playinfo_view.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[guild_id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[guild_id].favorite) else Emoji.star_no_bright
+            self.guild_info(guild_id).playinfo_view.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[guild_id].favorite or (nextsong.source_name == "http" and nextsong.extras.identifier in self.musicbot[guild_id].favorite) else discord.ButtonStyle.danger
+            self.guild_info(guild_id).playinfo_view.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[guild_id].favorite or (nextsong.source_name == "http" and nextsong.extras.identifier in self.musicbot[guild_id].favorite) else Emoji.star_no_bright
 
             try:
                 await self.guild_info(guild_id).playinfo.edit(

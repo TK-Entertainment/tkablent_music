@@ -4,5 +4,5 @@ python_dotenv
 validators
 msgspec
 ytmusicapi
-git+https://github.com/haruyq/Wavelink.git
+sonolink==1.1.1
 bilibili-api-python

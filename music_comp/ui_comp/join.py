@@ -43,6 +43,7 @@ class Join:
                 await interaction.response.send_message(msg)
             except discord.InteractionResponded:
                 await interaction.followup.send(content=msg, ephemeral=True)
+            interaction.extras["thinking"] = False
 
     async def JoinStage(self, interaction: discord.Interaction, guild_id: int) -> None:
         channel = interaction.channel
@@ -84,7 +85,8 @@ class Join:
                 self.guild_info(interaction.guild.id).processing_msg = None
             await interaction.response.send_message(final_msg)
         except discord.InteractionResponded:
-            await channel.send(final_msg)
+            await interaction.followup.send(final_msg, ephemeral=True)
+        interaction.extras["thinking"] = False
         return
 
     async def JoinAlready(self, interaction: discord.Interaction) -> None:
@@ -98,6 +100,28 @@ class Join:
                 """,
             ephemeral=True,
         )
+        return
+
+    async def JoinUserNotInVC(self, interaction: discord.Interaction) -> None:
+        if interaction.response.is_done():
+            await interaction.followup.send(
+                f"""
+                **:hushed: | 你不在語音頻道中**
+                看起來你沒有在任何語音頻道中呢，請先進到一個語音頻道
+                這樣我才知道要去哪裡放音樂ㄛowo
+                """,
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                f"""
+                **:hushed: | 你不在語音頻道中**
+                看起來你沒有在任何語音頻道中呢，請先進到一個語音頻道
+                這樣我才知道要去哪裡放音樂ㄛowo
+                """,
+                ephemeral=True,
+            )
+        interaction.extras["thinking"] = False
         return
 
     async def JoinFailed(self, interaction: discord.Interaction, exception) -> None:

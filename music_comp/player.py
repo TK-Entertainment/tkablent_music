@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Union, Optional
+
 if TYPE_CHECKING:
     from typing import *
 import asyncio, os
@@ -11,48 +12,62 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
-import wavelink
+import sonolink
+from sonolink.models import Filters, Equalizer, InactivitySettings
+from sonolink.gateway.event_models import (
+    ReadyEvent,
+    TrackStartEvent,
+    TrackEndEvent,
+    PlayerUpdateEvent,
+)
 from .playlist import Playlist, LoopState
-from .utils.storage import GuildInfo
+from .utils.storage import GuildInfo, STORAGE
 from .emoji import Emoji
 from .enums import ResultType
 
 INF = int(1e18)
-DEFAULT_FILTERS: wavelink.Filters = wavelink.Filters()
-DEFAULT_FILTERS.equalizer.set(bands=[
-    {"band": 0, "gain": 0.06},
-    {"band": 1, "gain": 0.04},
-    {"band": 2, "gain": 0.01},
-    {"band": 3, "gain": 0.03},
-    {"band": 4, "gain": 0.06},
-    {"band": 5, "gain": 0.04},
-    {"band": 6, "gain": 0.03},
-    {"band": 7, "gain": 0.01},
-    {"band": 8, "gain": 0.04},
-    {"band": 12, "gain": 0.03},
-    {"band": 14, "gain": 0.04},
-    {"band": 15, "gain": 0.04},
-])
-DEFAULT_FILTERS.volume = 0.78
-# DEFAULT_FILTERS.karaoke.set(level=0.92, mono_level=0, filter_band=170, filter_width=90)
+DEFAULT_FILTERS: Filters = Filters(
+    equalizer=[
+        Equalizer(band=0, gain=0.06),
+        Equalizer(band=1, gain=0.04),
+        Equalizer(band=2, gain=0.01),
+        Equalizer(band=3, gain=0.03),
+        Equalizer(band=4, gain=0.06),
+        Equalizer(band=5, gain=0.04),
+        Equalizer(band=6, gain=0.03),
+        Equalizer(band=7, gain=0.01),
+        Equalizer(band=8, gain=0.04),
+        Equalizer(band=12, gain=0.03),
+        Equalizer(band=14, gain=0.04),
+    ],
+    volume=0.78,
+)
 
 class Player:
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self._playlist: Playlist = Playlist()
         self._guilds_info: Dict[int, GuildInfo] = dict()
+        self.rl_client: sonolink.Client = None
+        self._storage_started: bool = False  # guards one-time startup (on_ready re-fires)
 
     def __getitem__(self, guild_id) -> GuildInfo:
         if self._guilds_info.get(guild_id) is None:
             self._guilds_info[guild_id] = GuildInfo(guild_id)
         return self._guilds_info[guild_id]
 
+    def _get_node(self, node_id: str) -> sonolink.Node:
+        for node in self.rl_client.nodes:
+            if node.id == node_id:
+                return node
+        raise RuntimeError(f"Node {node_id} not found")
+
     ############
-    # Daemon setup (Wavelink, cache and etc.)
+    # Daemon setup (Sonolink, cache and etc.)
     ############
     async def _create_daemon(self):
         # Env value setup
-        # Wavelink needed value
+        # Sonolink needed value
         TW_HOST = os.getenv("WAVELINK_TW_HOST")
         BILI_HOST = os.getenv("WAVELINK_BILI_HOST")
         LOCAL_SEARCH_HOST_1 = os.getenv("WAVELINK_SEARCH_HOST_1")
@@ -62,47 +77,47 @@ class Player:
         SEARCH_PORT_2 = os.getenv("WAVELINK_SEARCH_PORT_2")
         PASSWORD = os.getenv("WAVELINK_PWD")
 
-        # Define Wavelink Host
-        mainplayhost = wavelink.Node(
-            identifier="TW_PlayBackNode",
+        self.rl_client = sonolink.Client(self.bot)
+
+        # Define Sonolink Nodes
+        self.rl_client.create_node(
+            id="TW_PlayBackNode",
             uri=f"http://{TW_HOST}:{PORT}",
             password=PASSWORD,
+            inactivity_settings=InactivitySettings(timeout=600),
         )
-        bilibili_host = wavelink.Node(
-            identifier="BilibiliNode",
+        self.rl_client.create_node(
+            id="BilibiliNode",
             uri=f"http://{BILI_HOST}:{PORT}",
             password=PASSWORD,
+            inactivity_settings=InactivitySettings(timeout=600),
         )
-        searchhost_1 = wavelink.Node(
-            identifier="SearchNode_1",
+        self.rl_client.create_node(
+            id="SearchNode_1",
             uri=f"http://{LOCAL_SEARCH_HOST_1}:{SEARCH_PORT_1}",
             password=PASSWORD,
         )
-        searchhost_2 = wavelink.Node(
-            identifier="SearchNode_2",
+        self.rl_client.create_node(
+            id="SearchNode_2",
             uri=f"http://{LOCAL_SEARCH_HOST_2}:{SEARCH_PORT_2}",
             password=PASSWORD,
         )
 
-        # Wavelink connection establishing
-        await wavelink.Pool.connect(
-            nodes=[mainplayhost, bilibili_host, searchhost_1, searchhost_2],
-            client=self.bot,
-        )
+        # Sonolink connection establishing
+        await self.rl_client.start()
 
     #############
     # Join Core #
     #############
     async def _join(self, channel: discord.VoiceChannel):
         voice_client = channel.guild.voice_client
-        mainplayhost = wavelink.Pool.get_node("TW_PlayBackNode")
-        backupplayhost = wavelink.Pool.get_node("BilibiliNode")
+        mainplayhost = self._get_node("TW_PlayBackNode")
+        backupplayhost = self._get_node("BilibiliNode")
         if voice_client is None:
-            if mainplayhost.status == wavelink.NodeStatus.CONNECTED:
-                player = wavelink.Player(nodes=[mainplayhost])
+            if mainplayhost.is_connected:
+                player = mainplayhost.create_player(filters=DEFAULT_FILTERS)
             else:
-                player = wavelink.Player(nodes=[backupplayhost])
-            player.inactive_timeout = 600
+                player = backupplayhost.create_player(filters=DEFAULT_FILTERS)
             await channel.connect(cls=player, self_deaf=True)
 
     ##############
@@ -124,25 +139,25 @@ class Player:
     # Pause Core #
     ##############
     async def _pause(self, guild: discord.Guild):
-        voice_client: wavelink.Player = guild.voice_client
-        if not voice_client.paused and voice_client.playing:
-            await voice_client.pause(True)
+        voice_client: sonolink.Player = guild.voice_client
+        if not voice_client.paused and voice_client.current is not None:
+            await voice_client.pause()
 
     ###############
     # Resume Core #
     ###############
     async def _resume(self, guild: discord.Guild):
-        voice_client: wavelink.Player = guild.voice_client
+        voice_client: sonolink.Player = guild.voice_client
         if voice_client.paused:
-            await voice_client.pause(False)
+            await voice_client.resume()
 
     #############
     # Skip Core #
     #############
     async def _skip(self, guild: discord.Guild):
-        voice_client: wavelink.Player = guild.voice_client
-        if voice_client.playing or voice_client.paused:
-            await voice_client.skip()
+        voice_client: sonolink.Player = guild.voice_client
+        if voice_client.current is not None or voice_client.paused:
+            await voice_client.stop()
             self._playlist[guild.id].times = 0
             if self._playlist[guild.id].loop_state == LoopState.SINGLEINF:
                 self._playlist[guild.id].loop_state = LoopState.NOTHING
@@ -159,9 +174,9 @@ class Player:
     # Seek Core #
     #############
     async def _seek(self, guild: discord.Guild, timestamp: float):
-        voice_client: wavelink.Player = guild.voice_client
+        voice_client: sonolink.Player = guild.voice_client
         if timestamp >= (self._playlist[guild.id].current().length) / 1000:
-            await voice_client.skip()
+            await voice_client.stop()
             return
         await voice_client.seek(timestamp * 1000)
 
@@ -169,7 +184,7 @@ class Player:
     # Volume Core # (Currently not working)
     ###############
     async def _volume(self, guild: discord.Guild, volume: float):
-        voice_client: wavelink.Player = guild.voice_client
+        voice_client: sonolink.Player = guild.voice_client
         if voice_client is not None:
             mute = volume == 0
             if mute:
@@ -186,10 +201,10 @@ class Player:
     #############
     async def _play(self, guild: discord.Guild, channel: discord.TextChannel):
         self[guild.id].text_channel = channel.id
-        voice_client: wavelink.Player = guild.voice_client
+        voice_client: sonolink.Player = guild.voice_client
 
         if (not voice_client.paused) and (voice_client.current is None) and (len(self._playlist[guild.id].order) > 0):
-            await voice_client.play(self._playlist[guild.id].current(), filters=DEFAULT_FILTERS)
+            await voice_client.play(self._playlist[guild.id].current())
 
     ########
     # Misc #
@@ -214,6 +229,15 @@ class MusicCog(Player, commands.Cog):
         self.track_helper = None
 
     async def post_boot(self):
+        # One-time startup. on_ready re-fires on every gateway reconnect, so this
+        # must run exactly once: warm the data.json mirror (off-loop), launch the
+        # write-behind worker + exit-flush hooks, and start the periodic tasks.
+        if not self._storage_started:
+            self._storage_started = True
+            await STORAGE.warm()
+            STORAGE.start(self.bot.loop)
+            self.bot.loop.create_task(self._update_guild_count_loop())
+
         from .ui import UI, auto_stage_available, guild_info, _sec_to_hms
         from .utils.track_helper import TrackHelper
 
@@ -221,7 +245,7 @@ class MusicCog(Player, commands.Cog):
         self.auto_stage_available = auto_stage_available
         self.ui_guild_info = guild_info
         self._sec_to_hms = _sec_to_hms
-        self.track_helper = TrackHelper(self.ui, self._playlist)
+        self.track_helper = TrackHelper(self)
 
         self.bot.loop.create_task(self._refresh_sessdata())
 
@@ -301,7 +325,7 @@ class MusicCog(Player, commands.Cog):
     ##############################################
 
     async def rejoin(self, interaction: discord.Interaction):
-        voice_client: wavelink.Player = interaction.guild.voice_client
+        voice_client: sonolink.Player = interaction.guild.voice_client
         # Get the bot former playing state
         former: discord.VoiceChannel = voice_client.channel
         former_paused: bool = voice_client.paused
@@ -333,7 +357,11 @@ class MusicCog(Player, commands.Cog):
 
     async def join(self, interaction: discord.Interaction):
         voice_client = interaction.guild.voice_client
-        if isinstance(voice_client, wavelink.Player):
+        if interaction.user.voice is None or interaction.user.voice.channel is None:
+            await self.ui.Join.JoinUserNotInVC(interaction)
+            return
+        
+        if isinstance(voice_client, sonolink.Player):
             if voice_client.channel != interaction.user.voice.channel:
                 await self.rejoin(interaction)
             else:
@@ -342,7 +370,7 @@ class MusicCog(Player, commands.Cog):
             return
         try:
             await self._join(interaction.user.voice.channel)
-            voice_client: wavelink.Player = interaction.guild.voice_client
+            voice_client: sonolink.Player = interaction.guild.voice_client
             if isinstance(voice_client.channel, discord.StageChannel):
                 await self.ensure_stage_status(interaction)
                 await self.ui.Join.JoinStage(interaction, interaction.guild.id)
@@ -359,7 +387,7 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name="leave", description="📤 | 讓我從目前您所在的頻道離開")
     async def leave(self, interaction: discord.Interaction):
-        voice_client: wavelink.Player = interaction.guild.voice_client
+        voice_client: sonolink.Player = interaction.guild.voice_client
         try:
             if isinstance(voice_client.channel, discord.StageChannel) and isinstance(
                 voice_client.channel.instance, discord.StageInstance
@@ -462,7 +490,7 @@ class MusicCog(Player, commands.Cog):
     @app_commands.describe(times="重複播放次數 (不填寫次數以啟動無限次數循環)")
     @app_commands.rename(times="重複播放次數")
     async def single_loop(self, interaction: discord.Interaction, times: int = INF):
-        voice_client: wavelink.Player = interaction.guild.voice_client
+        voice_client: sonolink.Player = interaction.guild.voice_client
         if (
             not isinstance(times, int)
             or voice_client is None
@@ -484,7 +512,7 @@ class MusicCog(Player, commands.Cog):
 
     @app_commands.command(name="queueloop", description="🔁 | 循環播放目前的待播清單")
     async def playlist_loop(self, interaction: discord.Interaction):
-        voice_client: wavelink.Player = interaction.guild.voice_client
+        voice_client: sonolink.Player = interaction.guild.voice_client
         if voice_client is None or len(self._playlist[interaction.guild.id].order) == 0:
             return await self.ui.PlayerControl.SingleLoopFailed(interaction)
         self._playlist.playlist_loop(interaction.guild.id)
@@ -558,7 +586,7 @@ class MusicCog(Player, commands.Cog):
     async def process(
         self,
         interaction: discord.Interaction,
-        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
+        trackinfo: list[Union[sonolink.models.Playable, sonolink.models.Playlist, None]],
         result_type: Optional[ResultType] = None,
     ):
         # Call search function
@@ -576,20 +604,20 @@ class MusicCog(Player, commands.Cog):
     async def play(
         self,
         interaction: discord.Interaction,
-        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
+        trackinfo: list[Union[sonolink.models.Playable, sonolink.models.Playlist, None]],
         result_type: Optional[ResultType] = None,
     ):
         # Try to make bot join author's channel
-        voice_client: wavelink.Player = interaction.guild.voice_client
-        if isinstance(voice_client, wavelink.Player) and interaction.user.voice is None:
+        voice_client: sonolink.Player = interaction.guild.voice_client
+        if isinstance(voice_client, sonolink.Player) and interaction.user.voice is None:
             pass
         elif (
-            not isinstance(voice_client, wavelink.Player)
+            not isinstance(voice_client, sonolink.Player)
             or voice_client.channel != interaction.user.voice.channel
         ):
             await self.join(interaction)
             voice_client = interaction.guild.voice_client
-            if not isinstance(voice_client, wavelink.Player):
+            if not isinstance(voice_client, sonolink.Player):
                 return
 
         # Start search process
@@ -597,9 +625,12 @@ class MusicCog(Player, commands.Cog):
 
         await self._play(interaction.guild, interaction.channel)
         if not interaction.response.is_done():
-            await interaction.response.send_message("⠀")
-            tmpmsg = await interaction.original_response()
-            await tmpmsg.delete()
+            await interaction.response.send_message(
+                embed=self.ui._InfoGenerator._SongInfo(interaction.guild.id),
+                ephemeral=False,
+            )
+        elif interaction.response.is_done() and interaction.extras.get("thinking", False):
+            await interaction.delete_original_response()
 
     async def get_search_suggest(self, interaction: discord.Interaction, current: str):
         return await self.track_helper.get_search_suggest(interaction, current, self[interaction.guild_id])
@@ -615,6 +646,7 @@ class MusicCog(Player, commands.Cog):
         if "sid=>" in search:
             if search.split("sid=>")[1] == "playallfav" or search.split("sid=>")[1] == "showallfav":
                 await interaction.response.defer(thinking=True, ephemeral=True)
+                interaction.extras["thinking"] = True
                 result = []
                 async with asyncio.TaskGroup() as taskgroup:
                     for trackid in self._guilds_info[interaction.guild.id].favorite:
@@ -680,46 +712,60 @@ class MusicCog(Player, commands.Cog):
         active_player = len(self.bot.voice_clients)
 
         logging.info(f"[Stats] Currently playing in {active_player}/{len(self.bot.guilds)} guilds ({round(active_player/len(self.bot.guilds), 3) * 100}% Usage)")
-        dotenv.set_key("../.env", "GUILD_COUNT", str(len(self.bot.guilds)))
+
+    ############
+    # GUILD_COUNT refresh (periodic; used for shard_count at next boot)
+    ############
+    async def _update_guild_count_loop(self):
+        while True:
+            # Offload the blocking .env write off the event loop, and target the
+            # repo .env (matching main.py:100 / _refresh_sessdata's os.getcwd()
+            # path; the prior "../.env" pointed outside the project).
+            await asyncio.to_thread(
+                dotenv.set_key, rf"{os.getcwd()}/.env", "GUILD_COUNT", str(len(self.bot.guilds))
+            )
+            await asyncio.sleep(600)  # refresh every 10 minutes
 
     @commands.Cog.listener()
-    async def on_wavelink_inactive_player(self, player: wavelink.Player):
-        channel = self.bot.get_channel(self[player.guild.id].text_channel)
-        await self._leave(player.guild)
-        await self.ui.Leave.LeaveOnTimeout(channel)
-
-    @commands.Cog.listener()
-    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload):
+    async def on_sonolink_track_start(self, player: sonolink.Player, event: TrackStartEvent):
         await self._get_current_stats()
         try:
-            guild = discord.Object(payload.track.extras.requested_guild)
+            guild = player.guild
             if self.ui_guild_info(guild.id).playinfo is None:
                 await self.ui.PlayerControl.PlayingMsg(self.bot.get_channel(self[guild.id].text_channel))
             else:
                 await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-            
-            self[guild.id].song_played(payload.track)
-            
+
+            current_song = self._playlist[guild.id].current()
+            if current_song is not None:
+                self[guild.id].song_played(current_song)
+
             if self.ui_guild_info(guild.id).lastskip:
                 self.ui_guild_info(guild.id).lastskip = False
         except Exception as e:
-            logging.warning(f"Error on_wavelink_track_start: {e}")
+            logging.warning(f"Error on_sonolink_track_start: {e}")
             capture_exception(e)
 
-    async def _refresh_after_suggested(self, guild: discord.Guild):
-        if self.ui_guild_info(guild.id).music_suggestion:
-            while self.ui_guild_info(guild.id).suggestion_processing:
-                await asyncio.sleep(0.01)
-            
-            try:
-                await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
-            except:
-                self._refresh_after_suggested(guild)
+    async def _suggest_and_refresh(self, guild: discord.Guild, ui_guild_info):
+        # Run the suggestion fetch, then ALWAYS clear the in-progress flag and
+        # re-render the now-playing embed once fetching completes — on success,
+        # on any early return, or on error. This is what makes the freshly
+        # fetched suggested song appear, and stops the embed from getting stuck
+        # on the loading/hourglass state when process_suggestion returns early.
+        try:
+            await self.track_helper.process_suggestion(guild, ui_guild_info)
+        finally:
+            ui_guild_info.suggestion_processing = False
+            if ui_guild_info.music_suggestion:
+                try:
+                    await self.ui._InfoGenerator._UpdateSongInfo(guild.id)
+                except Exception as e:
+                    logging.warning(f"Error refreshing info after suggestion: {e}")
 
     @commands.Cog.listener()
-    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload):
+    async def on_sonolink_track_end(self, player: sonolink.Player, event: TrackEndEvent):
         await self._get_current_stats()
-        guild: discord.Guild = self.bot.get_guild(payload.track.extras.requested_guild)
+        guild: discord.Guild = player.guild
         self._playlist.rule(guild.id, self.ui_guild_info(guild.id).skip)
         await asyncio.sleep(0.5)
 
@@ -731,19 +777,20 @@ class MusicCog(Player, commands.Cog):
                 await self.ui.PlayerControl.DonePlaying(self.bot.get_channel(self[guild.id].text_channel))
             return
         else:
-            player: wavelink.Player = guild.voice_client
+            voice_client: sonolink.Player = guild.voice_client
 
-            self.bot.loop.create_task(self.track_helper.process_suggestion(guild, self.ui_guild_info(guild.id)))
+            # Fetch suggestions and refresh the embed when fetching completes
+            # (see _suggest_and_refresh). One task replaces the old separate
+            # process_suggestion + _refresh_after_suggested pair.
+            self.bot.loop.create_task(self._suggest_and_refresh(guild, self.ui_guild_info(guild.id)))
 
             song = self._playlist[guild.id].current()
             try:
-                await player.play(song, filters=DEFAULT_FILTERS)
+                await voice_client.play(song)
                 self.ui_guild_info(guild.id).previous_title = song.title
             except Exception as e:
                 await self.ui.PlayerControl.PlayingError(self.bot.get_channel(self[guild.id].text_channel), e)
                 pass
-
-            self.bot.loop.create_task(self._refresh_after_suggested(guild))
 
     # Error handler
     @commands.Cog.listener()
@@ -769,26 +816,30 @@ class MusicCog(Player, commands.Cog):
         )
 
     @commands.Cog.listener()
-    async def on_wavelink_player_update(
+    async def on_sonolink_player_update(
         self,
-        payload: wavelink.PlayerUpdateEventPayload
+        event: PlayerUpdateEvent
     ):
         try:
-            if len(self._playlist[payload.player.guild.id].order) == 0:
+            guild_id = event.guild_id
+            if len(self._playlist[guild_id].order) == 0:
                 if not (
-                    (self.ui_guild_info(payload.player.guild.id).leaveoperation)
+                    (self.ui_guild_info(guild_id).leaveoperation)
                 ):
-                    self.ui_guild_info(payload.player.guild.id).leaveoperation = False
-                await self.ui.PlayerControl.DonePlaying(self.bot.get_channel(self[payload.player.guild.id].text_channel))
+                    self.ui_guild_info(guild_id).leaveoperation = False
+                await self.ui.PlayerControl.DonePlaying(self.bot.get_channel(self[guild_id].text_channel))
             return
         except Exception as e:
-            logging.warning(f"Error on_wavelink_player_update: {e}")
+            logging.warning(f"Error on_sonolink_player_update: {e}")
             capture_exception(e)
-            
 
-    async def _alone_timer(self, time: int, voice_client: wavelink.Player):
+
+    async def _alone_timer(self, time: int, voice_client: sonolink.Player):
         await asyncio.sleep(time)
-        await self.on_wavelink_inactive_player(voice_client)
+        guild = voice_client.guild
+        channel = self.bot.get_channel(self[guild.id].text_channel)
+        await self._leave(guild)
+        await self.ui.Leave.LeaveOnTimeout(channel)
 
     @commands.Cog.listener("on_voice_state_update")
     async def _pause_on_being_alone(
@@ -798,7 +849,7 @@ class MusicCog(Player, commands.Cog):
         after: discord.VoiceState,
     ):
         try:
-            voice_client: wavelink.Player = member.guild.voice_client
+            voice_client: sonolink.Player = member.guild.voice_client
             if voice_client is None:
                 return
             if len(voice_client.channel.members) == 1 and member != self.bot.user \
@@ -827,7 +878,7 @@ class MusicCog(Player, commands.Cog):
                 if not self.ui_guild_info(member.guild.id).timer_task is None:
                     self.ui_guild_info(member.guild.id).timer_task.cancel()
                     self.ui_guild_info(member.guild.id).timer_task = None
-                self.ui_guild_info(member.guild.id).timer_task = self.bot.loop.create_task(self._alone_timer(voice_client.inactive_timeout, voice_client))
+                self.ui_guild_info(member.guild.id).timer_task = self.bot.loop.create_task(self._alone_timer(voice_client.node.inactivity_settings.timeout, voice_client))
             elif (
                 len(voice_client.channel.members) > 1
                 and voice_client.paused

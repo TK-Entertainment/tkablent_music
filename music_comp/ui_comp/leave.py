@@ -3,7 +3,6 @@ if TYPE_CHECKING:
     from typing import *
 import discord
 import asyncio
-import gc
 
 from .exception_handler import ExceptionHandler
 from .info import InfoGenerator
@@ -41,7 +40,6 @@ class Leave:
             self.musicbot._playlist[guild.id]._suggest_search_task = None
 
         self.remove_guild_info(guild.id)
-        gc.collect()
 
     async def LeaveSucceed(self, interaction: discord.Interaction) -> None:
         self.guild_info(interaction.guild.id).leaveoperation = True

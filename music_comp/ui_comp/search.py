@@ -91,6 +91,7 @@ class Search:
                     )
         
         await interaction.response.defer(ephemeral=True, thinking=True)
+        interaction.extras["thinking"] = True
         embed = discord.Embed(
             title="🎶 | 點播新歌曲",
             description="您可以選擇以下的推薦/曾點播過的歌曲\n或點擊「其他歌曲」來點播其他的歌曲\n亦或是點擊「列出最愛」來列出最愛的歌曲",

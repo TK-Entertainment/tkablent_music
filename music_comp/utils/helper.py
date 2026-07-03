@@ -1,5 +1,4 @@
 import discord
-import wavelink
 from discord.ext import commands
 from discord import app_commands
 import datetime
@@ -7,20 +6,14 @@ import os
 import logging
 from sentry_sdk import capture_exception
 import asyncio
-from msgspec.json import decode as json_decode
+
+from .storage import STORAGE
 
 allowed_guilds = list(map(int, os.getenv("ALLOWED_GUILDS").split(",")))
 
 def fetch(guild: int, key: str) -> None:
-    """fetch from database"""
-    with open(rf"{os.getcwd()}/music_comp/data.json", "rb") as f:
-        data: dict = json_decode(f.read())
-    if (
-        data.get(str(guild)) is None
-        or data[str(guild)].get(key) is None
-    ):
-        return None
-    return data[str(guild)][key]
+    """fetch from database (served from the in-memory mirror; None on miss)"""
+    return STORAGE.get_or_none(guild, key)
 
 class HelperCog(app_commands.Group):
     def __init__(self, bot: commands.Bot):
@@ -99,9 +92,8 @@ class HelperCog(app_commands.Group):
 
             guilds: list[discord.Guild] = []
 
-            for node in wavelink.Pool.nodes.values():
-                for voice_client in node.players.values():
-                    guilds.append(voice_client.guild)
+            for voice_client in self.bot.voice_clients:
+                guilds.append(voice_client.guild)
 
             i = 1
             for guild in guilds:

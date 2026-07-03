@@ -9,7 +9,7 @@ from .info import InfoGenerator
 from ..emoji import Emoji
 from ..enums import ResultType
 
-import wavelink
+import sonolink
 
 
 class Queue:
@@ -27,7 +27,7 @@ class Queue:
     async def Embed_AddedToQueue(
         self,
         interaction: discord.Interaction,
-        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist, None]],
+        trackinfo: list[Union[sonolink.models.Playable, sonolink.models.Playlist, None]],
         requester: Optional[discord.User],
         result_type: Optional[ResultType] = None,
     ) -> None:
@@ -37,7 +37,7 @@ class Queue:
         if len(playlist.order) == 1:
             return
         if (len(playlist.order) > 1 and (result_type == ResultType.SEARCH or result_type == ResultType.FAVORITE)) or (
-            isinstance(trackinfo, list) or isinstance(trackinfo[0], wavelink.Playlist) and (len(trackinfo) > 1)
+            isinstance(trackinfo, list) or isinstance(trackinfo[0], sonolink.models.Playlist) and (len(trackinfo) > 1)
         ):
             if result_type == ResultType.SEARCH:
                 msg = f"""
@@ -51,9 +51,9 @@ class Queue:
             *部分歌曲可能因暫時無法取得而沒有自動加入*
             """
             else:
-                if isinstance(trackinfo[0], wavelink.Playlist):
+                if isinstance(trackinfo[0], sonolink.models.Playlist):
                     if (trackinfo[0].url is not None) and ("spotify" in trackinfo[0].url):
-                        if trackinfo[0].type == "album":
+                        if trackinfo[0].playlist_type == "album":
                             type_string = "Spotify 專輯"
                         else:
                             type_string = "Spotify 播放清單"
@@ -103,9 +103,11 @@ class Queue:
             await interaction.response.send_message(
                 msg, embed=embed, ephemeral=True
             )
+            interaction.extras["thinking"] = False
         else:
             try:
                 await interaction.followup.send(msg, embed=embed, ephemeral=True)
+                interaction.extras["thinking"] = False
             except:
                 await interaction.channel.send(msg, embed=embed)
         try:
@@ -128,7 +130,7 @@ class Queue:
             if index == len(playlist.order):
                 break
 
-            if playlist[index].source == "http":
+            if playlist[index].source_name == "http":
                 title = playlist[index].extras.title
                 author = playlist[index].extras.author
             else:

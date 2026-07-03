@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from typing import *
 import discord
-import wavelink
+import sonolink
 import asyncio
 import logging
 
@@ -62,13 +62,13 @@ class PlayerControl:
         self,
         interaction: discord.Interaction,
         type: ResultType,
-        result: list[wavelink.Playable],
+        result: list[sonolink.models.Playable],
     ) -> None:
         class SelectUI(discord.ui.Select):
             musicbot = self.musicbot
 
             def __init__(
-                self, result: list[wavelink.Playable], page: int = 1
+                self, result: list[sonolink.models.Playable], page: int = 1
             ):
                 super().__init__(placeholder="請選擇一個或多個結果...", min_values=1, row=0)
                 self.interaction = None
@@ -86,7 +86,7 @@ class PlayerControl:
                     if i > 24:
                         break
                     
-                    if result[currentindex].source == "http":
+                    if result[currentindex].source_name == "http":
                         identifier = result[currentindex].extras.identifier
                         title = result[currentindex].extras.title
                         author = result[currentindex].extras.author
@@ -137,7 +137,7 @@ class PlayerControl:
         class SelectView(discord.ui.View):
             guild_info = self.guild_info
 
-            def __init__(self, result: list[wavelink.Playable]):
+            def __init__(self, result: list[sonolink.models.Playable]):
                 super().__init__(timeout=180)
                 self.select_ui = SelectUI(result)
                 self.page = 1
@@ -485,7 +485,7 @@ class PlayerControl:
 
         class PlaybackControl(discord.ui.View):
             bot = self.bot
-            voice_client: wavelink.Player = channel.guild.voice_client
+            voice_client: sonolink.Player = channel.guild.voice_client
             musicbot = self.musicbot
             info_generator = self.info_generator
             queue = self.queue
@@ -573,7 +573,7 @@ class PlayerControl:
                         self.guild_info(channel.guild.id).suggestion_processing = True
                 if self.guild_info(channel.guild.id).playinfo is not None:
                     await self.info_generator._UpdateSongInfo(interaction.guild.id)
-                await interaction.response.edit_message(view=view)
+                await interaction.message.edit(view=view)
                 await self.toggle(interaction, button, "done")
                 if self.guild_info(channel.guild.id).music_suggestion:
                     await self.musicbot.track_helper.process_suggestion(channel.guild, self.guild_info(channel.guild.id))
@@ -595,15 +595,16 @@ class PlayerControl:
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
                 await self.toggle(interaction, button, "toggle")
-                if self.voice_client.paused:
-                    await self.voice_client.pause(False)
+                vc: sonolink.Player = channel.guild.voice_client
+                if vc.paused:
+                    await vc.resume()
                     button.emoji = Emoji.pause_emoji
                 else:
-                    await self.voice_client.pause(True)
+                    await vc.pause()
                     button.emoji = Emoji.play_emoji
 
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
-                await interaction.response.edit_message(view=view)
+                await interaction.message.edit(view=view)
                 await self.toggle(interaction, button, "done")
 
             @discord.ui.button(emoji=Emoji.stop_emoji, style=discord.ButtonStyle.blurple)
@@ -649,10 +650,10 @@ class PlayerControl:
                 
                 embed = self.info_generator._SongInfo(guild_id=channel.guild.id)
 
-                self.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
-                self.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
+                self.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source_name == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
+                self.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source_name == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
 
-                await interaction.response.edit_message(embed=embed, view=self)
+                await interaction.message.edit(embed=embed, view=self)
                 await self.toggle(interaction, button, "done")
 
                 if self.guild_info(channel.guild.id).music_suggestion:
@@ -686,7 +687,7 @@ class PlayerControl:
                 self.shuffle.style = discord.ButtonStyle.success
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
                 self.shuffle_task = self.bot.loop.create_task(self.restore_shuffle())
-                await interaction.response.edit_message(view=view)
+                await interaction.message.edit(view=view)
                 await self.toggle(interaction, button, "done")
 
             @discord.ui.button(
@@ -739,7 +740,7 @@ class PlayerControl:
                 )
 
                 await self.info_generator._UpdateSongInfo(interaction.guild.id)
-                await interaction.response.edit_message(view=view)
+                await interaction.message.edit(view=view)
                 await self.toggle(interaction, button, "done")
 
             async def toggle(
@@ -751,8 +752,7 @@ class PlayerControl:
                 if operation == "toggle":
                     button.disabled = True
 
-                    msg: discord.InteractionMessage = interaction.message
-                    await msg.edit(view=view)
+                    await interaction.response.edit_message(view=view)
 
                 elif operation == "done":
                     button.disabled = False
@@ -788,10 +788,10 @@ class PlayerControl:
 
             @discord.ui.button(
                 style=discord.ButtonStyle.success 
-                if playlist.current().identifier in self.musicbot[channel.guild.id].favorite or (playlist.current().source == "http" and playlist.current().extras.identifier in self.musicbot[channel.guild.id].favorite)
+                if playlist.current().identifier in self.musicbot[channel.guild.id].favorite or (playlist.current().source_name == "http" and playlist.current().extras.identifier in self.musicbot[channel.guild.id].favorite)
                 else discord.ButtonStyle.danger,
                 emoji=Emoji.star_bright
-                if playlist.current().identifier in self.musicbot[channel.guild.id].favorite or (playlist.current().source == "http" and playlist.current().extras.identifier in self.musicbot[channel.guild.id].favorite)
+                if playlist.current().identifier in self.musicbot[channel.guild.id].favorite or (playlist.current().source_name == "http" and playlist.current().extras.identifier in self.musicbot[channel.guild.id].favorite)
                 else Emoji.star_no_bright,
             )
             async def favorite(
@@ -799,7 +799,7 @@ class PlayerControl:
             ):
                 await self.toggle(interaction, button, "toggle")
                 
-                if playlist.current().source == "http":
+                if playlist.current().source_name == "http":
                     identifier = playlist.current().extras.identifier
                 else:
                     identifier = playlist.current().identifier
@@ -817,7 +817,7 @@ class PlayerControl:
                 if identifier in self.musicbot[channel.guild.id].favorite \
                 else Emoji.star_no_bright
 
-                await interaction.response.edit_message(view=view)
+                await interaction.message.edit(view=view)
                 await self.toggle(interaction, button, "done")
 
             @discord.ui.button(
@@ -870,7 +870,6 @@ class PlayerControl:
                 self, interaction: discord.Interaction, button: discord.ui.Button
             ):
                 await self.toggle(interaction, button, "toggle")
-                await interaction.response.pong()
                 await self.musicbot._leave(channel.guild)
                 self.guild_info(interaction.guild.id).leaveoperation = True
 
@@ -898,8 +897,8 @@ class PlayerControl:
             view.skip.disabled = True
             view.skip.style = discord.ButtonStyle.gray
             if nextsong is not None:
-                view.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
-                view.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
+                view.favorite.style = discord.ButtonStyle.success if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source_name == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else discord.ButtonStyle.danger
+                view.favorite.emoji = Emoji.star_bright if nextsong.identifier in self.musicbot[channel.guild.id].favorite or (nextsong.source_name == "http" and nextsong.extras.identifier in self.musicbot[channel.guild.id].favorite) else Emoji.star_no_bright
 
         if self.guild_info(channel.guild.id).playinfo is None:
             self.guild_info(channel.guild.id).playinfo_view = view

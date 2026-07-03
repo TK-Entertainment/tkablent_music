@@ -6,7 +6,7 @@ if TYPE_CHECKING:
 import asyncio
 
 import discord
-import wavelink
+import sonolink
 
 from .enums import LoopState
 
@@ -43,7 +43,7 @@ class PlaylistBase:
     """maintain some info in a playlist for single guild"""
 
     def __init__(self):
-        self.order: list[wavelink.Playable] = []  # maintain the song order in a playlist
+        self.order: list[sonolink.models.Playable] = []  # maintain the song order in a playlist
         self.loop_state: LoopState = LoopState.NOTHING
         self.times: int = 0  # use to indicate the times left to play current song
         self.text_channel: int = (
@@ -53,7 +53,7 @@ class PlaylistBase:
         self._suggest_search_task: asyncio.Task = None
         # self._playlisttask: dict[str, asyncio.Task] = {}
 
-    def __getitem__(self, idx) -> Optional[wavelink.Playable]:
+    def __getitem__(self, idx) -> Optional[sonolink.models.Playable]:
         if len(self.order) == 0:
             return None
         return self.order[idx]
@@ -63,7 +63,7 @@ class PlaylistBase:
         self.loop_state = LoopState.NOTHING
         self.times = 0
 
-    def current(self) -> Optional[wavelink.Playable]:
+    def current(self) -> Optional[sonolink.models.Playable]:
         return self[0]
 
     def swap(self, idx1: int, idx2: int):
@@ -134,7 +134,7 @@ class Playlist:
     async def add_songs(
         self,
         guild_id,
-        trackinfo: list[Union[wavelink.Playable, wavelink.Playlist]],
+        trackinfo: list[Union[sonolink.models.Playable, sonolink.models.Playlist]],
         requester: discord.User,
     ):
         if len(self[guild_id].order) == 2 and self[guild_id].order[1].extras.suggested:
@@ -143,31 +143,31 @@ class Playlist:
             elif not trackinfo.extras.suggested:
                 self[guild_id].order.pop(1)
 
-        if isinstance(trackinfo[0], wavelink.Playlist):
+        if isinstance(trackinfo[0], sonolink.models.Playlist):
             for track in trackinfo[0].tracks:
                 track.extras = {
-                    "requested_guild": guild_id, 
+                    "requested_guild": guild_id,
                     "requester_id": requester.id if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
                     "requester_name": requester.name if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
                     "requester_display_avatar": requester.display_avatar.url if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
                     "requester_discriminator": requester.discriminator if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
-                    **dict(track.extras)
+                    **vars(track.extras)
                 }
                 if not hasattr(track.extras, 'suggested') or track.extras.suggested is None:
-                    track.extras = {"suggested": False, **dict(track.extras)}
+                    track.extras = {"suggested": False, **vars(track.extras)}
             self[guild_id].order.extend(trackinfo[0].tracks)
         else:
             for track in trackinfo:
                 track.extras = {
-                    "requested_guild": guild_id, 
-                    "requester_id": requester.id if requester != "NO_ID_AS_BOT_SUGGESTED" else None, 
+                    "requested_guild": guild_id,
+                    "requester_id": requester.id if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
                     "requester_name": requester.name if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
                     "requester_display_avatar": requester.display_avatar.url if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
-                    "requester_discriminator": requester.discriminator if requester != "NO_ID_AS_BOT_SUGGESTED" else None, 
-                    **dict(track.extras)}
+                    "requester_discriminator": requester.discriminator if requester != "NO_ID_AS_BOT_SUGGESTED" else None,
+                    **vars(track.extras)}
 
                 if not hasattr(track.extras, 'suggested') or track.extras.suggested is None:
-                    track.extras = {"suggested": False, **dict(track.extras)}
+                    track.extras = {"suggested": False, **vars(track.extras)}
 
             self[guild_id].order.extend(trackinfo)
         
