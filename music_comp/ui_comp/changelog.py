@@ -40,7 +40,10 @@ class Changelogs:
         # Index 1 means changelog summary
         # Index 2 means changelog description
         self.changelogs = [
-            ["+", "(Patch 3 .p3) 已修復推薦列表無法正常顯示的問題", "=> 此版本已修復此問題"],
+            ["+", "機器人復活啦！", "=> TKablent 音樂機器人已經重新重寫上線啦！辛苦大家都等這麼久了，此次的版本將會主要提供一些修復和改進，新功能要再稍等一下呦～"],
+            ["!", "修復了一些效能問題", "=> 修復了一些機器人以往的效能問題，應該會更穩定一些"],
+            ["!", "修復了一些介面邏輯問題", "=> 修復了一些機器人的 UI 問題，~~但我覺得可能你們不一定會發現~~"],
+            ["!", "還有更多可能我忘記修了啥的東西", "=> 反正我也忘了，總之就是修了很多東西"],
         ]
 
     async def SendChangelogs(self, interaction: discord.Interaction) -> None:
