@@ -9,7 +9,7 @@
 
 ## 邀請機器人
 **邀請穩定版機器人** (後輟為 -s)  
-[![](https://dcbadge.vercel.app/api/shield/1018410580870176788?bot=true)](https://discord.com/oauth2/authorize?client_id=1018410580870176788&permissions=2201184336&scope=bot%20applications.commands)  
+[![](https://dcbadge.limes.pink/api/shield/1018410580870176788?bot=true)](https://discord.com/oauth2/authorize?client_id=1018410580870176788&permissions=2201184336&scope=bot%20applications.commands)  
   
 **邀請測試版機器人** (後輟為 -ce)  
 > **Warning**  
@@ -22,7 +22,7 @@
 > 此機器人會限制在 100 個伺服器 (因未驗證)，故每次完成一個測試階段 (即測試項目改變時)，機器人將會自動退出伺服器  
 > 若要再使用者，機器人會在退出後留下訊息，上方有按鈕可供快速加入，請在機器人滿人前加入，感謝
   
-[![](https://dcbadge.vercel.app/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
+[![](https://dcbadge.limes.pink/api/shield/852909666987147295?bot=true)](https://discord.com/api/oauth2/authorize?client_id=852909666987147295&permissions=2201184336&scope=bot%20applications.commands)  
 ## 開發狀態
 穩定版 (Stable, s) | *正在提供更新，更新周期較慢*  
 *目前更新到 m.20240318.1.e1-s*  
